@@ -1,0 +1,34 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Environment-specific config (contains project IDs, bucket names)
+# Use terraform.tfvars.example as template
+terraform.tfvars
+
+# Talos configs (generated, contain secrets)
+configs/
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local notes and environment-specific docs (not for repo)
+LOCAL.md
