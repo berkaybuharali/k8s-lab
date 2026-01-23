@@ -10,8 +10,9 @@ override.tf.json
 *_override.tf.json
 
 # Environment-specific config (contains project IDs, bucket names)
-# Use terraform.tfvars.example as template
+# Use *.example files as templates
 terraform.tfvars
+backend.tf
 
 # Talos configs (generated, contain secrets)
 configs/
