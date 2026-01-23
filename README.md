@@ -53,15 +53,27 @@ make up      # Create infrastructure and bootstrap cluster
 make down    # Destroy all resources
 ```
 
-For detailed setup instructions, see [infra/README.md](infra/README.md).
+## Setup
 
-## Configuration
+### 1. Install Prerequisites
 
-Platform-specific configuration:
+See [infra/README.md](infra/README.md#prerequisites) for required tools.
 
-| Platform | Configuration Guide |
-|----------|---------------------|
-| GCP | [infra/gcp/README.md](infra/gcp/README.md) |
+### 2. Platform Setup
+
+Follow the setup guide for your cloud provider:
+
+| Platform | Setup Guide |
+|----------|-------------|
+| GCP | [infra/README.md#gcp-setup](infra/README.md#gcp-setup) |
+
+This includes: authentication, permissions, Talos image upload, and configuration.
+
+### 3. Create Cluster
+
+```bash
+make up
+```
 
 ## Repository Structure
 
