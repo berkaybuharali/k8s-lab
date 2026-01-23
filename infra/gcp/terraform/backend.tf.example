@@ -1,0 +1,18 @@
+# -----------------------------------------------------------------------------
+# Terraform Backend Configuration
+# -----------------------------------------------------------------------------
+# State is stored in GCS. The bucket must exist before running terraform init.
+# Run: ./scripts/bootstrap-state.sh
+#
+# Copy this file to backend.tf and update the bucket name:
+#   cp backend.tf.example backend.tf
+#
+# Note: Backend config cannot use variables - this is a Terraform limitation.
+# -----------------------------------------------------------------------------
+
+terraform {
+  backend "gcs" {
+    bucket = "your-terraform-state-bucket"  # TODO: Replace with your bucket name
+    prefix = "terraform/state"
+  }
+}

@@ -1,0 +1,30 @@
+# -----------------------------------------------------------------------------
+# Terraform Variable Values
+# -----------------------------------------------------------------------------
+# Copy this file to terraform.tfvars and update with your values:
+#   cp terraform.tfvars.example terraform.tfvars
+# -----------------------------------------------------------------------------
+
+# GCP Settings
+project_id = "your-gcp-project-id"  # TODO: Replace with your GCP project ID
+region     = "europe-west4"
+zones      = ["europe-west4-a", "europe-west4-b"]
+
+# Naming
+# Use a unique prefix to avoid conflicts if multiple people use the same project
+name_prefix = "talos"  # TODO: Change to your initials (e.g., "bb-talos")
+
+# Cluster Size
+worker_count = 2
+
+# Compute Settings
+machine_type   = "e2-small"
+boot_disk_size = 20
+
+# Talos Image
+# TODO: Replace with your Talos image path (see infra/gcp/README.md for upload instructions)
+boot_image = "projects/your-gcp-project-id/global/images/talos-v1-12-1"
+
+# Network Settings
+network_name = "talos-vpc"  # TODO: Change if using shared project (e.g., "bb-talos-vpc")
+subnet_cidr  = "10.0.0.0/24"
