@@ -97,7 +97,7 @@ cp backend.tf.example backend.tf
 
 #### 3. Edit backend.tf
 
-Set `bucket` to a globally unique name for Terraform state storage. The bucket will be created automatically on first `make up`.
+Set `bucket` to a globally unique name for Terraform state storage. The bucket will be created automatically on first `make deploy`.
 
 ### Terraform Structure
 

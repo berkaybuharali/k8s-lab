@@ -5,7 +5,7 @@ Automation scripts for cluster lifecycle management.
 ## Quick Start
 
 ```bash
-make up      # Create cluster (VPC, VMs, Kubernetes)
+make deploy  # Create cluster (VPC, VMs, Kubernetes)
 make down    # Destroy everything
 ```
 
@@ -104,7 +104,7 @@ Talos Linux operations:
 
 ## Accessing the Cluster
 
-After `make up`, access requires an IAP tunnel:
+After `make deploy`, access requires an IAP tunnel:
 
 ```bash
 # Terminal 1 - Start tunnel (keep running)
@@ -220,7 +220,7 @@ etcd not starting usually means:
 
 2. **Bootstrap not initiated**: etcd waits for bootstrap command
    - The setup script runs `talosctl bootstrap` automatically
-   - If interrupted, run `make down && make up` to start fresh
+   - If interrupted, run `make down && make deploy` to start fresh
 
 3. **Network issues**: Nodes can't communicate
    - Check firewall rules allow internal traffic
@@ -230,4 +230,4 @@ etcd not starting usually means:
 Bootstrap can only run once. If it fails mid-way:
 
 1. Run `make down` to destroy
-2. Run `make up` to start fresh
+2. Run `make deploy` to start fresh

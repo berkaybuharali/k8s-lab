@@ -1,7 +1,7 @@
-.PHONY: up down
+.PHONY: deploy down
 
-up:
-	@echo "Setting up cluster..."
+deploy:
+	@echo "Deploying cluster..."
 	@./scripts/setup.sh
 
 down:

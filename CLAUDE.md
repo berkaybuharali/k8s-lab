@@ -32,7 +32,7 @@ The cluster is designed for daily create/destroy cycles to minimize cloud costs.
 
 | Command | Action |
 |---------|--------|
-| `make up` | Create VPC, firewall, VMs, bootstrap Kubernetes |
+| `make deploy` | Create VPC, firewall, VMs, bootstrap Kubernetes |
 | `make down` | Destroy all resources |
 
 This approach:
@@ -86,7 +86,7 @@ These are policies to follow when developing this project:
 ### Makefile Usage
 - All operations should be done via Makefile targets
 - Never run terraform/talosctl commands directly in normal workflow
-- `make up` and `make down` are the primary entry points
+- `make deploy` and `make down` are the primary entry points
 
 ### Terraform
 - Document non-obvious code decisions

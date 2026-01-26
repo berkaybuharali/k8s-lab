@@ -49,7 +49,7 @@ Layers 3-4: Cloud-agnostic (portable across providers)
 ## Quick Start
 
 ```bash
-make up      # Create infrastructure and bootstrap cluster
+make deploy  # Create infrastructure and bootstrap cluster
 make down    # Destroy all resources
 ```
 
@@ -72,7 +72,7 @@ This includes: authentication, permissions, Talos image upload, and configuratio
 ### 3. Create Cluster
 
 ```bash
-make up
+make deploy
 ```
 
 ## Repository Structure

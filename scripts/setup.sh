@@ -12,7 +12,7 @@
 # 5. Bootstraps Kubernetes (initializes etcd, starts control plane)
 # 6. Fetches kubeconfig for kubectl access
 #
-# Run via: make up
+# Run via: make deploy
 # -----------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
