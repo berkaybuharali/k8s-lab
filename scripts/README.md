@@ -161,10 +161,7 @@ After `make deploy gcp`, access requires an IAP tunnel:
 
 ```bash
 # Terminal 1 - Start tunnel (keep running)
-gcloud compute start-iap-tunnel <name-prefix>-cp-0 6443 \
-  --local-host-port=localhost:6443 \
-  --zone=europe-west4-a \
-  --project=<your-project>
+make connect gcp
 
 # Terminal 2 - Use kubectl
 export KUBECONFIG=./configs/kubeconfig

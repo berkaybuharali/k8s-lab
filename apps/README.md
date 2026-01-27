@@ -56,8 +56,11 @@ To add support for a new cloud provider:
 
 1. Create a directory: `apps/<cloud>/`
 2. Add `storageclass.yaml` with the cloud's CSI driver
-3. Add CSI driver installation to `scripts/lib/<cloud>/csi.sh`
-4. Update `scripts/apply.sh` and `scripts/destroy.sh` with cloud case
+3. Create `scripts/lib/<cloud>/` with:
+   - `infra.sh` - Terraform operations
+   - `tunnel.sh` - Implement `k8s_connect()` for cluster access
+   - `csi.sh` - CSI driver installation
+4. Update `scripts/lib/common.sh` to source new cloud modules
 
 ## Accessing Applications
 
