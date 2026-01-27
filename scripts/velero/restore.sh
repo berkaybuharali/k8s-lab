@@ -20,8 +20,8 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/common.sh"
-source "${SCRIPT_DIR}/../lib/apps.sh"
-source "${SCRIPT_DIR}/../lib/velero.sh"
+source "${LIB_DIR}/apps.sh"
+source "${LIB_DIR}/velero.sh"
 
 install_csi_driver() {
     local cloud=$1
