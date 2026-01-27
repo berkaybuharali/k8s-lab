@@ -10,6 +10,11 @@
 # - Restore: Recreates resources from a backup, rebinds PVCs to new volumes
 # - BackupStorageLocation (BSL): Where backup data is stored (e.g., GCS bucket)
 # - VolumeSnapshotLocation (VSL): Where volume snapshots are taken (e.g., GCE disks)
+#
+# Note: Many functions use kubectl instead of velero CLI to query backup/restore
+# status to avoid client-side rate limiter errors. Velero CLI has hardcoded
+# client-go rate limits (5 QPS / 10 burst) that cause "Wait would exceed context
+# deadline" errors with high-latency connections like IAP tunnels.
 # -----------------------------------------------------------------------------
 
 # Default values (can be overridden by environment variables)

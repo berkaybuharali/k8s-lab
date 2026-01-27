@@ -10,11 +10,12 @@
 # No JSON key file needed - VMs already have storage.objectAdmin and
 # compute.storageAdmin roles attached via Terraform.
 #
-# QPS/Burst Configuration:
-# - client-qps: 100 (default 20/100 depending on version)
-# - client-burst: 200 (default 30/100 depending on version)
-# Higher values needed for IAP tunnel latency to prevent "rate limiter Wait"
-# errors when running velero describe/logs commands.
+# Server QPS/Burst Configuration:
+# - client-qps: 100 (default 5-20 in client-go)
+# - client-burst: 200 (default 10-30 in client-go)
+# These configure the Velero SERVER's rate limiter when making K8s API calls
+# during backup/restore operations. Does NOT fix Velero CLI rate limiter
+# errors (CLI has hardcoded limits). Use kubectl for querying backup details.
 # -----------------------------------------------------------------------------
 
 # Plugin version pinned for reproducibility
