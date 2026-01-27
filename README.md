@@ -67,6 +67,10 @@ make destroy gcp
 # Day 2+: Restore from backup (no need to re-apply or re-seed)
 make deploy gcp
 make restore gcp
+
+# Check backup details (use kubectl to avoid rate limiter errors)
+export KUBECONFIG=configs/kubeconfig
+kubectl get backup -n velero <name> -o json | jq .status
 ```
 
 ## Setup
@@ -156,6 +160,7 @@ This makes clusters reproducible - the same configuration always produces the sa
 | **API port fixed at 50000** - `talosctl apply-config` only works on port 50000. Different local tunnel port fails silently. | Talos | Any | Always tunnel to localhost:50000, configure nodes sequentially |
 | **Bootstrap is one-time** - `talosctl bootstrap` initializes etcd, can only run once. Running again corrupts cluster. | Talos | Any | Failed mid-way? Full destroy and recreate |
 | **IAP tunnel needs time** - Starting tunnel and immediately using it fails. Connection not ready yet. | gcloud | GCP | Sleep 10s after start, retry logic (5 attempts) |
+| **Velero CLI rate limiter errors** - `velero backup describe/logs` shows "rate limiter Wait returned an error" when querying backup details. Velero server has client-side rate limiter (default 20 QPS / 30 burst) that's too conservative for high-latency connections like IAP tunnels. Backup itself succeeds, only CLI display commands fail. | Velero | Any | Configure Velero server with `--client-qps 100 --client-burst 200` during install (see [#7991](https://github.com/vmware-tanzu/velero/issues/7991)) or use kubectl: `kubectl get backup -n velero <name> -o json \| jq .status` |
 
 ## Documentation
 
