@@ -82,16 +82,20 @@ k8s-lab/
 │   ├── gcp/                  # GCP-specific (StorageClass)
 │   ├── nginx.yaml            # NGINX deployment
 │   └── redis.yaml            # Redis deployment with PVC
-├── infra/                    # Cloud infrastructure (Terraform)
+├── infra/                    # Cloud infrastructure
 │   └── gcp/
-│       └── terraform/
+│       ├── talos-patches/    # Talos machine config patches
+│       └── terraform/        # Terraform definitions
 ├── scripts/                  # Automation
 │   ├── deploy.sh             # Cluster creation
 │   ├── apply.sh              # Application deployment
 │   ├── destroy.sh            # Cluster teardown
+│   ├── connect.sh            # Interactive tunnel for kubectl
+│   ├── seed-redis.sh         # Seed Redis test data
 │   └── lib/                  # Shared functions
 │       ├── common.sh         # Logging, prerequisites
 │       ├── apps.sh           # App deployment (cloud-agnostic)
+│       ├── talos.sh          # Talos operations (cloud-agnostic)
 │       └── gcp/              # GCP-specific modules
 ├── configs/                  # Generated configs (gitignored)
 ├── Makefile                  # Entry points

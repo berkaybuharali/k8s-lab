@@ -11,6 +11,7 @@ scripts/
 ├── deploy.sh         # Create infrastructure and bootstrap cluster
 ├── apply.sh          # Deploy applications
 ├── destroy.sh        # Destroy cluster and applications
+├── connect.sh        # Start interactive tunnel for manual kubectl access
 ├── seed-redis.sh     # Seed Redis with test data for Velero testing
 ├── lib/
 │   ├── common.sh     # Logging, prerequisites, utilities
@@ -18,7 +19,7 @@ scripts/
 │   ├── talos.sh      # Talos config and bootstrap (cloud-agnostic)
 │   └── gcp/
 │       ├── infra.sh  # Terraform operations
-│       ├── tunnel.sh # IAP tunnel management
+│       ├── tunnel.sh # IAP tunnel management, k8s_connect
 │       ├── csi.sh    # GCE PD CSI driver
 │       └── verify.sh # Resource verification
 └── README.md
@@ -63,6 +64,14 @@ Usage: `./destroy.sh <cloud>` (e.g., `./destroy.sh gcp`)
 2. **Terraform destroy** - Removes all cloud resources
 3. **Cleanup configs** - Deletes generated configs from `configs/`
 4. **Verify destruction** - Confirms all resources are removed
+
+### connect.sh
+
+Starts an interactive tunnel for manual cluster access.
+
+Usage: `./connect.sh <cloud>` (e.g., `./connect.sh gcp`)
+
+Keeps the tunnel open until Ctrl+C. Use in one terminal while running kubectl in another.
 
 ### seed-redis.sh
 
@@ -127,8 +136,11 @@ GCP IAP tunnel management:
 - `tunnel_start` - Open tunnel to VM (returns PID)
 - `tunnel_stop` - Close tunnel
 - `tunnel_cleanup_all` - Close all tunnels (automatic on exit)
+- `k8s_connect` - Cloud-agnostic interface for Kubernetes API access
 
 Why IAP? VMs have no external IPs. IAP provides secure access using gcloud credentials.
+
+The `k8s_connect` function is the multi-cloud interface. Each cloud implements it according to its access method (GCP uses IAP tunnel).
 
 ### lib/gcp/csi.sh
 

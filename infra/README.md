@@ -101,20 +101,23 @@ cp backend.tf.example backend.tf
 
 Set `bucket` to a globally unique name for Terraform state storage. The bucket will be created automatically on first `make deploy gcp`.
 
-### Terraform Structure
+### GCP Structure
 
 ```
-gcp/terraform/
-├── backend.tf          # GCS state backend (gitignored)
-├── backend.tf.example  # Template for backend.tf
-├── providers.tf        # Provider configuration
-├── variables.tf        # Variable definitions
-├── terraform.tfvars    # Your values (gitignored)
-├── terraform.tfvars.example  # Template for tfvars
-├── network.tf          # VPC, subnet, Cloud NAT
-├── firewall.tf         # IAP and internal firewall rules
-├── gce.tf              # VM instances
-└── outputs.tf          # Output values for scripts
+gcp/
+├── talos-patches/
+│   └── csi.yaml        # Talos machine config patch for CSI driver
+└── terraform/
+    ├── backend.tf          # GCS state backend (gitignored)
+    ├── backend.tf.example  # Template for backend.tf
+    ├── providers.tf        # Provider configuration
+    ├── variables.tf        # Variable definitions
+    ├── terraform.tfvars    # Your values (gitignored)
+    ├── terraform.tfvars.example  # Template for tfvars
+    ├── network.tf          # VPC, subnet, Cloud NAT
+    ├── firewall.tf         # IAP and internal firewall rules
+    ├── gce.tf              # VM instances, service account
+    └── outputs.tf          # Output values for scripts
 ```
 
 ### What Gets Created
