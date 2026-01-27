@@ -151,26 +151,28 @@ k8s-lab/
 │   └── gcp/
 │       ├── talos-patches/    # Talos machine config patches
 │       └── terraform/        # Terraform definitions
-├── scripts/                  # Automation
-│   ├── cluster/              # Cluster lifecycle
-│   │   ├── deploy.sh         # Create infrastructure and bootstrap
+├── scripts/                  # Automation (organized by architecture layer)
+│   ├── infra/                # Layer 1-2: Infrastructure & Kubernetes
+│   │   ├── deploy.sh         # Create infrastructure and bootstrap cluster
 │   │   ├── destroy.sh        # Tear down all resources
 │   │   └── connect.sh        # Interactive tunnel for kubectl
-│   ├── apps/                 # Application management
-│   │   ├── apply.sh          # Deploy applications + Velero
-│   │   └── seed-redis.sh     # Seed Redis test data
-│   ├── velero/               # Backup operations
-│   │   ├── backup.sh         # Backup to cloud storage
+│   ├── platform/             # Layer 3: Platform services
+│   │   └── deploy.sh         # Deploy CSI driver, StorageClass, Velero
+│   ├── workloads/            # Layer 4: Application workloads
+│   │   ├── deploy.sh         # Deploy NGINX and Redis
+│   │   └── seed-redis.sh     # Seed Redis with test data
+│   ├── backup/               # Backup operations (uses platform layer)
+│   │   ├── create.sh         # Create backup
 │   │   ├── restore.sh        # Restore from backup
-│   │   ├── list-backups.sh   # List all backups
-│   │   ├── delete-backup.sh  # Delete a backup by name
-│   │   └── delete-all-backups.sh # Delete all backups
-│   └── lib/                  # Shared functions
+│   │   ├── list.sh           # List all backups
+│   │   ├── delete.sh         # Delete a backup by name
+│   │   └── delete-all.sh     # Delete all backups
+│   └── lib/                  # Shared functions (cloud-agnostic + cloud-specific)
 │       ├── common.sh         # Logging, prerequisites
-│       ├── apps.sh           # App deployment (cloud-agnostic)
+│       ├── workloads.sh      # Workload helpers (cloud-agnostic)
 │       ├── velero.sh         # Velero backup/restore (cloud-agnostic)
 │       ├── talos.sh          # Talos operations (cloud-agnostic)
-│       └── gcp/              # GCP-specific modules
+│       └── gcp/              # GCP-specific implementations
 ├── configs/                  # Generated configs (gitignored)
 ├── Makefile                  # Entry points
 └── CLAUDE.md                 # Project policies and roadmap

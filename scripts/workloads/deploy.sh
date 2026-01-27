@@ -69,7 +69,7 @@ deploy_applications() {
 
 print_usage() {
     local cloud=$1
-    source "${LIB_DIR}/apps.sh"
+    source "${LIB_DIR}/workloads.sh"
     apps_status
 
     cat <<EOF
@@ -100,7 +100,7 @@ main() {
 
     validate_cloud "$cloud"
     source_cloud_modules "$cloud"
-    source "${LIB_DIR}/apps.sh"
+    source "${LIB_DIR}/workloads.sh"
 
     echo "=============================================="
     echo "  Kubernetes Lab - Application Deployment (${cloud})"

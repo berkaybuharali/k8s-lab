@@ -19,7 +19,7 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/common.sh"
-source "${LIB_DIR}/apps.sh"
+source "${LIB_DIR}/workloads.sh"
 source "${LIB_DIR}/velero.sh"
 
 install_tools() {

@@ -50,7 +50,7 @@ try_remove_apps() {
         return 0
     fi
 
-    source "${LIB_DIR}/apps.sh"
+    source "${LIB_DIR}/workloads.sh"
     apps_remove "$cloud" || log_warn "App removal encountered errors (continuing)"
 
     tunnel_stop "$tunnel_pid" 2>/dev/null || true

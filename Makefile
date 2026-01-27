@@ -4,40 +4,40 @@
 CLOUD := $(filter-out deploy-infra deploy-tools deploy-applications deploy destroy connect seed-redis backup restore list-backups delete-backup delete-all-backups help,$(MAKECMDGOALS))
 
 deploy-infra:
-	@./scripts/cluster/deploy.sh $(CLOUD)
+	@./scripts/infra/deploy.sh $(CLOUD)
 
 deploy-tools:
-	@./scripts/tools/deploy.sh $(CLOUD)
+	@./scripts/platform/deploy.sh $(CLOUD)
 
 deploy-applications:
-	@./scripts/apps/deploy.sh $(CLOUD)
+	@./scripts/workloads/deploy.sh $(CLOUD)
 
 # Convenience target: deploy infra + tools + applications
 deploy: deploy-infra deploy-tools deploy-applications
 
 destroy:
-	@./scripts/cluster/destroy.sh $(CLOUD)
+	@./scripts/infra/destroy.sh $(CLOUD)
 
 connect:
-	@./scripts/cluster/connect.sh $(CLOUD)
+	@./scripts/infra/connect.sh $(CLOUD)
 
 seed-redis:
-	@./scripts/apps/seed-redis.sh $(CLOUD)
+	@./scripts/workloads/seed-redis.sh $(CLOUD)
 
 backup:
-	@NAME=$(NAME) NAMESPACES=$(NAMESPACES) ./scripts/velero/backup.sh $(CLOUD)
+	@NAME=$(NAME) NAMESPACES=$(NAMESPACES) ./scripts/backup/create.sh $(CLOUD)
 
 restore:
-	@./scripts/velero/restore.sh $(CLOUD)
+	@./scripts/backup/restore.sh $(CLOUD)
 
 list-backups:
-	@./scripts/velero/list-backups.sh $(CLOUD)
+	@./scripts/backup/list.sh $(CLOUD)
 
 delete-backup:
-	@./scripts/velero/delete-backup.sh $(CLOUD) $(NAME)
+	@./scripts/backup/delete.sh $(CLOUD) $(NAME)
 
 delete-all-backups:
-	@./scripts/velero/delete-all-backups.sh $(CLOUD)
+	@./scripts/backup/delete-all.sh $(CLOUD)
 
 help:
 	@echo "Kubernetes Lab"

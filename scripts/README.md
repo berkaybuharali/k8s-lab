@@ -6,29 +6,31 @@ For prerequisites, see [infra/README.md](../infra/README.md#prerequisites).
 
 ## Structure
 
+Scripts are organized by architecture layer for clarity:
+
 ```
 scripts/
-├── cluster/
+├── infra/                    # Layer 1-2: Infrastructure & Kubernetes cluster
 │   ├── deploy.sh             # Create infrastructure and bootstrap cluster
-│   ├── destroy.sh            # Destroy cluster and applications
+│   ├── destroy.sh            # Destroy all resources
 │   └── connect.sh            # Start interactive tunnel for manual kubectl access
-├── tools/
-│   └── deploy.sh             # Deploy cluster tools (CSI, StorageClass, Velero)
-├── apps/
-│   ├── deploy.sh             # Deploy applications (NGINX, Redis)
-│   └── seed-redis.sh         # Seed Redis with test data for Velero testing
-├── velero/
-│   ├── backup.sh             # Backup applications to cloud storage
-│   ├── restore.sh            # Restore applications from backup
-│   ├── list-backups.sh       # List all backups
-│   ├── delete-backup.sh      # Delete a backup by name
-│   └── delete-all-backups.sh # Delete all backups
-├── lib/
+├── platform/                 # Layer 3: Platform services (CSI, Velero)
+│   └── deploy.sh             # Deploy CSI driver, StorageClass, Velero
+├── workloads/                # Layer 4: Application workloads
+│   ├── deploy.sh             # Deploy NGINX and Redis
+│   └── seed-redis.sh         # Seed Redis with test data
+├── backup/                   # Backup operations (uses platform layer)
+│   ├── create.sh             # Create backup
+│   ├── restore.sh            # Restore from backup (includes platform setup)
+│   ├── list.sh               # List all backups
+│   ├── delete.sh             # Delete a backup by name
+│   └── delete-all.sh         # Delete all backups
+├── lib/                      # Shared libraries (cloud-agnostic + cloud-specific)
 │   ├── common.sh             # Logging, prerequisites, utilities
-│   ├── apps.sh               # Application helper functions (cloud-agnostic)
+│   ├── workloads.sh          # Workload helper functions (cloud-agnostic)
 │   ├── velero.sh             # Velero backup/restore (cloud-agnostic)
 │   ├── talos.sh              # Talos config and bootstrap (cloud-agnostic)
-│   └── gcp/
+│   └── gcp/                  # GCP-specific implementations
 │       ├── infra.sh          # Terraform operations
 │       ├── tunnel.sh         # IAP tunnel management, k8s_connect
 │       ├── csi.sh            # GCE PD CSI driver
@@ -39,11 +41,11 @@ scripts/
 
 ## Script Details
 
-### cluster/deploy.sh
+### infra/deploy.sh
 
-Creates a complete Kubernetes cluster.
+Creates infrastructure and bootstraps a Kubernetes cluster.
 
-Usage: `./cluster/deploy.sh <cloud>` (e.g., `./cluster/deploy.sh gcp`)
+Usage: `./infra/deploy.sh <cloud>` (via `make deploy-infra gcp`)
 
 1. **Validate cloud provider** - Ensures supported cloud
 2. **Check prerequisites** - Verifies all tools are installed
@@ -54,11 +56,11 @@ Usage: `./cluster/deploy.sh <cloud>` (e.g., `./cluster/deploy.sh gcp`)
 7. **Bootstrap cluster** - Initializes etcd and Kubernetes
 8. **Fetch kubeconfig** - Retrieves kubectl credentials
 
-### tools/deploy.sh
+### platform/deploy.sh
 
-Deploys cluster tools required for applications.
+Deploys platform services required for applications and backups.
 
-Usage: `./tools/deploy.sh <cloud>` (e.g., `make deploy-tools gcp`)
+Usage: `./platform/deploy.sh <cloud>` (via `make deploy-tools gcp`)
 
 1. **Start tunnel** - Connects to Kubernetes API
 2. **Install CSI driver** - Cloud-specific storage driver
@@ -66,11 +68,11 @@ Usage: `./tools/deploy.sh <cloud>` (e.g., `make deploy-tools gcp`)
 4. **Install Velero** - Cloud-specific backup plugin
 5. **Stop tunnel** - Cleans up connection
 
-### apps/deploy.sh
+### workloads/deploy.sh
 
-Deploys applications to the cluster.
+Deploys application workloads to the cluster.
 
-Usage: `./apps/deploy.sh <cloud>` (e.g., `make deploy-applications gcp`)
+Usage: `./workloads/deploy.sh <cloud>` (via `make deploy-applications gcp`)
 
 1. **Start tunnel** - Connects to Kubernetes API
 2. **Create namespace** - application namespace
@@ -79,30 +81,30 @@ Usage: `./apps/deploy.sh <cloud>` (e.g., `make deploy-applications gcp`)
 5. **Wait for readiness** - Ensures deployments are running
 6. **Stop tunnel** - Cleans up connection
 
-### cluster/destroy.sh
+### infra/destroy.sh
 
 Tears down the cluster and all resources.
 
-Usage: `./cluster/destroy.sh <cloud>` (e.g., `./cluster/destroy.sh gcp`)
+Usage: `./infra/destroy.sh <cloud>` (via `make destroy gcp`)
 
-1. **Remove apps (best effort)** - Deletes deployments, PVCs (triggers disk deletion)
+1. **Remove workloads (best effort)** - Deletes deployments, PVCs (triggers disk deletion)
 2. **Terraform destroy** - Removes all cloud resources
 3. **Cleanup configs** - Deletes generated configs from `configs/`
 4. **Verify destruction** - Confirms all resources are removed
 
-### cluster/connect.sh
+### infra/connect.sh
 
 Starts an interactive tunnel for manual cluster access.
 
-Usage: `./cluster/connect.sh <cloud>` (e.g., `./cluster/connect.sh gcp`)
+Usage: `./infra/connect.sh <cloud>` (via `make connect gcp`)
 
 Keeps the tunnel open until Ctrl+C. Use in one terminal while running kubectl in another.
 
-### apps/seed-redis.sh
+### workloads/seed-redis.sh
 
-Seeds Redis with test data for Velero backup/restore testing.
+Seeds Redis with test data for backup/restore testing.
 
-Usage: `./apps/seed-redis.sh <cloud>` (e.g., `./apps/seed-redis.sh gcp`)
+Usage: `./workloads/seed-redis.sh <cloud>` (via `make seed-redis gcp`)
 
 1. **Start tunnel** - Connects to Kubernetes API
 2. **Wait for Redis** - Ensures Redis pod is ready
@@ -115,47 +117,47 @@ Test data includes:
 - `config:app:version` - Configuration value
 - `queue:tasks` - List with sample tasks
 
-### velero/backup.sh
+### backup/create.sh
 
-Backs up applications to cloud storage using Velero.
+Creates a backup of applications to cloud storage.
 
-Usage: `./velero/backup.sh <cloud>` (e.g., `./velero/backup.sh gcp`)
+Usage: `./backup/create.sh <cloud>` (via `make backup gcp`)
 
 1. **Start tunnel** - Connects to Kubernetes API
 2. **Create backup** - Velero backs up application namespace (manifests + volume snapshots)
 3. **Verify backup** - Confirms backup status is "Completed"
 4. **Stop tunnel** - Cleans up connection
 
-### velero/restore.sh
+### backup/restore.sh
 
-Restores applications from a Velero backup. Use after `make deploy-infra` on a fresh cluster.
+Restores applications from a backup. Use after `make deploy-infra` on a fresh cluster.
 
-Usage: `./velero/restore.sh <cloud>` (e.g., `make restore gcp`)
+Usage: `./backup/restore.sh <cloud>` (via `make restore gcp`)
 
 1. **Start tunnel** - Connects to Kubernetes API
-2. **Install tools** - CSI driver, StorageClass, Velero (required for PVC restore)
+2. **Install platform** - CSI driver, StorageClass, Velero (required for PVC restore)
 3. **Restore** - Velero recreates resources and rebinds PVCs from snapshots
 4. **Verify Velero** - Checks Velero restore CR status
-5. **Verify apps** - Waits for pods and verifies data integrity
+5. **Verify workloads** - Waits for pods and verifies data integrity
 6. **Stop tunnel** - Cleans up connection
 
-### velero/list-backups.sh
+### backup/list.sh
 
-Lists all Velero backups with their status.
+Lists all backups with their status.
 
-Usage: `./velero/list-backups.sh <cloud>` (e.g., `make list-backups gcp`)
+Usage: `./backup/list.sh <cloud>` (via `make list-backups gcp`)
 
-### velero/delete-backup.sh
+### backup/delete.sh
 
-Deletes a Velero backup by name and its associated volume snapshots.
+Deletes a backup by name and its associated volume snapshots.
 
-Usage: `./velero/delete-backup.sh <cloud> <name>` (e.g., `make delete-backup gcp NAME=k8s-lab-backup`)
+Usage: `./backup/delete.sh <cloud> <name>` (via `make delete-backup gcp NAME=k8s-lab-backup`)
 
-### velero/delete-all-backups.sh
+### backup/delete-all.sh
 
-Deletes all Velero backups and their associated volume snapshots.
+Deletes all backups and their associated volume snapshots.
 
-Usage: `./velero/delete-all-backups.sh <cloud>` (e.g., `make delete-all-backups gcp`)
+Usage: `./backup/delete-all.sh <cloud>` (via `make delete-all-backups gcp`)
 
 ## Library Modules
 
@@ -168,13 +170,15 @@ Shared utilities sourced by all scripts:
 - **Prerequisites**: Checks for required tools
 - **Path constants**: REPO_ROOT, TF_DIR, CONFIGS_DIR
 
-### lib/apps.sh
+### lib/workloads.sh
 
-Cloud-agnostic application helper functions:
+Cloud-agnostic workload helper functions:
 
 - `apps_remove` - Delete applications and PVCs
 - `apps_verify` - Verify deployments are running and check data integrity
 - `apps_status` - Show deployment status
+
+Note: Functions retain `apps_*` names for compatibility as they operate on application resources.
 
 ### lib/talos.sh
 
