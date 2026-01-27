@@ -15,7 +15,7 @@ A hands-on lab for running self-managed Kubernetes clusters on cloud VMs. Not ma
 |-------|--------|
 | Foundation (Terraform, automation) | Complete |
 | Cluster (Talos Linux, Kubernetes) | Complete |
-| Backup (Velero) | Planned |
+| Backup (Velero) | Complete |
 | Applications (Stateful workloads) | In Progress |
 | Multi-cloud expansion | Planned |
 
@@ -50,8 +50,23 @@ Layers 3-4: Cloud-agnostic (portable across providers)
 
 ```bash
 make deploy gcp   # Create infrastructure and bootstrap cluster
-make apply gcp    # Deploy applications (NGINX, Redis)
+make apply gcp    # Deploy applications (NGINX, Redis) + Velero
 make destroy gcp  # Destroy all resources
+```
+
+### Backup and Restore
+
+```bash
+# Day 1: Deploy, seed data, backup
+make deploy gcp
+make apply gcp
+make seed-redis gcp
+make backup gcp
+make destroy gcp
+
+# Day 2+: Restore from backup (no need to re-apply or re-seed)
+make deploy gcp
+make restore gcp
 ```
 
 ## Setup
@@ -87,14 +102,23 @@ k8s-lab/
 │       ├── talos-patches/    # Talos machine config patches
 │       └── terraform/        # Terraform definitions
 ├── scripts/                  # Automation
-│   ├── deploy.sh             # Cluster creation
-│   ├── apply.sh              # Application deployment
-│   ├── destroy.sh            # Cluster teardown
-│   ├── connect.sh            # Interactive tunnel for kubectl
-│   ├── seed-redis.sh         # Seed Redis test data
+│   ├── cluster/              # Cluster lifecycle
+│   │   ├── deploy.sh         # Create infrastructure and bootstrap
+│   │   ├── destroy.sh        # Tear down all resources
+│   │   └── connect.sh        # Interactive tunnel for kubectl
+│   ├── apps/                 # Application management
+│   │   ├── apply.sh          # Deploy applications + Velero
+│   │   └── seed-redis.sh     # Seed Redis test data
+│   ├── velero/               # Backup operations
+│   │   ├── backup.sh         # Backup to cloud storage
+│   │   ├── restore.sh        # Restore from backup
+│   │   ├── list-backups.sh   # List all backups
+│   │   ├── delete-backup.sh  # Delete a backup by name
+│   │   └── delete-all-backups.sh # Delete all backups
 │   └── lib/                  # Shared functions
 │       ├── common.sh         # Logging, prerequisites
 │       ├── apps.sh           # App deployment (cloud-agnostic)
+│       ├── velero.sh         # Velero backup/restore (cloud-agnostic)
 │       ├── talos.sh          # Talos operations (cloud-agnostic)
 │       └── gcp/              # GCP-specific modules
 ├── configs/                  # Generated configs (gitignored)
@@ -108,7 +132,7 @@ k8s-lab/
 |-----------|------------|---------|
 | Infrastructure | Terraform | VMs, networking, firewall |
 | Kubernetes OS | Talos Linux | Immutable, API-driven nodes |
-| Backup | Velero (planned) | Cluster backup and restore |
+| Backup | Velero | Cluster backup and restore to GCS |
 | Cluster | 1 CP + 2 Workers | Spread across availability zones |
 
 ## Why Talos Linux?

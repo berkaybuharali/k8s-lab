@@ -8,30 +8,40 @@ For prerequisites, see [infra/README.md](../infra/README.md#prerequisites).
 
 ```
 scripts/
-├── deploy.sh         # Create infrastructure and bootstrap cluster
-├── apply.sh          # Deploy applications
-├── destroy.sh        # Destroy cluster and applications
-├── connect.sh        # Start interactive tunnel for manual kubectl access
-├── seed-redis.sh     # Seed Redis with test data for Velero testing
+├── cluster/
+│   ├── deploy.sh             # Create infrastructure and bootstrap cluster
+│   ├── destroy.sh            # Destroy cluster and applications
+│   └── connect.sh            # Start interactive tunnel for manual kubectl access
+├── apps/
+│   ├── apply.sh              # Deploy applications + Velero
+│   └── seed-redis.sh         # Seed Redis with test data for Velero testing
+├── velero/
+│   ├── backup.sh             # Backup applications to cloud storage
+│   ├── restore.sh            # Restore applications from backup
+│   ├── list-backups.sh       # List all backups
+│   ├── delete-backup.sh      # Delete a backup by name
+│   └── delete-all-backups.sh # Delete all backups
 ├── lib/
-│   ├── common.sh     # Logging, prerequisites, utilities
-│   ├── apps.sh       # Application deployment (cloud-agnostic)
-│   ├── talos.sh      # Talos config and bootstrap (cloud-agnostic)
+│   ├── common.sh             # Logging, prerequisites, utilities
+│   ├── apps.sh               # Application deployment (cloud-agnostic)
+│   ├── velero.sh             # Velero backup/restore (cloud-agnostic)
+│   ├── talos.sh              # Talos config and bootstrap (cloud-agnostic)
 │   └── gcp/
-│       ├── infra.sh  # Terraform operations
-│       ├── tunnel.sh # IAP tunnel management, k8s_connect
-│       ├── csi.sh    # GCE PD CSI driver
-│       └── verify.sh # Resource verification
+│       ├── infra.sh          # Terraform operations
+│       ├── tunnel.sh         # IAP tunnel management, k8s_connect
+│       ├── csi.sh            # GCE PD CSI driver
+│       ├── velero.sh         # GCP Velero plugin installation
+│       └── verify.sh         # Resource verification
 └── README.md
 ```
 
 ## Script Details
 
-### deploy.sh
+### cluster/deploy.sh
 
 Creates a complete Kubernetes cluster.
 
-Usage: `./deploy.sh <cloud>` (e.g., `./deploy.sh gcp`)
+Usage: `./cluster/deploy.sh <cloud>` (e.g., `./cluster/deploy.sh gcp`)
 
 1. **Validate cloud provider** - Ensures supported cloud
 2. **Check prerequisites** - Verifies all tools are installed
@@ -42,42 +52,43 @@ Usage: `./deploy.sh <cloud>` (e.g., `./deploy.sh gcp`)
 7. **Bootstrap cluster** - Initializes etcd and Kubernetes
 8. **Fetch kubeconfig** - Retrieves kubectl credentials
 
-### apply.sh
+### apps/apply.sh
 
 Deploys applications to the cluster.
 
-Usage: `./apply.sh <cloud>` (e.g., `./apply.sh gcp`)
+Usage: `./apps/apply.sh <cloud>` (e.g., `./apps/apply.sh gcp`)
 
 1. **Start tunnel** - Connects to Kubernetes API
 2. **Install CSI driver** - Cloud-specific storage driver
-3. **Apply StorageClass** - Cloud-specific persistent disk class
-4. **Deploy apps** - NGINX and Redis from `apps/` manifests
-5. **Stop tunnel** - Cleans up connection
+3. **Install Velero** - Cloud-specific backup plugin
+4. **Apply StorageClass** - Cloud-specific persistent disk class
+5. **Deploy apps** - NGINX and Redis from `apps/` manifests
+6. **Stop tunnel** - Cleans up connection
 
-### destroy.sh
+### cluster/destroy.sh
 
 Tears down the cluster and all resources.
 
-Usage: `./destroy.sh <cloud>` (e.g., `./destroy.sh gcp`)
+Usage: `./cluster/destroy.sh <cloud>` (e.g., `./cluster/destroy.sh gcp`)
 
 1. **Remove apps (best effort)** - Deletes deployments, PVCs (triggers disk deletion)
 2. **Terraform destroy** - Removes all cloud resources
 3. **Cleanup configs** - Deletes generated configs from `configs/`
 4. **Verify destruction** - Confirms all resources are removed
 
-### connect.sh
+### cluster/connect.sh
 
 Starts an interactive tunnel for manual cluster access.
 
-Usage: `./connect.sh <cloud>` (e.g., `./connect.sh gcp`)
+Usage: `./cluster/connect.sh <cloud>` (e.g., `./cluster/connect.sh gcp`)
 
 Keeps the tunnel open until Ctrl+C. Use in one terminal while running kubectl in another.
 
-### seed-redis.sh
+### apps/seed-redis.sh
 
 Seeds Redis with test data for Velero backup/restore testing.
 
-Usage: `./seed-redis.sh <cloud>` (e.g., `./seed-redis.sh gcp`)
+Usage: `./apps/seed-redis.sh <cloud>` (e.g., `./apps/seed-redis.sh gcp`)
 
 1. **Start tunnel** - Connects to Kubernetes API
 2. **Wait for Redis** - Ensures Redis pod is ready
@@ -89,6 +100,50 @@ Test data includes:
 - `counter:visits` - Numeric counter
 - `config:app:version` - Configuration value
 - `queue:tasks` - List with sample tasks
+
+### velero/backup.sh
+
+Backs up applications to cloud storage using Velero.
+
+Usage: `./velero/backup.sh <cloud>` (e.g., `./velero/backup.sh gcp`)
+
+1. **Start tunnel** - Connects to Kubernetes API
+2. **Create backup** - Velero backs up application namespace (manifests + volume snapshots)
+3. **Verify backup** - Confirms backup status is "Completed"
+4. **Stop tunnel** - Cleans up connection
+
+### velero/restore.sh
+
+Restores applications from a Velero backup. Use after `make deploy` on a fresh cluster.
+
+Usage: `./velero/restore.sh <cloud>` (e.g., `./velero/restore.sh gcp`)
+
+1. **Start tunnel** - Connects to Kubernetes API
+2. **Install CSI driver** - Required for PVC restore (volumes need a storage provisioner)
+3. **Apply StorageClass** - Required for PVC binding
+4. **Install Velero** - Cloud-specific plugin to access backup storage
+5. **Restore** - Velero recreates resources and rebinds PVCs from snapshots
+6. **Verify Velero** - Checks Velero restore CR status
+7. **Verify apps** - Waits for pods and verifies data integrity
+8. **Stop tunnel** - Cleans up connection
+
+### velero/list-backups.sh
+
+Lists all Velero backups with their status.
+
+Usage: `./velero/list-backups.sh <cloud>` (e.g., `make list-backups gcp`)
+
+### velero/delete-backup.sh
+
+Deletes a Velero backup by name and its associated volume snapshots.
+
+Usage: `./velero/delete-backup.sh <cloud> <name>` (e.g., `make delete-backup gcp NAME=k8s-lab-backup`)
+
+### velero/delete-all-backups.sh
+
+Deletes all Velero backups and their associated volume snapshots.
+
+Usage: `./velero/delete-all-backups.sh <cloud>` (e.g., `make delete-all-backups gcp`)
 
 ## Library Modules
 
@@ -103,10 +158,11 @@ Shared utilities sourced by all scripts:
 
 ### lib/apps.sh
 
-Cloud-agnostic application deployment:
+Cloud-agnostic application lifecycle:
 
-- `apps_deploy` - Apply all application manifests
+- `apps_deploy` - Apply all application manifests and wait for readiness
 - `apps_remove` - Delete applications and PVCs
+- `apps_verify` - Verify deployments are running and check data integrity
 - `apps_status` - Show deployment status
 
 ### lib/talos.sh
@@ -142,12 +198,33 @@ Why IAP? VMs have no external IPs. IAP provides secure access using gcloud crede
 
 The `k8s_connect` function is the multi-cloud interface. Each cloud implements it according to its access method (GCP uses IAP tunnel).
 
+### lib/velero.sh
+
+Cloud-agnostic Velero operations (backup/restore CRs only):
+
+- `velero_wait_ready` - Wait for Velero deployment to be running
+- `velero_backup` - Create backup of application namespace
+- `velero_verify_backup` - Check backup CR completed successfully
+- `velero_list_backups` - List all backups with status
+- `velero_delete_backup` - Delete a backup by name
+- `velero_delete_all_backups` - Delete all backups
+- `velero_restore` - Restore from most recent backup
+- `velero_verify_restore` - Check restore CR status only (use `apps_verify` for application checks)
+
 ### lib/gcp/csi.sh
 
 GCE Persistent Disk CSI driver:
 
 - `gcp_csi_install` - Install CSI driver from official release
 - `gcp_csi_uninstall` - Remove CSI driver
+
+### lib/gcp/velero.sh
+
+GCP Velero plugin installation:
+
+- `gcp_velero_install` - Install Velero with GCS storage and GCE PD snapshots
+
+Uses the same GCS bucket as Terraform state (with `velero/` prefix). Authentication via VM service account (`--no-secret`).
 
 ### lib/gcp/verify.sh
 

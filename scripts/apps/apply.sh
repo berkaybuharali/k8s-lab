@@ -7,16 +7,17 @@
 # What this does:
 # 1. Starts tunnel to Kubernetes API (port 6443)
 # 2. Installs cloud-specific CSI driver (for persistent storage)
-# 3. Creates StorageClass for persistent disks
-# 4. Deploys applications (NGINX, Redis)
-# 5. Stops tunnel
+# 3. Installs Velero with cloud-specific plugin (for backup/restore)
+# 4. Creates StorageClass for persistent disks
+# 5. Deploys applications (NGINX, Redis)
+# 6. Stops tunnel
 #
 # Usage: ./apply.sh <cloud>
 # Run via: make apply <cloud>
 # -----------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/lib/common.sh"
+source "${SCRIPT_DIR}/../lib/common.sh"
 
 install_csi_driver() {
     local cloud=$1
@@ -24,6 +25,16 @@ install_csi_driver() {
         gcp)
             source "${LIB_DIR}/gcp/csi.sh"
             gcp_csi_install
+            ;;
+    esac
+}
+
+install_velero() {
+    local cloud=$1
+    case "$cloud" in
+        gcp)
+            source "${LIB_DIR}/gcp/velero.sh"
+            gcp_velero_install
             ;;
     esac
 }
@@ -68,6 +79,7 @@ main() {
     validate_cloud "$cloud"
     source_cloud_modules "$cloud"
     source "${LIB_DIR}/apps.sh"
+    source "${LIB_DIR}/velero.sh"
 
     echo "=============================================="
     echo "  Kubernetes Lab - Application Deployment (${cloud})"
@@ -78,6 +90,7 @@ main() {
     check_apply_prerequisites
     k8s_connect
     install_csi_driver "$cloud"
+    install_velero "$cloud"
     apps_deploy "$cloud"
     print_apply_usage "$cloud"
 }

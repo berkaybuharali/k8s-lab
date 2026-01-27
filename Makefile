@@ -1,22 +1,28 @@
-.PHONY: deploy apply destroy connect seed-redis help
+.PHONY: deploy apply destroy connect seed-redis backup restore help
 
 # Extract cloud provider from command line (e.g., "make deploy gcp" -> "gcp")
-CLOUD := $(filter-out deploy apply destroy connect seed-redis help,$(MAKECMDGOALS))
+CLOUD := $(filter-out deploy apply destroy connect seed-redis backup restore help,$(MAKECMDGOALS))
 
 deploy:
-	@./scripts/deploy.sh $(CLOUD)
+	@./scripts/cluster/deploy.sh $(CLOUD)
 
 apply:
-	@./scripts/apply.sh $(CLOUD)
+	@./scripts/apps/apply.sh $(CLOUD)
 
 destroy:
-	@./scripts/destroy.sh $(CLOUD)
+	@./scripts/cluster/destroy.sh $(CLOUD)
 
 connect:
-	@./scripts/connect.sh $(CLOUD)
+	@./scripts/cluster/connect.sh $(CLOUD)
 
 seed-redis:
-	@./scripts/seed-redis.sh $(CLOUD)
+	@./scripts/apps/seed-redis.sh $(CLOUD)
+
+backup:
+	@./scripts/velero/backup.sh $(CLOUD)
+
+restore:
+	@./scripts/velero/restore.sh $(CLOUD)
 
 help:
 	@echo "Kubernetes Lab"
@@ -25,18 +31,25 @@ help:
 	@echo ""
 	@echo "Commands:"
 	@echo "  deploy <cloud>      Create infrastructure and bootstrap Kubernetes"
-	@echo "  apply <cloud>       Deploy applications (NGINX, Redis)"
+	@echo "  apply <cloud>       Deploy applications (NGINX, Redis, Velero)"
 	@echo "  seed-redis <cloud>  Seed Redis with test data (for Velero testing)"
+	@echo "  backup <cloud>      Backup applications to cloud storage (Velero)"
+	@echo "  restore <cloud>     Restore applications from backup (Velero)"
 	@echo "  connect <cloud>     Show tunnel command for local access"
 	@echo "  destroy <cloud>     Destroy all resources"
 	@echo ""
 	@echo "Supported: gcp"
 	@echo ""
-	@echo "Example workflow:"
+	@echo "Day 1 workflow:"
 	@echo "  make deploy gcp      # Create cluster"
-	@echo "  make apply gcp       # Deploy apps"
+	@echo "  make apply gcp       # Deploy apps + Velero"
 	@echo "  make seed-redis gcp  # Add test data"
-	@echo "  make connect gcp     # Get tunnel command"
+	@echo "  make backup gcp      # Backup to GCS"
+	@echo "  make destroy gcp     # Tear down"
+	@echo ""
+	@echo "Day 2+ workflow (restore):"
+	@echo "  make deploy gcp      # Create cluster"
+	@echo "  make restore gcp     # Restore apps from backup"
 	@echo "  make destroy gcp     # Tear down"
 
 %:
