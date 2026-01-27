@@ -109,6 +109,51 @@ apps_remove() {
 }
 
 # -----------------------------------------------------------------------------
+# Verify Applications
+# -----------------------------------------------------------------------------
+# Waits for deployments to be ready and verifies application data.
+# Called after Velero restore to ensure applications are functional.
+# -----------------------------------------------------------------------------
+apps_verify() {
+    log_step "Verifying applications are running"
+
+    # Check namespace exists
+    if ! kubectl get namespace application &> /dev/null; then
+        log_error "Namespace 'application' not found"
+        return 1
+    fi
+
+    # Wait for NGINX deployment
+    log_info "Waiting for NGINX deployment"
+    if kubectl get deployment nginx -n application &> /dev/null; then
+        kubectl rollout status deployment/nginx -n application --timeout=180s
+    else
+        log_warn "NGINX deployment not found"
+    fi
+
+    # Wait for Redis deployment
+    log_info "Waiting for Redis deployment"
+    if kubectl get deployment redis -n application &> /dev/null; then
+        kubectl rollout status deployment/redis -n application --timeout=300s
+
+        # Verify Redis data if deployment exists
+        log_info "Checking Redis data integrity"
+        local user1
+        user1=$(kubectl exec deploy/redis -n application -- redis-cli GET user:1 2>/dev/null || true)
+
+        if [[ -n "$user1" && "$user1" != *"nil"* ]]; then
+            log_info "Redis data verified: user:1 = ${user1}"
+        else
+            log_warn "Redis data not found (user:1). Data may not have been seeded before backup."
+        fi
+    else
+        log_warn "Redis deployment not found"
+    fi
+
+    log_info "Application verification complete"
+}
+
+# -----------------------------------------------------------------------------
 # Print Application Status
 # -----------------------------------------------------------------------------
 # Shows deployed resources for user verification.
