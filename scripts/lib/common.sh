@@ -157,6 +157,10 @@ check_prerequisites() {
         missing+=("jq        - brew install jq")
     fi
 
+    if ! command -v velero &> /dev/null; then
+        missing+=("velero    - brew install velero")
+    fi
+
     if [ ${#missing[@]} -gt 0 ]; then
         log_error "Missing required tools:"
         for tool in "${missing[@]}"; do

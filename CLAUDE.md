@@ -23,7 +23,10 @@ Layers 3-4 reusable across clouds.
 | Command | Action |
 |---------|--------|
 | `make deploy gcp` | Create VPC, firewall, VMs, bootstrap K8s |
-| `make apply gcp` | Deploy apps (NGINX, Redis) |
+| `make apply gcp` | Deploy apps (NGINX, Redis) + Velero |
+| `make seed-redis gcp` | Insert test data into Redis |
+| `make backup gcp` | Backup application namespace to GCS |
+| `make restore gcp` | CSI + Velero + restore from backup |
 | `make destroy gcp` | Destroy all (apps + infra) |
 
 Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
@@ -31,7 +34,7 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 ## Status
 
 **Phase 1-2: COMPLETE** - Infra, Talos v1.12.1 (vanilla), K8s bootstrap via IAP tunnel  
-**Phase 3: TODO** - Velero installation, backup/restore verification  
+**Phase 3: COMPLETE** - Velero installation, backup/restore via `make backup|restore gcp`
 **Phase 4: IN PROGRESS** - NGINX (2 replicas, stateless), Redis (1 replica + GCE PD), PostgreSQL deployment  
 **Phase 5: PLANNED** - Multi-cloud (STACKIT), cross-cluster restore
 
