@@ -48,6 +48,8 @@ Your user account must have the following IAM roles:
 | `roles/compute.storageAdmin` | Create Talos boot image |
 | `roles/storage.admin` | Terraform state bucket |
 | `roles/iap.tunnelResourceAccessor` | IAP TCP tunnels to VMs |
+| `roles/iam.serviceAccountAdmin` | Create service account for Talos nodes |
+| `roles/resourcemanager.projectIamAdmin` | Grant roles to the Talos node service account |
 
 ### Talos Linux Image
 
@@ -97,28 +99,32 @@ cp backend.tf.example backend.tf
 
 #### 3. Edit backend.tf
 
-Set `bucket` to a globally unique name for Terraform state storage. The bucket will be created automatically on first `make up`.
+Set `bucket` to a globally unique name for Terraform state storage. The bucket will be created automatically on first `make deploy gcp`.
 
-### Terraform Structure
+### GCP Structure
 
 ```
-gcp/terraform/
-├── backend.tf          # GCS state backend (gitignored)
-├── backend.tf.example  # Template for backend.tf
-├── providers.tf        # Provider configuration
-├── variables.tf        # Variable definitions
-├── terraform.tfvars    # Your values (gitignored)
-├── terraform.tfvars.example  # Template for tfvars
-├── network.tf          # VPC, subnet, Cloud NAT
-├── firewall.tf         # IAP and internal firewall rules
-├── gce.tf              # VM instances
-└── outputs.tf          # Output values for scripts
+gcp/
+├── talos-patches/
+│   └── csi.yaml        # Talos machine config patch for CSI driver
+└── terraform/
+    ├── backend.tf          # GCS state backend (gitignored)
+    ├── backend.tf.example  # Template for backend.tf
+    ├── providers.tf        # Provider configuration
+    ├── variables.tf        # Variable definitions
+    ├── terraform.tfvars    # Your values (gitignored)
+    ├── terraform.tfvars.example  # Template for tfvars
+    ├── network.tf          # VPC, subnet, Cloud NAT
+    ├── firewall.tf         # IAP and internal firewall rules
+    ├── gce.tf              # VM instances, service account
+    └── outputs.tf          # Output values for scripts
 ```
 
 ### What Gets Created
 
 | Resource | Description |
 |----------|-------------|
+| Service Account | For Talos nodes - enables GCE PD CSI driver disk operations |
 | VPC Network | Custom VPC with one subnet |
 | Cloud NAT | Outbound internet access for VMs (no public IPs) |
 | Firewall Rules | IAP access (22, 50000, 6443), internal cluster traffic |

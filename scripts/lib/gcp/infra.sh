@@ -163,3 +163,18 @@ tf_get_outputs() {
         log_info "Worker ${i}: ${WORKER_NAMES[$i]} (${WORKER_IPS[$i]}) in ${WORKER_ZONES[$i]}"
     done
 }
+
+# -----------------------------------------------------------------------------
+# Talos Machine Config Patches
+# -----------------------------------------------------------------------------
+# GCP-specific patches for Talos machine configuration.
+# These are applied during talos_generate_configs() in talos.sh.
+#
+# Current patches:
+# - csi.yaml: Adds kubelet extraMounts for GCE PD CSI driver compatibility
+#   (Talos has different udev paths than standard Linux)
+# -----------------------------------------------------------------------------
+TALOS_PATCH_FILES=(
+    "${REPO_ROOT}/infra/gcp/talos-patches/csi.yaml"
+)
+export TALOS_PATCH_FILES

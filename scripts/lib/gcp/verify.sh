@@ -20,7 +20,7 @@
 #   0 if no VMs found, 1 if VMs still exist
 # -----------------------------------------------------------------------------
 gcp_verify_vms_destroyed() {
-    log_step "Verifying VMs are destroyed..."
+    log_step "Verifying VMs are destroyed"
 
     local vms
     vms=$(gcloud compute instances list \
@@ -50,7 +50,7 @@ gcp_verify_vms_destroyed() {
 #   0 if no disks found, 1 if disks still exist
 # -----------------------------------------------------------------------------
 gcp_verify_disks_destroyed() {
-    log_step "Verifying disks are destroyed..."
+    log_step "Verifying persistent disks are destroyed"
 
     local disks
     disks=$(gcloud compute disks list \
@@ -109,7 +109,7 @@ gcp_verify_all_destroyed() {
 gcp_verify_vms_running() {
     local expected_count=${1:-3}
 
-    log_step "Verifying VMs are running..."
+    log_step "Verifying VMs are running"
 
     local running_count
     running_count=$(gcloud compute instances list \
