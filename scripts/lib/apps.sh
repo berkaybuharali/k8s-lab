@@ -1,60 +1,12 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# Application Functions
+# Application Helper Functions
 # -----------------------------------------------------------------------------
-# Cloud-agnostic functions for deploying and removing applications.
+# Cloud-agnostic helper functions for application lifecycle.
 #
-# These functions apply Kubernetes manifests that work across any cloud:
-# - Namespace
-# - Deployments (NGINX, Redis)
-# - Services
-# - PersistentVolumeClaims
-#
-# Cloud-specific resources (StorageClass, CSI driver) are handled by
-# the cloud-specific library modules.
+# Note: Application deployment is handled by scripts/apps/deploy.sh
+# This library provides helper functions for removal, verification, and status.
 # -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
-# Deploy Applications
-# -----------------------------------------------------------------------------
-# Applies all application manifests.
-#
-# Arguments:
-#   $1 - Cloud provider (gcp, stackit, etc.) for cloud-specific manifests
-# -----------------------------------------------------------------------------
-apps_deploy() {
-    local cloud=$1
-    log_step "Deploying applications on top of Talos Kubernetes"
-
-    local apps_dir="${REPO_ROOT}/apps"
-
-    # Apply namespace
-    log_info "Creating namespace application"
-    kubectl apply -f "${apps_dir}/namespace.yaml"
-
-    # Apply cloud-specific StorageClass
-    if [[ -f "${apps_dir}/${cloud}/storageclass.yaml" ]]; then
-        log_info "Applying ${cloud} StorageClass"
-        kubectl apply -f "${apps_dir}/${cloud}/storageclass.yaml"
-    fi
-
-    # Deploy NGINX (stateless, 2 replicas across zones)
-    log_info "Deploying NGINX"
-    kubectl apply -f "${apps_dir}/nginx.yaml"
-
-    # Deploy Redis (stateful, 1 replica with persistent storage)
-    log_info "Deploying Redis with persisten storage"
-    kubectl apply -f "${apps_dir}/redis.yaml"
-
-    # Wait for deployments to be ready
-    log_info "Waiting for NGINX deployment"
-    kubectl rollout status deployment/nginx -n application --timeout=120s
-
-    log_info "Waiting for Redis deployment"
-    kubectl rollout status deployment/redis -n application --timeout=300s
-
-    log_info "Applications deployed"
-}
 
 # -----------------------------------------------------------------------------
 # Remove Applications

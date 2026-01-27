@@ -1,13 +1,19 @@
-.PHONY: deploy apply destroy connect seed-redis backup restore list-backups delete-backup delete-all-backups help
+.PHONY: deploy-infra deploy-tools deploy-applications deploy destroy connect seed-redis backup restore list-backups delete-backup delete-all-backups help
 
-# Extract cloud provider from command line (e.g., "make deploy gcp" -> "gcp")
-CLOUD := $(filter-out deploy apply destroy connect seed-redis backup restore list-backups delete-backup delete-all-backups help,$(MAKECMDGOALS))
+# Extract cloud provider from command line (e.g., "make deploy-infra gcp" -> "gcp")
+CLOUD := $(filter-out deploy-infra deploy-tools deploy-applications deploy destroy connect seed-redis backup restore list-backups delete-backup delete-all-backups help,$(MAKECMDGOALS))
 
-deploy:
+deploy-infra:
 	@./scripts/cluster/deploy.sh $(CLOUD)
 
-apply:
-	@./scripts/apps/apply.sh $(CLOUD)
+deploy-tools:
+	@./scripts/tools/deploy.sh $(CLOUD)
+
+deploy-applications:
+	@./scripts/apps/deploy.sh $(CLOUD)
+
+# Convenience target: deploy infra + tools + applications
+deploy: deploy-infra deploy-tools deploy-applications
 
 destroy:
 	@./scripts/cluster/destroy.sh $(CLOUD)
@@ -39,36 +45,45 @@ help:
 	@echo "Usage: make <command> <cloud>"
 	@echo ""
 	@echo "Commands:"
-	@echo "  deploy <cloud>              Create infrastructure and bootstrap Kubernetes"
-	@echo "  apply <cloud>               Deploy applications (NGINX, Redis, Velero)"
-	@echo "  seed-redis <cloud>          Seed Redis with test data (for Velero testing)"
+	@echo "  deploy-infra <cloud>        Create infrastructure and bootstrap Kubernetes"
+	@echo "  deploy-tools <cloud>        Deploy cluster tools (CSI, StorageClass, Velero)"
+	@echo "  deploy-applications <cloud> Deploy applications (NGINX, Redis)"
+	@echo "  deploy <cloud>              All-in-one: infra + tools + applications"
+	@echo "  seed-redis <cloud>          Seed Redis with test data (for backup testing)"
 	@echo "  backup <cloud>              Backup applications (adds timestamp to name)"
 	@echo "                              Optional: NAME=<base> NAMESPACES=<ns1,ns2>"
 	@echo "  list-backups <cloud>        List all Velero backups"
 	@echo "  delete-backup <cloud> NAME= Delete a Velero backup by name"
 	@echo "  delete-all-backups <cloud>  Delete all Velero backups"
-	@echo "  restore <cloud>             Restore from latest backup (Velero)"
+	@echo "  restore <cloud>             Restore from latest backup (includes tools setup)"
 	@echo "  connect <cloud>             Show tunnel command for local access"
 	@echo "  destroy <cloud>             Destroy all resources"
 	@echo ""
 	@echo "Supported: gcp"
 	@echo ""
-	@echo "Day 1 workflow:"
-	@echo "  make deploy gcp      # Create cluster"
-	@echo "  make apply gcp       # Deploy apps + Velero"
-	@echo "  make seed-redis gcp  # Add test data"
-	@echo "  make backup gcp      # Backup to GCS (auto-timestamped)"
-	@echo "  make destroy gcp     # Tear down"
+	@echo "Day 1 workflow (fresh deployment):"
+	@echo "  make deploy-infra gcp        # Create cluster"
+	@echo "  make deploy-tools gcp        # CSI + Velero"
+	@echo "  make deploy-applications gcp # NGINX + Redis"
+	@echo "  make seed-redis gcp          # Add test data"
+	@echo "  make backup gcp              # Backup to GCS"
+	@echo "  make destroy gcp             # Tear down"
+	@echo ""
+	@echo "Quick workflow (all-in-one):"
+	@echo "  make deploy gcp              # Infra + tools + apps"
+	@echo "  make seed-redis gcp"
+	@echo "  make backup gcp"
+	@echo "  make destroy gcp"
 	@echo ""
 	@echo "Custom backup examples:"
 	@echo "  NAME=prod-backup make backup gcp"
 	@echo "  NAMESPACES=app1,app2 make backup gcp"
 	@echo "  NAME=multi NAMESPACES=ns1,ns2,ns3 make backup gcp"
 	@echo ""
-	@echo "Day 2+ workflow (restore):"
-	@echo "  make deploy gcp      # Create cluster"
-	@echo "  make restore gcp     # Restore apps from backup"
-	@echo "  make destroy gcp     # Tear down"
+	@echo "Day 2+ workflow (restore from backup):"
+	@echo "  make deploy-infra gcp        # Create cluster"
+	@echo "  make restore gcp             # Tools + apps from backup"
+	@echo "  make destroy gcp             # Tear down"
 
 %:
 	@:

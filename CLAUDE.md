@@ -22,11 +22,13 @@ Layers 3-4 reusable across clouds.
 
 | Command | Action |
 |---------|--------|
-| `make deploy gcp` | Create VPC, firewall, VMs, bootstrap K8s |
-| `make apply gcp` | Deploy apps (NGINX, Redis) + Velero |
+| `make deploy-infra gcp` | Create VPC, firewall, VMs, bootstrap K8s |
+| `make deploy-tools gcp` | Install CSI driver, StorageClass, Velero |
+| `make deploy-applications gcp` | Deploy apps (NGINX, Redis) |
+| `make deploy gcp` | All-in-one: infra + tools + apps |
 | `make seed-redis gcp` | Insert test data into Redis |
 | `make backup gcp` | Backup application namespace to GCS |
-| `make restore gcp` | CSI + Velero + restore from backup |
+| `make restore gcp` | Install tools + restore apps from backup |
 | `make destroy gcp` | Destroy all (apps + infra) |
 
 Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).

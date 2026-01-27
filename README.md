@@ -48,29 +48,75 @@ Layers 3-4: Cloud-agnostic (portable across providers)
 
 ## Quick Start
 
+### All-in-One Deployment
+
 ```bash
-make deploy gcp   # Create infrastructure and bootstrap cluster
-make apply gcp    # Deploy applications (NGINX, Redis) + Velero
+make deploy gcp   # Infrastructure + tools + applications
 make destroy gcp  # Destroy all resources
 ```
 
-### Backup and Restore
+### Step-by-Step Deployment
+
+```bash
+# 1. Create infrastructure and bootstrap Kubernetes cluster
+make deploy-infra gcp
+
+# 2. Deploy cluster tools (CSI driver, StorageClass, Velero)
+make deploy-tools gcp
+
+# 3. Deploy applications (NGINX, Redis)
+make deploy-applications gcp
+
+# 4. Connect to cluster for testing
+make connect gcp
+# Keep this terminal open, then in another terminal:
+
+# 5. Test the deployment
+export KUBECONFIG=configs/kubeconfig
+
+# Check pods are running
+kubectl get pods -n application
+
+# Test Redis
+kubectl exec -it deploy/redis -n application -- redis-cli ping
+# Should return: PONG
+
+# Test NGINX
+kubectl port-forward svc/nginx -n application 8080:80 &
+curl http://localhost:8080
+# Should return: NGINX welcome page
+
+# 6. Clean up
+make destroy gcp
+```
+
+### Backup and Restore Workflow
 
 ```bash
 # Day 1: Deploy, seed data, backup
-make deploy gcp
-make apply gcp
+make deploy-infra gcp
+make deploy-tools gcp
+make deploy-applications gcp
 make seed-redis gcp
 make backup gcp
 make destroy gcp
 
-# Day 2+: Restore from backup (no need to re-apply or re-seed)
-make deploy gcp
-make restore gcp
+# Day 2+: Restore from backup
+make deploy-infra gcp
+make restore gcp              # Installs tools + restores apps
+
+# Verify backup and restore
+export KUBECONFIG=configs/kubeconfig
+
+# List backups
+kubectl get backup -n velero
 
 # Check backup details (use kubectl to avoid rate limiter errors)
-export KUBECONFIG=configs/kubeconfig
-kubectl get backup -n velero <name> -o json | jq .status
+kubectl get backup -n velero <backup-name> -o json | jq .status
+
+# Verify restored data
+kubectl exec -it deploy/redis -n application -- redis-cli GET user:1
+# Should return seeded data
 ```
 
 ## Setup

@@ -12,8 +12,10 @@ scripts/
 │   ├── deploy.sh             # Create infrastructure and bootstrap cluster
 │   ├── destroy.sh            # Destroy cluster and applications
 │   └── connect.sh            # Start interactive tunnel for manual kubectl access
+├── tools/
+│   └── deploy.sh             # Deploy cluster tools (CSI, StorageClass, Velero)
 ├── apps/
-│   ├── apply.sh              # Deploy applications + Velero
+│   ├── deploy.sh             # Deploy applications (NGINX, Redis)
 │   └── seed-redis.sh         # Seed Redis with test data for Velero testing
 ├── velero/
 │   ├── backup.sh             # Backup applications to cloud storage
@@ -23,7 +25,7 @@ scripts/
 │   └── delete-all-backups.sh # Delete all backups
 ├── lib/
 │   ├── common.sh             # Logging, prerequisites, utilities
-│   ├── apps.sh               # Application deployment (cloud-agnostic)
+│   ├── apps.sh               # Application helper functions (cloud-agnostic)
 │   ├── velero.sh             # Velero backup/restore (cloud-agnostic)
 │   ├── talos.sh              # Talos config and bootstrap (cloud-agnostic)
 │   └── gcp/
@@ -52,17 +54,29 @@ Usage: `./cluster/deploy.sh <cloud>` (e.g., `./cluster/deploy.sh gcp`)
 7. **Bootstrap cluster** - Initializes etcd and Kubernetes
 8. **Fetch kubeconfig** - Retrieves kubectl credentials
 
-### apps/apply.sh
+### tools/deploy.sh
 
-Deploys applications to the cluster.
+Deploys cluster tools required for applications.
 
-Usage: `./apps/apply.sh <cloud>` (e.g., `./apps/apply.sh gcp`)
+Usage: `./tools/deploy.sh <cloud>` (e.g., `make deploy-tools gcp`)
 
 1. **Start tunnel** - Connects to Kubernetes API
 2. **Install CSI driver** - Cloud-specific storage driver
-3. **Install Velero** - Cloud-specific backup plugin
-4. **Apply StorageClass** - Cloud-specific persistent disk class
-5. **Deploy apps** - NGINX and Redis from `apps/` manifests
+3. **Apply StorageClass** - Cloud-specific persistent disk class
+4. **Install Velero** - Cloud-specific backup plugin
+5. **Stop tunnel** - Cleans up connection
+
+### apps/deploy.sh
+
+Deploys applications to the cluster.
+
+Usage: `./apps/deploy.sh <cloud>` (e.g., `make deploy-applications gcp`)
+
+1. **Start tunnel** - Connects to Kubernetes API
+2. **Create namespace** - application namespace
+3. **Deploy NGINX** - Stateless web server (2 replicas)
+4. **Deploy Redis** - Stateful cache with persistent storage
+5. **Wait for readiness** - Ensures deployments are running
 6. **Stop tunnel** - Cleans up connection
 
 ### cluster/destroy.sh
@@ -114,18 +128,16 @@ Usage: `./velero/backup.sh <cloud>` (e.g., `./velero/backup.sh gcp`)
 
 ### velero/restore.sh
 
-Restores applications from a Velero backup. Use after `make deploy` on a fresh cluster.
+Restores applications from a Velero backup. Use after `make deploy-infra` on a fresh cluster.
 
-Usage: `./velero/restore.sh <cloud>` (e.g., `./velero/restore.sh gcp`)
+Usage: `./velero/restore.sh <cloud>` (e.g., `make restore gcp`)
 
 1. **Start tunnel** - Connects to Kubernetes API
-2. **Install CSI driver** - Required for PVC restore (volumes need a storage provisioner)
-3. **Apply StorageClass** - Required for PVC binding
-4. **Install Velero** - Cloud-specific plugin to access backup storage
-5. **Restore** - Velero recreates resources and rebinds PVCs from snapshots
-6. **Verify Velero** - Checks Velero restore CR status
-7. **Verify apps** - Waits for pods and verifies data integrity
-8. **Stop tunnel** - Cleans up connection
+2. **Install tools** - CSI driver, StorageClass, Velero (required for PVC restore)
+3. **Restore** - Velero recreates resources and rebinds PVCs from snapshots
+4. **Verify Velero** - Checks Velero restore CR status
+5. **Verify apps** - Waits for pods and verifies data integrity
+6. **Stop tunnel** - Cleans up connection
 
 ### velero/list-backups.sh
 
@@ -158,9 +170,8 @@ Shared utilities sourced by all scripts:
 
 ### lib/apps.sh
 
-Cloud-agnostic application lifecycle:
+Cloud-agnostic application helper functions:
 
-- `apps_deploy` - Apply all application manifests and wait for readiness
 - `apps_remove` - Delete applications and PVCs
 - `apps_verify` - Verify deployments are running and check data integrity
 - `apps_status` - Show deployment status
@@ -234,7 +245,7 @@ Resource verification:
 
 ## Accessing the Cluster
 
-After `make deploy gcp`, access requires an IAP tunnel:
+After `make deploy-infra gcp`, access requires an IAP tunnel:
 
 ```bash
 # Terminal 1 - Start tunnel (keep running)
