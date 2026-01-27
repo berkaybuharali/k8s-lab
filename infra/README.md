@@ -48,6 +48,8 @@ Your user account must have the following IAM roles:
 | `roles/compute.storageAdmin` | Create Talos boot image |
 | `roles/storage.admin` | Terraform state bucket |
 | `roles/iap.tunnelResourceAccessor` | IAP TCP tunnels to VMs |
+| `roles/iam.serviceAccountAdmin` | Create service account for Talos nodes |
+| `roles/resourcemanager.projectIamAdmin` | Grant roles to the Talos node service account |
 
 ### Talos Linux Image
 
@@ -97,7 +99,7 @@ cp backend.tf.example backend.tf
 
 #### 3. Edit backend.tf
 
-Set `bucket` to a globally unique name for Terraform state storage. The bucket will be created automatically on first `make deploy`.
+Set `bucket` to a globally unique name for Terraform state storage. The bucket will be created automatically on first `make deploy gcp`.
 
 ### Terraform Structure
 
@@ -119,6 +121,7 @@ gcp/terraform/
 
 | Resource | Description |
 |----------|-------------|
+| Service Account | For Talos nodes - enables GCE PD CSI driver disk operations |
 | VPC Network | Custom VPC with one subnet |
 | Cloud NAT | Outbound internet access for VMs (no public IPs) |
 | Firewall Rules | IAP access (22, 50000, 6443), internal cluster traffic |

@@ -16,7 +16,7 @@ A hands-on lab for running self-managed Kubernetes clusters on cloud VMs. Not ma
 | Foundation (Terraform, automation) | Complete |
 | Cluster (Talos Linux, Kubernetes) | Complete |
 | Backup (Velero) | Planned |
-| Applications (Stateful workloads) | Planned |
+| Applications (Stateful workloads) | In Progress |
 | Multi-cloud expansion | Planned |
 
 ### Supported Platforms
@@ -49,8 +49,9 @@ Layers 3-4: Cloud-agnostic (portable across providers)
 ## Quick Start
 
 ```bash
-make deploy  # Create infrastructure and bootstrap cluster
-make down    # Destroy all resources
+make deploy gcp   # Create infrastructure and bootstrap cluster
+make apply gcp    # Deploy applications (NGINX, Redis)
+make destroy gcp  # Destroy all resources
 ```
 
 ## Setup
@@ -69,24 +70,29 @@ Follow the setup guide for your cloud provider:
 
 This includes: authentication, permissions, Talos image upload, and configuration.
 
-### 3. Create Cluster
+### 3. Create Cluster and Deploy Applications
 
-```bash
-make deploy
-```
+Run `make deploy gcp` followed by `make apply gcp`. See [scripts/README.md](scripts/README.md) for details.
 
 ## Repository Structure
 
 ```
 k8s-lab/
+├── apps/                     # Kubernetes manifests
+│   ├── gcp/                  # GCP-specific (StorageClass)
+│   ├── nginx.yaml            # NGINX deployment
+│   └── redis.yaml            # Redis deployment with PVC
 ├── infra/                    # Cloud infrastructure (Terraform)
-│   └── gcp/                  # GCP-specific
+│   └── gcp/
 │       └── terraform/
 ├── scripts/                  # Automation
-│   ├── setup.sh              # Cluster creation
+│   ├── deploy.sh             # Cluster creation
+│   ├── apply.sh              # Application deployment
 │   ├── destroy.sh            # Cluster teardown
 │   └── lib/                  # Shared functions
-├── k8s/                      # Kubernetes manifests (future)
+│       ├── common.sh         # Logging, prerequisites
+│       ├── apps.sh           # App deployment (cloud-agnostic)
+│       └── gcp/              # GCP-specific modules
 ├── configs/                  # Generated configs (gitignored)
 ├── Makefile                  # Entry points
 └── CLAUDE.md                 # Project policies and roadmap
@@ -117,5 +123,6 @@ This makes clusters reproducible - the same configuration always produces the sa
 | Document | Description |
 |----------|-------------|
 | [CLAUDE.md](CLAUDE.md) | Project policies, roadmap, architecture decisions |
+| [apps/README.md](apps/README.md) | Application manifests and deployment |
 | [infra/README.md](infra/README.md) | Infrastructure overview and platform links |
 | [scripts/README.md](scripts/README.md) | Script details and Talos debugging guide |
