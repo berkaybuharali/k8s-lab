@@ -12,8 +12,9 @@
 # - VolumeSnapshotLocation (VSL): Where volume snapshots are taken (e.g., GCE disks)
 # -----------------------------------------------------------------------------
 
-VELERO_BACKUP_NAME="k8s-lab-backup"
-VELERO_NAMESPACE="application"
+# Default values (can be overridden by environment variables)
+VELERO_BACKUP_BASE_NAME="${VELERO_BACKUP_NAME:-k8s-lab-backup}"
+VELERO_NAMESPACES="${VELERO_NAMESPACES:-application}"
 
 # -----------------------------------------------------------------------------
 # Wait for Velero to be Ready
@@ -30,54 +31,64 @@ velero_wait_ready() {
 # -----------------------------------------------------------------------------
 # Create Backup
 # -----------------------------------------------------------------------------
-# Creates a Velero backup of the application namespace.
-# Includes all resources (deployments, services, PVCs) and volume snapshots.
+# Creates a Velero backup with automatic timestamp suffix.
+# Supports custom backup name and comma-separated namespaces.
 #
-# --include-namespaces: Only backs up the application namespace
+# Environment variables:
+#   VELERO_BACKUP_NAME: Base name (default: k8s-lab-backup)
+#   VELERO_NAMESPACES: Comma-separated namespaces (default: application)
+#
+# The backup name will always have -ddmmyyyyhhmm timestamp appended.
+# Example: k8s-lab-backup-27012026-1430
+#
+# --include-namespaces: Backs up specified namespaces
 # --wait: Blocks until backup completes or fails
 # --default-volumes-to-fs-backup=false: Uses native volume snapshots (GCE PD)
 # -----------------------------------------------------------------------------
 velero_backup() {
-    log_step "Creating Velero backup: ${VELERO_BACKUP_NAME}"
+    # Generate timestamp: ddmmyyyyhhmm (UTC)
+    local timestamp
+    timestamp=$(date -u +"%d%m%Y-%H%M")
 
-    # Delete previous backup with same name if exists
-    if velero backup get "${VELERO_BACKUP_NAME}" &>/dev/null; then
-        log_info "Deleting previous backup: ${VELERO_BACKUP_NAME}"
-        velero backup delete "${VELERO_BACKUP_NAME}" --confirm
-        # Wait for deletion to complete
-        local retries=30
-        while velero backup get "${VELERO_BACKUP_NAME}" &>/dev/null && [ "$retries" -gt 0 ]; do
-            sleep 2
-            ((retries--))
-        done
-    fi
+    # Construct backup name with timestamp
+    local backup_name="${VELERO_BACKUP_BASE_NAME}-${timestamp}"
 
-    velero backup create "${VELERO_BACKUP_NAME}" \
-        --include-namespaces "${VELERO_NAMESPACE}" \
+    log_step "Creating Velero backup: ${backup_name}"
+    log_info "Namespaces: ${VELERO_NAMESPACES}"
+
+    velero backup create "${backup_name}" \
+        --include-namespaces "${VELERO_NAMESPACES}" \
         --wait
 
-    velero_verify_backup
+    velero_verify_backup "${backup_name}"
+
+    # Export for other functions to use
+    export VELERO_LAST_BACKUP_NAME="${backup_name}"
 }
 
 # -----------------------------------------------------------------------------
 # Verify Backup
 # -----------------------------------------------------------------------------
 # Checks that the backup completed successfully.
+# Parameters:
+#   $1: backup_name (optional, uses VELERO_LAST_BACKUP_NAME if not provided)
 # -----------------------------------------------------------------------------
 velero_verify_backup() {
-    log_step "Verifying backup: ${VELERO_BACKUP_NAME}"
+    local backup_name="${1:-${VELERO_LAST_BACKUP_NAME}}"
+
+    log_step "Verifying backup: ${backup_name}"
 
     local status
-    status=$(velero backup get "${VELERO_BACKUP_NAME}" -o json | jq -r '.status.phase')
+    status=$(velero backup get "${backup_name}" -o json | jq -r '.status.phase')
 
     if [[ "$status" != "Completed" ]]; then
         log_error "Backup failed with status: ${status}"
-        velero backup describe "${VELERO_BACKUP_NAME}" --details
+        velero backup describe "${backup_name}" --details
         return 1
     fi
 
     log_info "Backup verified: ${status}"
-    velero backup describe "${VELERO_BACKUP_NAME}"
+    velero backup describe "${backup_name}"
 }
 
 # -----------------------------------------------------------------------------
@@ -147,10 +158,22 @@ velero_delete_all_backups() {
 }
 
 velero_restore() {
-    log_step "Restoring from backup: ${VELERO_BACKUP_NAME}"
+    local backup_name="${1:-}"
+
+    # If no backup name provided, find the latest successful backup
+    if [[ -z "$backup_name" ]]; then
+        backup_name=$(velero backup get -o json | jq -r '.items | sort_by(.status.completionTimestamp) | reverse | .[0].metadata.name')
+        if [[ -z "$backup_name" || "$backup_name" == "null" ]]; then
+            log_error "No backups found. Please specify a backup name."
+            return 1
+        fi
+        log_info "Using latest backup: ${backup_name}"
+    fi
+
+    log_step "Restoring from backup: ${backup_name}"
 
     velero restore create \
-        --from-backup "${VELERO_BACKUP_NAME}" \
+        --from-backup "${backup_name}" \
         --wait
 
     velero_verify_restore
