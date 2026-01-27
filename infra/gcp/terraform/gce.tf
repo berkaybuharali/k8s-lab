@@ -20,10 +20,26 @@ resource "google_service_account" "talos_nodes" {
   description  = "Service account for Talos nodes - allows CSI driver disk operations"
 }
 
-# Grant compute storage admin for disk operations (create, delete, attach, detach)
+# Grant compute storage admin for disk operations (create, delete, resize, snapshot)
 resource "google_project_iam_member" "talos_nodes_compute_storage" {
   project = var.project_id
   role    = "roles/compute.storageAdmin"
+  member  = "serviceAccount:${google_service_account.talos_nodes.email}"
+}
+
+# Grant compute instance admin for disk attach/detach on instances
+# compute.storageAdmin covers disk-level ops but NOT compute.instances.attachDisk
+resource "google_project_iam_member" "talos_nodes_compute_instance_admin" {
+  project = var.project_id
+  role    = "roles/compute.instanceAdmin.v1"
+  member  = "serviceAccount:${google_service_account.talos_nodes.email}"
+}
+
+# Grant service account user - required for instanceAdmin to act as the SA
+# when attaching disks to instances that use this service account
+resource "google_project_iam_member" "talos_nodes_sa_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
   member  = "serviceAccount:${google_service_account.talos_nodes.email}"
 }
 

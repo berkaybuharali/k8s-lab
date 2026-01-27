@@ -1,12 +1,13 @@
 # Talos Machine Config Patch for GCE PD CSI Driver
 #
-# The GCE Persistent Disk CSI driver requires host paths that differ on Talos:
-# - /lib/udev: Talos uses /usr/lib/udev instead
-# - /etc/udev: Does not exist on Talos (immutable filesystem)
-# - /run/udev: Exists on Talos (no patch needed)
+# The GCE Persistent Disk CSI driver expects udev rules at /lib/udev,
+# but Talos uses /usr/lib/udev instead.
 #
-# This patch adds kubelet extraMounts to expose the correct paths for the CSI
-# driver's node DaemonSet to function properly.
+# This patch adds a kubelet extraMount to bind /usr/lib/udev to /lib/udev.
+#
+# Note: /etc/udev does not exist on Talos (read-only filesystem).
+# The CSI node DaemonSet is patched at install time in csi.sh to use
+# emptyDir instead of hostPath for /etc/udev.
 #
 # Reference: https://github.com/siderolabs/talos/issues/4143
 # Reference: https://docs.siderolabs.com/talos/v1.12/reference/configuration/
@@ -17,16 +18,6 @@ machine:
       # Map Talos's /usr/lib/udev to /lib/udev for CSI driver compatibility
       # The CSI driver expects udev rules at /lib/udev/rules.d
       - destination: /lib/udev
-        source: /usr/lib/udev
-        type: bind
-        options:
-          - rbind
-          - rshared
-          - ro
-      # Map /usr/lib/udev to /etc/udev as well
-      # The CSI driver mounts /etc/udev but Talos doesn't have it
-      # Using the same udev content satisfies the mount requirement
-      - destination: /etc/udev
         source: /usr/lib/udev
         type: bind
         options:

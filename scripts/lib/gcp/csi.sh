@@ -51,6 +51,17 @@ EOF
     log_info "Applying CSI driver manifests"
     kubectl apply -k "${GCP_CSI_DRIVER_OVERLAY}"
 
+    # Patch node DaemonSet for Talos compatibility
+    # Talos has a read-only /etc filesystem, so /etc/udev does not exist.
+    # The upstream DaemonSet mounts /etc/udev as hostPath type:Directory,
+    # which fails because containerd requires the host path to exist.
+    # Replace with emptyDir — the driver only needs /lib/udev for rules.
+    log_info "Patching CSI node DaemonSet for Talos (read-only /etc/udev)"
+    kubectl patch daemonset csi-gce-pd-node -n gce-pd-csi-driver --type=json -p='[
+      {"op": "test", "path": "/spec/template/spec/volumes/4/name", "value": "udev-rules-etc"},
+      {"op": "replace", "path": "/spec/template/spec/volumes/4", "value": {"name": "udev-rules-etc", "emptyDir": {}}}
+    ]'
+
     # Wait for controller to be ready
     log_info "Waiting for CSI driver controller to be ready"
     kubectl rollout status deployment/csi-gce-pd-controller -n gce-pd-csi-driver --timeout=180s
