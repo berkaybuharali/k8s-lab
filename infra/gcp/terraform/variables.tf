@@ -58,3 +58,8 @@ variable "boot_image" {
   description = "Talos Linux boot disk image"
   type        = string
 }
+
+variable "state_bucket" {
+  description = "GCS bucket name for Terraform state and Velero backups (must match backend.tf)"
+  type        = string
+}

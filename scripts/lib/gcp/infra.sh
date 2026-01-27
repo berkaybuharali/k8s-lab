@@ -92,9 +92,18 @@ tf_ensure_state_bucket() {
     local project_id
     project_id=$(grep -E "^project_id" "${TF_DIR}/terraform.tfvars" | cut -d'"' -f2)
 
-    # Read bucket name from backend.tf
+    # Read bucket name from terraform.tfvars (primary source of truth)
     local bucket_name
-    bucket_name=$(grep -E "bucket\s*=" "${TF_DIR}/backend.tf" | sed 's/.*"\(.*\)".*/\1/')
+    bucket_name=$(grep -E "^state_bucket" "${TF_DIR}/terraform.tfvars" | cut -d'"' -f2)
+
+    # Verify it matches backend.tf
+    local backend_bucket
+    backend_bucket=$(grep -E "bucket\s*=" "${TF_DIR}/backend.tf" | sed 's/.*"\(.*\)".*/\1/')
+    if [[ "$bucket_name" != "$backend_bucket" ]]; then
+        log_error "Bucket mismatch: terraform.tfvars has '${bucket_name}' but backend.tf has '${backend_bucket}'"
+        log_error "Update backend.tf to match terraform.tfvars"
+        exit 1
+    fi
 
     # Read region from terraform.tfvars
     local region
@@ -127,12 +136,14 @@ tf_ensure_state_bucket() {
 # Retrieves resource information from Terraform state.
 # Sets global variables used by other scripts:
 # - PROJECT_ID: GCP project
+# - BUCKET_NAME: GCS bucket for state and Velero backups
 # - CP_NAME, CP_ZONE, CP_IP: Control plane details
 # - WORKER_NAMES[], WORKER_ZONES[], WORKER_IPS[]: Worker details
 #
 # These values are needed to:
 # - Construct IAP tunnel commands (name, zone, project)
 # - Generate Talos configs (internal IPs for cluster endpoint)
+# - Configure Velero backup storage (bucket name)
 # -----------------------------------------------------------------------------
 tf_get_outputs() {
     log_step "Reading Terraform outputs..."
@@ -141,6 +152,7 @@ tf_get_outputs() {
 
     # Single-value outputs
     PROJECT_ID=$(terraform output -raw project_id)
+    BUCKET_NAME=$(terraform output -raw state_bucket)
     CP_NAME=$(terraform output -raw control_plane_name)
     CP_ZONE=$(terraform output -raw control_plane_zone)
     CP_IP=$(terraform output -raw control_plane_ip)
@@ -155,7 +167,7 @@ tf_get_outputs() {
     WORKER_IPS=($(terraform output -json worker_ips | jq -r '.[]'))
 
     # Export for use in other scripts
-    export PROJECT_ID CP_NAME CP_ZONE CP_IP
+    export PROJECT_ID BUCKET_NAME CP_NAME CP_ZONE CP_IP
     export WORKER_NAMES WORKER_ZONES WORKER_IPS
 
     log_info "Control plane: ${CP_NAME} (${CP_IP}) in ${CP_ZONE}"

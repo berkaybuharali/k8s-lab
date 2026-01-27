@@ -43,6 +43,15 @@ resource "google_project_iam_member" "talos_nodes_sa_user" {
   member  = "serviceAccount:${google_service_account.talos_nodes.email}"
 }
 
+# Grant storage object admin for Velero backups to GCS
+# Velero stores resource manifests and backup metadata in the same GCS bucket
+# used for Terraform state (under a separate velero/ prefix)
+resource "google_project_iam_member" "talos_nodes_storage_object_admin" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.talos_nodes.email}"
+}
+
 # Grant compute viewer for metadata access
 resource "google_project_iam_member" "talos_nodes_compute_viewer" {
   project = var.project_id

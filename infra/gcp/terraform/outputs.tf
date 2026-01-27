@@ -38,3 +38,13 @@ output "worker_ips" {
   description = "Internal IPs of worker nodes"
   value       = google_compute_instance.workers[*].network_interface[0].network_ip
 }
+
+output "node_service_account_email" {
+  description = "Service account email for Talos nodes (used by Velero for GCS access)"
+  value       = google_service_account.talos_nodes.email
+}
+
+output "state_bucket" {
+  description = "GCS bucket name for Terraform state and Velero backups"
+  value       = var.state_bucket
+}
