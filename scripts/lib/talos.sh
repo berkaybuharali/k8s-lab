@@ -38,13 +38,28 @@ talos_generate_configs() {
 
     mkdir -p "${CONFIGS_DIR}"
 
+    # Build patch flags from cloud-specific patches (set by cloud modules)
+    # TALOS_PATCH_FILES is an array of patch file paths, may be unset for some clouds
+    local patch_args=()
+    if [[ ${#TALOS_PATCH_FILES[@]:-0} -gt 0 ]]; then
+        for patch_file in "${TALOS_PATCH_FILES[@]}"; do
+            if [[ -f "${patch_file}" ]]; then
+                log_info "Applying patch: ${patch_file}"
+                patch_args+=("--config-patch=@${patch_file}")
+            else
+                log_warn "Patch file not found: ${patch_file}"
+            fi
+        done
+    fi
+
     # Generate configs with control plane IP as Kubernetes endpoint
     # --force: Overwrite existing (needed for daily recreate workflow)
     # --additional-sans localhost: Required for IAP tunnel access (we connect via localhost)
     talosctl gen config "${CLUSTER_NAME}" "https://${CP_IP}:6443" \
         --output-dir "${CONFIGS_DIR}" \
         --additional-sans localhost \
-        --force
+        --force \
+        "${patch_args[@]}"
 
     log_info "Generated:"
     log_info "  ${CONFIGS_DIR}/controlplane.yaml"

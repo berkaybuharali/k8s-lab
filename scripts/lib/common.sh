@@ -19,7 +19,6 @@ set -euo pipefail
 # -----------------------------------------------------------------------------
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-TF_DIR="${REPO_ROOT}/infra/gcp/terraform"
 CONFIGS_DIR="${REPO_ROOT}/configs"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
@@ -27,6 +26,52 @@ LIB_DIR="${SCRIPT_DIR}/lib"
 # Configuration
 # -----------------------------------------------------------------------------
 CLUSTER_NAME="k8s-lab"
+SUPPORTED_CLOUDS=("gcp")
+
+# -----------------------------------------------------------------------------
+# Cloud Provider Functions
+# -----------------------------------------------------------------------------
+
+# Validate cloud provider argument
+validate_cloud() {
+    local cloud=$1
+
+    if [[ -z "$cloud" ]]; then
+        log_error "Cloud provider required"
+        echo "Usage: $0 <cloud>" >&2
+        echo "Supported clouds: ${SUPPORTED_CLOUDS[*]}" >&2
+        exit 1
+    fi
+
+    local valid=false
+    for c in "${SUPPORTED_CLOUDS[@]}"; do
+        [[ "$c" == "$cloud" ]] && valid=true && break
+    done
+
+    if [[ "$valid" != "true" ]]; then
+        log_error "Unsupported cloud provider: $cloud"
+        echo "Supported clouds: ${SUPPORTED_CLOUDS[*]}" >&2
+        exit 1
+    fi
+}
+
+# Source cloud-specific modules and set TF_DIR
+source_cloud_modules() {
+    local cloud=$1
+
+    case "$cloud" in
+        gcp)
+            TF_DIR="${REPO_ROOT}/infra/gcp/terraform"
+            source "${LIB_DIR}/gcp/infra.sh"
+            source "${LIB_DIR}/gcp/tunnel.sh"
+            ;;
+        *)
+            log_error "No modules for cloud: $cloud"
+            exit 1
+            ;;
+    esac
+    export TF_DIR
+}
 
 # -----------------------------------------------------------------------------
 # Colors
@@ -54,19 +99,25 @@ log_step()  { echo -e "${BLUE}[STEP]${NC} $1" >&2; }
 # -----------------------------------------------------------------------------
 # Error Handling
 # -----------------------------------------------------------------------------
-# Trap EXIT to provide context on failures.
+# Trap EXIT to provide context on failures and cleanup resources.
 # Scripts should call setup_error_handling at the start.
 # -----------------------------------------------------------------------------
-_error_handler() {
+_cleanup_handler() {
     local exit_code=$?
     local line_no=$1
+
+    # Clean up tunnels if tunnel.sh was sourced
+    if type tunnel_cleanup_all &>/dev/null; then
+        tunnel_cleanup_all
+    fi
+
     if [ $exit_code -ne 0 ]; then
         log_error "Script failed at line ${line_no} with exit code ${exit_code}"
     fi
 }
 
 setup_error_handling() {
-    trap '_error_handler ${LINENO}' EXIT
+    trap '_cleanup_handler ${LINENO}' EXIT
 }
 
 # -----------------------------------------------------------------------------

@@ -21,7 +21,9 @@
 # -----------------------------------------------------------------------------
 
 # Track active tunnel PIDs for cleanup
-declare -a TUNNEL_PIDS=()
+# Initialize as empty array (use default empty to avoid unbound variable with set -u)
+TUNNEL_PIDS=()
+declare -a TUNNEL_PIDS
 
 # -----------------------------------------------------------------------------
 # Start IAP Tunnel
@@ -108,14 +110,50 @@ tunnel_stop() {
 # Called automatically on script exit via trap.
 # -----------------------------------------------------------------------------
 tunnel_cleanup_all() {
-    log_step "tunnel_cleanup_all: cleaning up ${#TUNNEL_PIDS[@]} tunnel(s)"
-    for pid in "${TUNNEL_PIDS[@]:-}"; do
-        if [ -n "${pid}" ]; then
+    local count=${#TUNNEL_PIDS[@]}
+    if [ "$count" -eq 0 ]; then
+        return 0
+    fi
+    log_step "tunnel_cleanup_all: cleaning up ${count} tunnel(s)"
+    for pid in "${TUNNEL_PIDS[@]}"; do
+        if [ -n "${pid:-}" ]; then
             tunnel_stop "${pid}"
         fi
     done
     TUNNEL_PIDS=()
 }
 
-# Register cleanup on script exit
-trap tunnel_cleanup_all EXIT
+# Note: Cleanup is handled by common.sh's _cleanup_handler which calls
+# tunnel_cleanup_all if this module is sourced. No separate trap needed.
+
+# -----------------------------------------------------------------------------
+# Connect to Kubernetes API
+# -----------------------------------------------------------------------------
+# Cloud-agnostic interface for Kubernetes API access.
+# Each cloud module implements this function according to its access method.
+#
+# For GCP: Uses IAP tunnel since VMs have no external IPs.
+# Other clouds may have direct access, VPN, or different tunneling.
+#
+# After calling, kubectl commands will work with the cluster.
+# -----------------------------------------------------------------------------
+k8s_connect() {
+    log_step "Connecting to Kubernetes API (GCP via IAP tunnel)"
+
+    # Get VM details from Terraform
+    tf_get_outputs
+
+    # Start IAP tunnel to control plane's Kubernetes API
+    tunnel_start "${CP_NAME}" "${CP_ZONE}" 6443 6443 >/dev/null
+
+    # Set kubeconfig for kubectl
+    export KUBECONFIG="${CONFIGS_DIR}/kubeconfig"
+
+    # Verify connection
+    if ! kubectl cluster-info &>/dev/null; then
+        log_error "Cannot connect to cluster through tunnel"
+        return 1
+    fi
+
+    log_info "Connected to Kubernetes API"
+}
