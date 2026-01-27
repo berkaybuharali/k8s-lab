@@ -79,7 +79,7 @@ velero_verify_backup() {
     log_step "Verifying backup: ${backup_name}"
 
     local status
-    status=$(velero backup get "${backup_name}" -o json | jq -r '.status.phase')
+    status=$(kubectl get backup "${backup_name}" -n velero -o jsonpath='{.status.phase}')
 
     if [[ "$status" != "Completed" ]]; then
         log_error "Backup failed with status: ${status}"
@@ -125,7 +125,7 @@ velero_delete_backup() {
 
     log_step "Deleting Velero backup: ${backup_name}"
 
-    if ! velero backup get "${backup_name}" &>/dev/null; then
+    if ! kubectl get backup "${backup_name}" -n velero &>/dev/null; then
         log_error "Backup not found: ${backup_name}"
         return 1
     fi
@@ -143,7 +143,7 @@ velero_delete_all_backups() {
     log_step "Deleting all Velero backups"
 
     local backups
-    backups=$(velero backup get -o json | jq -r '.items[].metadata.name' 2>/dev/null || true)
+    backups=$(kubectl get backup -n velero -o json | jq -r '.items[].metadata.name' 2>/dev/null || true)
 
     if [[ -z "$backups" ]]; then
         log_info "No backups found"
@@ -162,7 +162,7 @@ velero_restore() {
 
     # If no backup name provided, find the latest successful backup
     if [[ -z "$backup_name" ]]; then
-        backup_name=$(velero backup get -o json | jq -r '.items | sort_by(.status.completionTimestamp) | reverse | .[0].metadata.name')
+        backup_name=$(kubectl get backup -n velero -o json | jq -r '.items | sort_by(.status.completionTimestamp) | reverse | .[0].metadata.name')
         if [[ -z "$backup_name" || "$backup_name" == "null" ]]; then
             log_error "No backups found. Please specify a backup name."
             return 1
@@ -190,7 +190,7 @@ velero_verify_restore() {
 
     # Get most recent restore
     local restore_name
-    restore_name=$(velero restore get -o json | jq -r '.items[-1].metadata.name')
+    restore_name=$(kubectl get restore -n velero -o json | jq -r '.items | sort_by(.metadata.creationTimestamp) | reverse | .[0].metadata.name')
 
     if [[ -z "$restore_name" || "$restore_name" == "null" ]]; then
         log_error "No restore found"
@@ -198,7 +198,7 @@ velero_verify_restore() {
     fi
 
     local status
-    status=$(velero restore get "${restore_name}" -o json | jq -r '.status.phase')
+    status=$(kubectl get restore "${restore_name}" -n velero -o jsonpath='{.status.phase}')
 
     case "$status" in
         Completed)

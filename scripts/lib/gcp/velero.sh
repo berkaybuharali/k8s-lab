@@ -9,6 +9,12 @@
 # Authentication: Uses the VM service account (--no-secret).
 # No JSON key file needed - VMs already have storage.objectAdmin and
 # compute.storageAdmin roles attached via Terraform.
+#
+# QPS/Burst Configuration:
+# - client-qps: 100 (default 20/100 depending on version)
+# - client-burst: 200 (default 30/100 depending on version)
+# Higher values needed for IAP tunnel latency to prevent "rate limiter Wait"
+# errors when running velero describe/logs commands.
 # -----------------------------------------------------------------------------
 
 # Plugin version pinned for reproducibility
@@ -55,6 +61,21 @@ gcp_velero_install() {
     fi
 
     velero install "${install_args[@]}"
+
+    # Patch Velero deployment to increase client QPS/burst for IAP tunnel latency
+    log_info "Configuring Velero server QPS/burst limits"
+    kubectl patch deployment velero -n velero --type='json' -p='[
+        {
+            "op": "add",
+            "path": "/spec/template/spec/containers/0/args/-",
+            "value": "--client-qps=100"
+        },
+        {
+            "op": "add",
+            "path": "/spec/template/spec/containers/0/args/-",
+            "value": "--client-burst=200"
+        }
+    ]'
 
     velero_wait_ready
     log_info "Velero installed with GCP plugin"
