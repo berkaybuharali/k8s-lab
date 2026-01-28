@@ -29,14 +29,17 @@ check_prerequisites() {
         log_error "kubeconfig not found. Run 'make deploy-infra <cloud>' first"
         exit 1
     fi
+    log_info "Prerequisites satisfied"
+}
 
-    # Check if StorageClass exists
+check_tools() {
+    log_step "Checking cluster tools"
+    # Check if StorageClass exists (must be called after k8s_connect)
     if ! kubectl get storageclass standard &>/dev/null; then
         log_error "StorageClass 'standard' not found. Run 'make deploy-tools <cloud>' first"
         exit 1
     fi
-
-    log_info "Prerequisites satisfied"
+    log_info "Cluster tools ready"
 }
 
 deploy_applications() {
@@ -110,6 +113,7 @@ main() {
     setup_error_handling
     check_prerequisites
     k8s_connect
+    check_tools
     deploy_applications "$cloud"
     print_usage "$cloud"
 }
