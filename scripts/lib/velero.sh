@@ -21,6 +21,23 @@
 VELERO_BACKUP_BASE_NAME="${VELERO_BACKUP_NAME:-k8s-lab-backup}"
 VELERO_NAMESPACES="${VELERO_NAMESPACES:-application}"
 
+# Auto-detect hooks files if they exist (no manual export needed)
+# Override by setting VELERO_BACKUP_HOOKS_FILE or VELERO_RESTORE_HOOKS_FILE
+DEFAULT_BACKUP_HOOKS="${CONFIGS_DIR}/velero/backup-hooks.yaml"
+DEFAULT_RESTORE_HOOKS="${CONFIGS_DIR}/velero/restore-hooks.yaml"
+
+if [[ -z "${VELERO_BACKUP_HOOKS_FILE:-}" ]] && [[ -f "${DEFAULT_BACKUP_HOOKS}" ]]; then
+    VELERO_BACKUP_HOOKS_FILE="${DEFAULT_BACKUP_HOOKS}"
+else
+    VELERO_BACKUP_HOOKS_FILE="${VELERO_BACKUP_HOOKS_FILE:-}"
+fi
+
+if [[ -z "${VELERO_RESTORE_HOOKS_FILE:-}" ]] && [[ -f "${DEFAULT_RESTORE_HOOKS}" ]]; then
+    VELERO_RESTORE_HOOKS_FILE="${DEFAULT_RESTORE_HOOKS}"
+else
+    VELERO_RESTORE_HOOKS_FILE="${VELERO_RESTORE_HOOKS_FILE:-}"
+fi
+
 # -----------------------------------------------------------------------------
 # Wait for Velero to be Ready
 # -----------------------------------------------------------------------------
@@ -37,18 +54,22 @@ velero_wait_ready() {
 # Create Backup
 # -----------------------------------------------------------------------------
 # Creates a Velero backup with automatic timestamp suffix.
-# Supports custom backup name and comma-separated namespaces.
+# Supports custom backup name, namespaces, and optional hooks file.
 #
 # Environment variables:
 #   VELERO_BACKUP_NAME: Base name (default: k8s-lab-backup)
 #   VELERO_NAMESPACES: Comma-separated namespaces (default: application)
+#   VELERO_BACKUP_HOOKS_FILE: Path to backup hooks YAML (optional)
 #
 # The backup name will always have -ddmmyyyyhhmm timestamp appended.
 # Example: k8s-lab-backup-27012026-1430
 #
 # --include-namespaces: Backs up specified namespaces
 # --wait: Blocks until backup completes or fails
-# --default-volumes-to-fs-backup=false: Uses native volume snapshots (GCE PD)
+# --hooks-file: Centralized backup hooks (optional, pod annotations still work)
+#
+# Note: Pod annotations take precedence over hooks file.
+# Redis already has backup hooks via annotations (apps/redis.yaml).
 # -----------------------------------------------------------------------------
 velero_backup() {
     # Generate timestamp: ddmmyyyyhhmm (UTC)
@@ -61,9 +82,23 @@ velero_backup() {
     log_step "Creating Velero backup: ${backup_name}"
     log_info "Namespaces: ${VELERO_NAMESPACES}"
 
-    velero backup create "${backup_name}" \
-        --include-namespaces "${VELERO_NAMESPACES}" \
-        --wait
+    # Build backup command
+    local backup_cmd=(velero backup create "${backup_name}"
+        --include-namespaces "${VELERO_NAMESPACES}"
+        --wait)
+
+    # Add hooks file if provided
+    if [[ -n "${VELERO_BACKUP_HOOKS_FILE}" ]]; then
+        if [[ ! -f "${VELERO_BACKUP_HOOKS_FILE}" ]]; then
+            log_error "Backup hooks file not found: ${VELERO_BACKUP_HOOKS_FILE}"
+            return 1
+        fi
+        log_info "Using backup hooks: ${VELERO_BACKUP_HOOKS_FILE}"
+        backup_cmd+=(--hooks-file "${VELERO_BACKUP_HOOKS_FILE}")
+    fi
+
+    # Execute backup
+    "${backup_cmd[@]}"
 
     velero_verify_backup "${backup_name}"
 
@@ -162,6 +197,21 @@ velero_delete_all_backups() {
     log_info "All backups deleted"
 }
 
+# -----------------------------------------------------------------------------
+# Restore from Backup
+# -----------------------------------------------------------------------------
+# Restores from the most recent backup (or specified backup name).
+# Supports optional restore hooks for post-restore validation.
+#
+# Parameters:
+#   $1: backup_name (optional, uses latest if not provided)
+#
+# Environment variables:
+#   VELERO_RESTORE_HOOKS_FILE: Path to restore hooks YAML (optional)
+#
+# Velero recreates all resources and rebinds PVCs to new volumes from snapshots.
+# Post-restore hooks run after pods are running for validation.
+# -----------------------------------------------------------------------------
 velero_restore() {
     local backup_name="${1:-}"
 
@@ -177,9 +227,23 @@ velero_restore() {
 
     log_step "Restoring from backup: ${backup_name}"
 
-    velero restore create \
-        --from-backup "${backup_name}" \
-        --wait
+    # Build restore command
+    local restore_cmd=(velero restore create
+        --from-backup "${backup_name}"
+        --wait)
+
+    # Add hooks file if provided
+    if [[ -n "${VELERO_RESTORE_HOOKS_FILE}" ]]; then
+        if [[ ! -f "${VELERO_RESTORE_HOOKS_FILE}" ]]; then
+            log_error "Restore hooks file not found: ${VELERO_RESTORE_HOOKS_FILE}"
+            return 1
+        fi
+        log_info "Using restore hooks: ${VELERO_RESTORE_HOOKS_FILE}"
+        restore_cmd+=(--hooks-file "${VELERO_RESTORE_HOOKS_FILE}")
+    fi
+
+    # Execute restore
+    "${restore_cmd[@]}"
 
     velero_verify_restore
 }

@@ -1,0 +1,85 @@
+# Velero Backup Hooks - Templates for Future Databases
+#
+# This file contains examples for PostgreSQL, MySQL, and MongoDB.
+# Redis is already configured in backup-hooks.yaml.
+#
+# Usage:
+#   1. When adding a new database, copy the relevant section from this file
+#   2. Add it to backup-hooks.yaml
+#   3. Customize labels and commands for your deployment
+#   4. Backup scripts automatically use backup-hooks.yaml if it exists
+#
+# Hooks execute in pod containers before/after volume snapshots.
+# Critical for databases to ensure consistent state at backup time.
+
+version: v1
+kind: BackupHooks
+
+hooks:
+  # PostgreSQL: Dump database to persistent volume
+  # Add this to backup-hooks.yaml when deploying PostgreSQL
+  # - name: postgres-dump
+  #   labelSelector:
+  #     matchLabels:
+  #       app: postgres
+  #   pre:
+  #     - exec:
+  #         container: postgres
+  #         command: ["/bin/bash", "-c"]
+  #         args: ["pg_dumpall -U postgres -f /var/lib/postgresql/backup.sql && sync"]
+  #         timeout: 15m
+  #         onError: Fail
+
+  # MySQL: Freeze tables during snapshot
+  # - name: mysql-freeze
+  #   labelSelector:
+  #     matchLabels:
+  #       app: mysql
+  #   pre:
+  #     - exec:
+  #         container: mysql
+  #         command: ["/usr/bin/mysql", "-u", "root", "-e"]
+  #         args: ["FLUSH TABLES WITH READ LOCK"]
+  #         timeout: 1m
+  #         onError: Fail
+  #   post:
+  #     - exec:
+  #         container: mysql
+  #         command: ["/usr/bin/mysql", "-u", "root", "-e"]
+  #         args: ["UNLOCK TABLES"]
+  #         timeout: 30s
+
+  # MongoDB: Ensure journal is flushed
+  # - name: mongodb-fsync
+  #   labelSelector:
+  #     matchLabels:
+  #       app: mongodb
+  #   pre:
+  #     - exec:
+  #         container: mongodb
+  #         command: ["/usr/bin/mongosh", "--eval"]
+  #         args: ["db.adminCommand({fsync: 1})"]
+  #         timeout: 2m
+  #         onError: Continue
+
+# Hook Comparison: Annotations vs Hooks File
+#
+# Pod Annotations (Method 1):
+#   pros:
+#     - Portable: follows the pod across clusters
+#     - Visible in pod manifest
+#   cons:
+#     - Scattered across multiple files
+#     - Requires pod redeployment to change
+#
+# Hooks File (Method 2):
+#   pros:
+#     - Centralized management
+#     - Can target multiple pods with label selectors
+#     - No pod redeployment needed
+#   cons:
+#     - Must be provided to every backup command
+#     - Not visible in pod manifests
+#
+# Recommendation: Use pod annotations for production-critical databases,
+# hooks file for development/testing or multi-pod policies.

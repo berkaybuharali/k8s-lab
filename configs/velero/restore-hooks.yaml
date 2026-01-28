@@ -1,0 +1,22 @@
+# Velero Restore Hooks - Redis
+#
+# This file is automatically loaded by restore scripts if it exists.
+# No environment variable configuration needed.
+#
+# These hooks validate Redis connection after restore completes.
+
+version: v1
+kind: RestoreHooks
+
+hooks:
+  # Redis: Validate connection and data
+  - name: redis-validate
+    labelSelector:
+      matchLabels:
+        app: redis
+    postRestoreExec:
+      execHook:
+        container: redis
+        command: ["/usr/local/bin/redis-cli", "PING"]
+        waitTimeout: 5m
+        onError: Fail
