@@ -27,14 +27,22 @@ print_deploy_usage() {
   Cluster is ready!
 ==============================================
 
-To deploy applications:
-  make apply ${cloud}
+Next steps:
+
+1. Deploy platform tools (CSI, Velero):
+   make deploy-tools ${cloud}
+
+2. Deploy applications:
+   make deploy-applications ${cloud}
+
+Or use all-in-one:
+   make deploy ${cloud}
 
 To access the cluster manually:
-  make connect ${cloud}
+   make connect ${cloud}
 
 To destroy the cluster:
-  make destroy ${cloud}
+   make destroy ${cloud}
 
 EOF
 }

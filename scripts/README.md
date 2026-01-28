@@ -6,51 +6,19 @@ Automation scripts for cluster lifecycle management. See [root README.md](../REA
 
 ## Script Details
 
-### infra/deploy.sh
-
-`make deploy-infra gcp` - Creates VMs, bootstraps Kubernetes, fetches kubeconfig.
-
-### platform/deploy.sh
-
-`make deploy-tools gcp` - Installs CSI driver, StorageClass, Velero.
-
-### workloads/deploy.sh
-
-`make deploy-applications gcp` - Deploys NGINX (2 replicas) and Redis (1 replica + PVC).
-
-### infra/destroy.sh
-
-`make destroy gcp` - Removes workloads, destroys infrastructure, cleans configs.
-
-### infra/connect.sh
-
-`make connect gcp` - Opens tunnel for kubectl access. Keep running in separate terminal.
-
-### workloads/seed-redis.sh
-
-`make seed-redis gcp` - Inserts test data (users, counter, config, queue).
-
-### backup/create.sh
-
-`make backup gcp` - Creates Velero backup (manifests + volume snapshots). Redis BGSAVE hooks auto-enabled via `configs/velero/backup-hooks.yaml`.
-
-### backup/restore.sh
-
-`make restore gcp` - Restores from latest backup, verifies data. Requires platform tools already installed. Redis PING validation auto-enabled.
-
-Flow: `make deploy-infra gcp && make deploy-tools gcp && make restore gcp`
-
-### backup/list.sh
-
-`make list-backups gcp` - Lists all backups.
-
-### backup/delete.sh
-
-`make delete-backup gcp NAME=<name>` - Deletes backup and volume snapshots.
-
-### backup/delete-all.sh
-
-`make delete-all-backups gcp` - Deletes all backups.
+| Script | Command | Description |
+|--------|---------|-------------|
+| infra/deploy.sh | `make deploy-infra gcp` | Creates VMs, bootstraps Kubernetes, fetches kubeconfig |
+| platform/deploy.sh | `make deploy-tools gcp` | Installs CSI driver, StorageClass, Velero |
+| workloads/deploy.sh | `make deploy-applications gcp` | Deploys NGINX (2 replicas) and Redis (1 replica + PVC) |
+| infra/destroy.sh | `make destroy gcp` | Removes workloads, destroys infrastructure, cleans configs |
+| infra/connect.sh | `make connect gcp` | Opens tunnel for kubectl access (keep running in separate terminal) |
+| workloads/seed-redis.sh | `make seed-redis gcp` | Inserts test data (users, counter, config, queue) |
+| backup/create.sh | `make backup gcp` | Creates Velero backup (manifests + volume snapshots). Redis BGSAVE hooks auto-enabled |
+| backup/restore.sh | `make restore gcp` | Restores from latest backup, verifies data. Redis PING validation auto-enabled. Flow: `make deploy-infra gcp && make deploy-tools gcp && make restore gcp` |
+| backup/list.sh | `make list-backups gcp` | Lists all backups |
+| backup/delete.sh | `make delete-backup gcp NAME=<name>` | Deletes backup and volume snapshots |
+| backup/delete-all.sh | `make delete-all-backups gcp` | Deletes all backups |
 
 ## Cluster Access
 
