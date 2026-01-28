@@ -1,0 +1,68 @@
+# Velero Restore Hooks - Centralized Configuration Example
+#
+# This file shows how to configure post-restore validation hooks using label selectors.
+# Hooks defined here apply to all pods matching the labelSelector.
+#
+# Usage:
+#   1. Copy this file to restore-hooks.yaml
+#   2. Customize for your deployments
+#   3. Set environment variable before restore:
+#      export VELERO_RESTORE_HOOKS_FILE="${PWD}/configs/velero/restore-hooks.yaml"
+#   4. Run: make restore gcp
+#
+# Format: Velero Restore CR spec.hooks section
+# Documentation: https://velero.io/docs/main/restore-hooks/
+# API Reference: https://velero.io/docs/main/api-types/restore/
+
+    resources:
+      # Redis: Validate connection after restore
+      - name: redis-validate
+        includedNamespaces:
+          - application
+        labelSelector:
+          matchLabels:
+            app: redis
+        postHooks:
+          - exec:
+              container: redis
+              command: ["/usr/local/bin/redis-cli", "PING"]
+              execTimeout: 5m
+              waitTimeout: 5m
+              onError: Fail
+
+      # PostgreSQL: Verify database accessible
+      # Add this when deploying PostgreSQL
+      # - name: postgres-validate
+      #   includedNamespaces:
+      #     - application
+      #   labelSelector:
+      #     matchLabels:
+      #       app: postgres
+      #   postHooks:
+      #     - exec:
+      #         container: postgres
+      #         command: ["/usr/bin/psql", "-U", "postgres", "-c", "SELECT 1"]
+      #         execTimeout: 5m
+      #         waitTimeout: 5m
+      #         onError: Fail
+
+# Hook Types:
+#
+# postHooks (execHook):
+#   - Runs AFTER pod is running and ready
+#   - Use for: validation, connectivity checks, cache warming
+#   - Can fail without blocking (onError: Continue)
+#
+# initContainers:
+#   - Runs BEFORE main container starts
+#   - Use for: permissions, file transformations, schema migrations
+#   - Blocks pod startup if it fails
+#
+# Timeout Recommendations:
+#   - Simple checks (PING, SELECT 1): 1-2m
+#   - Database queries: 5m
+#   - Schema migrations: 10-15m
+#
+# Note: Restore hooks are optional. Use them for validation only.
+# Unlike backup hooks (which ensure consistency), restore hooks
+# don't affect data integrity - they just verify the restore worked.

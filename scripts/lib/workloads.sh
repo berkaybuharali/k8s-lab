@@ -1,60 +1,12 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# Application Functions
+# Application Helper Functions
 # -----------------------------------------------------------------------------
-# Cloud-agnostic functions for deploying and removing applications.
+# Cloud-agnostic helper functions for application lifecycle.
 #
-# These functions apply Kubernetes manifests that work across any cloud:
-# - Namespace
-# - Deployments (NGINX, Redis)
-# - Services
-# - PersistentVolumeClaims
-#
-# Cloud-specific resources (StorageClass, CSI driver) are handled by
-# the cloud-specific library modules.
+# Note: Application deployment is handled by scripts/apps/deploy.sh
+# This library provides helper functions for removal, verification, and status.
 # -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
-# Deploy Applications
-# -----------------------------------------------------------------------------
-# Applies all application manifests.
-#
-# Arguments:
-#   $1 - Cloud provider (gcp, stackit, etc.) for cloud-specific manifests
-# -----------------------------------------------------------------------------
-apps_deploy() {
-    local cloud=$1
-    log_step "Deploying applications on top of Talos Kubernetes"
-
-    local apps_dir="${REPO_ROOT}/apps"
-
-    # Apply namespace
-    log_info "Creating namespace application"
-    kubectl apply -f "${apps_dir}/namespace.yaml"
-
-    # Apply cloud-specific StorageClass
-    if [[ -f "${apps_dir}/${cloud}/storageclass.yaml" ]]; then
-        log_info "Applying ${cloud} StorageClass"
-        kubectl apply -f "${apps_dir}/${cloud}/storageclass.yaml"
-    fi
-
-    # Deploy NGINX (stateless, 2 replicas across zones)
-    log_info "Deploying NGINX"
-    kubectl apply -f "${apps_dir}/nginx.yaml"
-
-    # Deploy Redis (stateful, 1 replica with persistent storage)
-    log_info "Deploying Redis with persisten storage"
-    kubectl apply -f "${apps_dir}/redis.yaml"
-
-    # Wait for deployments to be ready
-    log_info "Waiting for NGINX deployment"
-    kubectl rollout status deployment/nginx -n application --timeout=120s
-
-    log_info "Waiting for Redis deployment"
-    kubectl rollout status deployment/redis -n application --timeout=300s
-
-    log_info "Applications deployed"
-}
 
 # -----------------------------------------------------------------------------
 # Remove Applications
@@ -106,6 +58,51 @@ apps_remove() {
     fi
 
     log_info "Applications removed"
+}
+
+# -----------------------------------------------------------------------------
+# Verify Applications
+# -----------------------------------------------------------------------------
+# Waits for deployments to be ready and verifies application data.
+# Called after Velero restore to ensure applications are functional.
+# -----------------------------------------------------------------------------
+apps_verify() {
+    log_step "Verifying applications are running"
+
+    # Check namespace exists
+    if ! kubectl get namespace application &> /dev/null; then
+        log_error "Namespace 'application' not found"
+        return 1
+    fi
+
+    # Wait for NGINX deployment
+    log_info "Waiting for NGINX deployment"
+    if kubectl get deployment nginx -n application &> /dev/null; then
+        kubectl rollout status deployment/nginx -n application --timeout=180s
+    else
+        log_warn "NGINX deployment not found"
+    fi
+
+    # Wait for Redis deployment
+    log_info "Waiting for Redis deployment"
+    if kubectl get deployment redis -n application &> /dev/null; then
+        kubectl rollout status deployment/redis -n application --timeout=300s
+
+        # Verify Redis data if deployment exists
+        log_info "Checking Redis data integrity"
+        local user1
+        user1=$(kubectl exec deploy/redis -n application -- redis-cli GET user:1 2>/dev/null || true)
+
+        if [[ -n "$user1" && "$user1" != *"nil"* ]]; then
+            log_info "Redis data verified: user:1 = ${user1}"
+        else
+            log_warn "Redis data not found (user:1). Data may not have been seeded before backup."
+        fi
+    else
+        log_warn "Redis deployment not found"
+    fi
+
+    log_info "Application verification complete"
 }
 
 # -----------------------------------------------------------------------------

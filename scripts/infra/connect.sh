@@ -13,7 +13,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TF_DIR="${REPO_ROOT}/infra/gcp/terraform"
 CONFIGS_DIR="${REPO_ROOT}/configs"
 
@@ -47,7 +47,7 @@ CONNECT TO CLUSTER
 
 2. In another terminal, use kubectl:
 
-   export KUBECONFIG=${CONFIGS_DIR}/kubeconfig
+   export KUBECONFIG=${TALOS_CONFIGS_DIR}/kubeconfig
    kubectl get nodes
    kubectl get pods -n application
 

@@ -28,3 +28,8 @@ boot_image = "projects/your-gcp-project-id/global/images/talos-v1-12-1"
 # Network Settings
 network_name = "talos-vpc"  # TODO: Change if using shared project (e.g., "bb-talos-vpc")
 subnet_cidr  = "10.0.0.0/24"
+
+# Storage
+# TODO: Replace with your GCS bucket name (used for Terraform state and Velero backups)
+# IMPORTANT: This must match the bucket name in backend.tf
+state_bucket = "your-state-bucket-name"

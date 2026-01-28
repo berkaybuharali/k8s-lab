@@ -14,8 +14,13 @@ override.tf.json
 terraform.tfvars
 backend.tf
 
-# Talos configs (generated, contain secrets)
-configs/
+# Generated configs (contain secrets and credentials)
+configs/*
+# Allow Velero hooks directory and example files
+!configs/velero/
+configs/velero/*
+!configs/velero/*.yaml
+!configs/velero/*.example
 
 # Editor
 .idea/
@@ -33,3 +38,7 @@ Thumbs.db
 
 # Local notes and environment-specific docs (not for repo)
 LOCAL.md
+VELERO_MASTERY_PLAN.md
+REDIS_BACKUP_IMPLEMENTATION.md
+QUICKSTART.md
+PLAN_VELERO.md

@@ -36,7 +36,7 @@
 talos_generate_configs() {
     log_step "Generating Talos machine configurations..."
 
-    mkdir -p "${CONFIGS_DIR}"
+    mkdir -p "${TALOS_CONFIGS_DIR}"
 
     # Build patch flags from cloud-specific patches (set by cloud modules)
     # TALOS_PATCH_FILES is an array of patch file paths, may be unset for some clouds
@@ -56,15 +56,15 @@ talos_generate_configs() {
     # --force: Overwrite existing (needed for daily recreate workflow)
     # --additional-sans localhost: Required for IAP tunnel access (we connect via localhost)
     talosctl gen config "${CLUSTER_NAME}" "https://${CP_IP}:6443" \
-        --output-dir "${CONFIGS_DIR}" \
+        --output-dir "${TALOS_CONFIGS_DIR}" \
         --additional-sans localhost \
         --force \
         "${patch_args[@]}"
 
     log_info "Generated:"
-    log_info "  ${CONFIGS_DIR}/controlplane.yaml"
-    log_info "  ${CONFIGS_DIR}/worker.yaml"
-    log_info "  ${CONFIGS_DIR}/talosconfig"
+    log_info "  ${TALOS_CONFIGS_DIR}/controlplane.yaml"
+    log_info "  ${TALOS_CONFIGS_DIR}/worker.yaml"
+    log_info "  ${TALOS_CONFIGS_DIR}/talosconfig"
 }
 
 # -----------------------------------------------------------------------------
@@ -130,7 +130,7 @@ talos_apply_node_config() {
 talos_apply_cp_config() {
     log_step "talos_apply_cp_config: CP_NAME=${CP_NAME}, CP_ZONE=${CP_ZONE}"
 
-    local cp_config="${CONFIGS_DIR}/controlplane.yaml"
+    local cp_config="${TALOS_CONFIGS_DIR}/controlplane.yaml"
     talos_apply_node_config "${CP_NAME}" "${CP_ZONE}" "${cp_config}" "control-plane"
 }
 
@@ -144,7 +144,7 @@ talos_apply_worker_configs() {
     local worker_count=${#WORKER_NAMES[@]}
     log_step "talos_apply_worker_configs: worker_count=${worker_count}"
 
-    local worker_config="${CONFIGS_DIR}/worker.yaml"
+    local worker_config="${TALOS_CONFIGS_DIR}/worker.yaml"
 
     for i in "${!WORKER_NAMES[@]}"; do
         talos_apply_node_config "${WORKER_NAMES[$i]}" "${WORKER_ZONES[$i]}" "${worker_config}" "worker-${i}"
@@ -219,7 +219,7 @@ talos_wait_for_api_ready() {
 talos_bootstrap() {
     log_step "Bootstrapping Kubernetes cluster..."
 
-    local talosconfig="${CONFIGS_DIR}/talosconfig"
+    local talosconfig="${TALOS_CONFIGS_DIR}/talosconfig"
 
     # Start tunnel to control plane
     local tunnel_pid
@@ -348,8 +348,8 @@ talos_wait_for_all_nodes() {
 talos_fetch_kubeconfig() {
     log_step "Fetching kubeconfig..."
 
-    local talosconfig="${CONFIGS_DIR}/talosconfig"
-    local kubeconfig="${CONFIGS_DIR}/kubeconfig"
+    local talosconfig="${TALOS_CONFIGS_DIR}/talosconfig"
+    local kubeconfig="${TALOS_CONFIGS_DIR}/kubeconfig"
 
     local tunnel_pid
     tunnel_pid=$(tunnel_start "${CP_NAME}" "${CP_ZONE}" 50000 50000)
@@ -378,9 +378,9 @@ talos_fetch_kubeconfig() {
 # Called during cluster destruction.
 # -----------------------------------------------------------------------------
 talos_cleanup_configs() {
-    log_step "talos_cleanup_configs: CONFIGS_DIR=${CONFIGS_DIR}"
-    if [ -d "${CONFIGS_DIR}" ]; then
-        log_info "Removing generated configs..."
-        rm -rf "${CONFIGS_DIR}"
+    log_step "talos_cleanup_configs: TALOS_CONFIGS_DIR=${TALOS_CONFIGS_DIR}"
+    if [ -d "${TALOS_CONFIGS_DIR}" ]; then
+        log_info "Removing Talos configs..."
+        rm -rf "${TALOS_CONFIGS_DIR}"
     fi
 }

@@ -1,0 +1,97 @@
+# Velero Backup Hooks - Centralized Configuration Example
+#
+# This file shows how to configure backup hooks using label selectors.
+# Hooks defined here apply to all pods matching the labelSelector.
+#
+# Usage:
+#   1. Copy this file to backup-hooks.yaml
+#   2. Customize for your deployments
+#   3. Set environment variable before backup:
+#      export VELERO_BACKUP_HOOKS_FILE="${PWD}/configs/velero/backup-hooks.yaml"
+#   4. Run: make backup gcp
+#
+# Format: Velero Backup CR spec.hooks section
+# Documentation: https://velero.io/docs/main/backup-hooks/
+# API Reference: https://velero.io/docs/main/api-types/backup/
+#
+# Note: Pod annotations take precedence over centralized hooks.
+# Redis uses pod annotations by default (see apps/redis.yaml).
+
+    resources:
+      # Redis: Force persistence before snapshot
+      # Uncomment if you remove pod annotations from apps/redis.yaml
+      # - name: redis-bgsave
+      #   includedNamespaces:
+      #     - application
+      #   labelSelector:
+      #     matchLabels:
+      #       app: redis
+      #   pre:
+      #     - exec:
+      #         container: redis
+      #         command: ["/usr/local/bin/redis-cli", "BGSAVE"]
+      #         timeout: 3m
+      #         onError: Fail
+      #   post:
+      #     - exec:
+      #         container: redis
+      #         command: ["/usr/local/bin/redis-cli", "LASTSAVE"]
+      #         timeout: 30s
+
+      # PostgreSQL: Dump database to persistent volume
+      # Add this when deploying PostgreSQL
+      # - name: postgres-dump
+      #   includedNamespaces:
+      #     - application
+      #   labelSelector:
+      #     matchLabels:
+      #       app: postgres
+      #   pre:
+      #     - exec:
+      #         container: postgres
+      #         command: ["/bin/bash", "-c"]
+      #         args: ["pg_dumpall -U postgres -f /var/lib/postgresql/backup.sql && sync"]
+      #         timeout: 15m
+      #         onError: Fail
+
+# Hook Types:
+#
+# pre:
+#   - Runs BEFORE volume snapshot is taken
+#   - Use for: flushing buffers, creating consistent backups, quiescing databases
+#   - Blocks backup if it fails (onError: Fail)
+#
+# post:
+#   - Runs AFTER volume snapshot is taken
+#   - Use for: verification, unlocking resources, cleanup
+#   - Can continue on error (onError: Continue)
+#
+# Timeout Recommendations:
+#   - Simple operations (Redis BGSAVE): 3m
+#   - Database dumps (PostgreSQL): 15m
+#   - Large data exports: 30m+
+
+# Comparison: Pod Annotations vs Centralized Hooks
+#
+# Pod Annotations (default method):
+#   pros:
+#     - Portable: follows the pod across clusters
+#     - Visible in pod manifest
+#     - No environment variable needed
+#   cons:
+#     - Scattered across deployment files
+#     - Requires pod redeployment to change
+#
+# Centralized Hooks (this file):
+#   pros:
+#     - Single file for all database hooks
+#     - Can target multiple pods with label selectors
+#     - No pod redeployment needed to change hooks
+#   cons:
+#     - Requires environment variable export
+#     - Not visible in pod manifests
+#     - Must be available during backup/restore
+#
+# Recommendation:
+# - Use pod annotations (default) for simplicity
+# - Use centralized hooks when managing many databases or testing different hook strategies

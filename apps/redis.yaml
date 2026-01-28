@@ -35,6 +35,22 @@ spec:
     metadata:
       labels:
         app: redis
+      annotations:
+        # Velero backup hooks - Two methods available:
+        # 1. Pod annotations (below, active by default) - Portable, follows the pod
+        # 2. Centralized hooks (configs/velero/backup-hooks.yaml) - Opt-in via env var
+        #
+        # Pod annotations take precedence when both are defined.
+        # To use centralized hooks instead, comment out annotations and set:
+        #   export VELERO_BACKUP_HOOKS_FILE="${PWD}/configs/velero/backup-hooks.yaml"
+        #
+        # Backup hooks: Force Redis to save in-memory data to disk before snapshot
+        pre.hook.backup.velero.io/command: '["/usr/local/bin/redis-cli", "BGSAVE"]'
+        pre.hook.backup.velero.io/container: redis
+        pre.hook.backup.velero.io/timeout: 3m
+        pre.hook.backup.velero.io/on-error: Fail
+        post.hook.backup.velero.io/command: '["/usr/local/bin/redis-cli", "LASTSAVE"]'
+        post.hook.backup.velero.io/container: redis
     spec:
       securityContext:
         runAsNonRoot: true
@@ -63,9 +79,19 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
-          # Enable AOF persistence
+          # Enable RDB + AOF persistence for data durability
+          # RDB: Point-in-time snapshots, fast restores
+          # AOF: Log-based, better durability, synced every second
           args:
             - redis-server
+            # RDB snapshotting
+            - --save
+            - "900 1"       # Save after 900s if 1 key changed
+            - --save
+            - "300 10"      # Save after 300s if 10 keys changed
+            - --save
+            - "60 10000"    # Save after 60s if 10000 keys changed
+            # AOF persistence
             - --appendonly
             - "yes"
             - --appendfsync

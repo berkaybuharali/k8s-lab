@@ -17,7 +17,7 @@
 # -----------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/lib/common.sh"
+source "${SCRIPT_DIR}/../lib/common.sh"
 
 print_deploy_usage() {
     local cloud=$1
@@ -27,14 +27,22 @@ print_deploy_usage() {
   Cluster is ready!
 ==============================================
 
-To deploy applications:
-  make apply ${cloud}
+Next steps:
+
+1. Deploy platform tools (CSI, Velero):
+   make deploy-tools ${cloud}
+
+2. Deploy applications:
+   make deploy-applications ${cloud}
+
+Or use all-in-one:
+   make deploy ${cloud}
 
 To access the cluster manually:
-  make connect ${cloud}
+   make connect ${cloud}
 
 To destroy the cluster:
-  make destroy ${cloud}
+   make destroy ${cloud}
 
 EOF
 }
@@ -53,7 +61,7 @@ main() {
     log_step "Starting cluster deployment for ${cloud}"
 
     setup_error_handling
-    check_prerequisites
+    check_prerequisites "$cloud"
 
     # Create infrastructure
     tf_create
