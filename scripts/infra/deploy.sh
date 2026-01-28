@@ -53,7 +53,7 @@ main() {
     log_step "Starting cluster deployment for ${cloud}"
 
     setup_error_handling
-    check_prerequisites
+    check_prerequisites "$cloud"
 
     # Create infrastructure
     tf_create
