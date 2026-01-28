@@ -4,12 +4,8 @@
 // with infrastructure provisioning, cluster bootstrapping, and backup/restore.
 package main
 
-import (
-	"fmt"
-	"os"
-)
+import "github.com/berkaybuharali/k8s-lab/cli/cmd"
 
 func main() {
-	fmt.Println("k8s-lab CLI v0.1.0")
-	os.Exit(0)
+	cmd.Execute()
 }
