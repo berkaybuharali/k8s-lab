@@ -37,21 +37,20 @@ spec:
         app: redis
       annotations:
         # Velero backup hooks - Two methods available:
-        # 1. Pod annotations (below, commented out) - Portable, follows the pod
-        # 2. Centralized hooks file (configs/velero/backup-hooks.yaml) - Currently used
+        # 1. Pod annotations (below, active by default) - Portable, follows the pod
+        # 2. Centralized hooks (configs/velero/backup-hooks.yaml) - Opt-in via env var
         #
-        # Pod annotations take precedence over hooks file when both are defined.
-        # Annotations are useful for production-critical databases or when deploying
-        # to clusters where you don't control the central hooks configuration.
+        # Pod annotations take precedence when both are defined.
+        # To use centralized hooks instead, comment out annotations and set:
+        #   export VELERO_BACKUP_HOOKS_FILE="${PWD}/configs/velero/backup-hooks.yaml"
         #
-        # Uncomment to use pod annotations instead of central hooks file:
-        #
-        # pre.hook.backup.velero.io/command: '["/usr/local/bin/redis-cli", "BGSAVE"]'
-        # pre.hook.backup.velero.io/container: redis
-        # pre.hook.backup.velero.io/timeout: 3m
-        # pre.hook.backup.velero.io/on-error: Fail
-        # post.hook.backup.velero.io/command: '["/usr/local/bin/redis-cli", "LASTSAVE"]'
-        # post.hook.backup.velero.io/container: redis
+        # Backup hooks: Force Redis to save in-memory data to disk before snapshot
+        pre.hook.backup.velero.io/command: '["/usr/local/bin/redis-cli", "BGSAVE"]'
+        pre.hook.backup.velero.io/container: redis
+        pre.hook.backup.velero.io/timeout: 3m
+        pre.hook.backup.velero.io/on-error: Fail
+        post.hook.backup.velero.io/command: '["/usr/local/bin/redis-cli", "LASTSAVE"]'
+        post.hook.backup.velero.io/container: redis
     spec:
       securityContext:
         runAsNonRoot: true

@@ -104,7 +104,7 @@ make deploy-infra gcp
 make deploy-tools gcp
 make deploy-applications gcp
 make seed-redis gcp
-make backup gcp               # Redis BGSAVE hooks auto-enabled
+make backup gcp               # Redis BGSAVE hooks via pod annotations
 make destroy gcp
 
 # Day 2+: Restore from backup
@@ -124,8 +124,27 @@ kubectl get backup -n velero
 make delete-all-backups gcp
 ```
 
-**Note:** Redis backup hooks (BGSAVE before snapshot, PING validation after restore) are automatically enabled via `configs/velero/*.yaml`. Pod annotation examples in `apps/redis.yaml`. See `configs/velero/*.example` for PostgreSQL/MySQL templates.
+**Backup Hooks:** Redis uses pod annotations for backup hooks (apps/redis.yaml:40-45). For centralized hooks with label selectors, see configs/velero/backup-hooks.yaml.example (Redis + PostgreSQL examples).
 
+### Using Centralized Hooks (Optional)
+
+To use centralized hooks instead of pod annotations:
+
+```bash
+# 1. Create hooks configuration
+cp configs/velero/backup-hooks.yaml.example configs/velero/backup-hooks.yaml
+cp configs/velero/restore-hooks.yaml.example configs/velero/restore-hooks.yaml
+
+# 2. Edit configs/velero/backup-hooks.yaml and uncomment desired hooks
+
+# 3. Set environment variables and run backup
+export VELERO_BACKUP_HOOKS_FILE="${PWD}/configs/velero/backup-hooks.yaml"
+export VELERO_RESTORE_HOOKS_FILE="${PWD}/configs/velero/restore-hooks.yaml"
+make backup gcp
+make restore gcp
+```
+
+Centralized hooks use label selectors to target multiple pods and can be changed without redeploying applications. Pod annotations take precedence when both are defined.
 
 ## Repository Structure
 
@@ -167,11 +186,9 @@ k8s-lab/
 │           ├── velero.sh     # GCP Velero plugin installation
 │           └── verify.sh     # Resource verification
 ├── configs/                  # Configuration files
-│   ├── velero/               # Velero hooks (backup/restore consistency)
-│   │   ├── backup-hooks.yaml         # Redis backup hooks (auto-detected)
-│   │   ├── restore-hooks.yaml        # Redis restore hooks (auto-detected)
-│   │   ├── backup-hooks.yaml.example # PostgreSQL, MySQL templates
-│   │   └── restore-hooks.yaml.example# PostgreSQL, MySQL templates
+│   ├── velero/               # Velero centralized hooks (opt-in)
+│   │   ├── backup-hooks.yaml.example # Redis, PostgreSQL examples
+│   │   └── restore-hooks.yaml.example# Redis, PostgreSQL examples
 │   └── talos/                # Generated Talos/K8s configs (gitignored)
 │       ├── controlplane.yaml
 │       ├── worker.yaml

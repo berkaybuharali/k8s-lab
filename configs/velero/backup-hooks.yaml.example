@@ -1,85 +1,97 @@
-# Velero Backup Hooks - Templates for Future Databases
+# Velero Backup Hooks - Centralized Configuration Example
 #
-# This file contains examples for PostgreSQL, MySQL, and MongoDB.
-# Redis is already configured in backup-hooks.yaml.
+# This file shows how to configure backup hooks using label selectors.
+# Hooks defined here apply to all pods matching the labelSelector.
 #
 # Usage:
-#   1. When adding a new database, copy the relevant section from this file
-#   2. Add it to backup-hooks.yaml
-#   3. Customize labels and commands for your deployment
-#   4. Backup scripts automatically use backup-hooks.yaml if it exists
+#   1. Copy this file to backup-hooks.yaml
+#   2. Customize for your deployments
+#   3. Set environment variable before backup:
+#      export VELERO_BACKUP_HOOKS_FILE="${PWD}/configs/velero/backup-hooks.yaml"
+#   4. Run: make backup gcp
 #
-# Hooks execute in pod containers before/after volume snapshots.
-# Critical for databases to ensure consistent state at backup time.
-
-version: v1
-kind: BackupHooks
-
-hooks:
-  # PostgreSQL: Dump database to persistent volume
-  # Add this to backup-hooks.yaml when deploying PostgreSQL
-  # - name: postgres-dump
-  #   labelSelector:
-  #     matchLabels:
-  #       app: postgres
-  #   pre:
-  #     - exec:
-  #         container: postgres
-  #         command: ["/bin/bash", "-c"]
-  #         args: ["pg_dumpall -U postgres -f /var/lib/postgresql/backup.sql && sync"]
-  #         timeout: 15m
-  #         onError: Fail
-
-  # MySQL: Freeze tables during snapshot
-  # - name: mysql-freeze
-  #   labelSelector:
-  #     matchLabels:
-  #       app: mysql
-  #   pre:
-  #     - exec:
-  #         container: mysql
-  #         command: ["/usr/bin/mysql", "-u", "root", "-e"]
-  #         args: ["FLUSH TABLES WITH READ LOCK"]
-  #         timeout: 1m
-  #         onError: Fail
-  #   post:
-  #     - exec:
-  #         container: mysql
-  #         command: ["/usr/bin/mysql", "-u", "root", "-e"]
-  #         args: ["UNLOCK TABLES"]
-  #         timeout: 30s
-
-  # MongoDB: Ensure journal is flushed
-  # - name: mongodb-fsync
-  #   labelSelector:
-  #     matchLabels:
-  #       app: mongodb
-  #   pre:
-  #     - exec:
-  #         container: mongodb
-  #         command: ["/usr/bin/mongosh", "--eval"]
-  #         args: ["db.adminCommand({fsync: 1})"]
-  #         timeout: 2m
-  #         onError: Continue
-
-# Hook Comparison: Annotations vs Hooks File
+# Format: Velero Backup CR spec.hooks section
+# Documentation: https://velero.io/docs/main/backup-hooks/
+# API Reference: https://velero.io/docs/main/api-types/backup/
 #
-# Pod Annotations (Method 1):
+# Note: Pod annotations take precedence over centralized hooks.
+# Redis uses pod annotations by default (see apps/redis.yaml).
+
+    resources:
+      # Redis: Force persistence before snapshot
+      # Uncomment if you remove pod annotations from apps/redis.yaml
+      # - name: redis-bgsave
+      #   includedNamespaces:
+      #     - application
+      #   labelSelector:
+      #     matchLabels:
+      #       app: redis
+      #   pre:
+      #     - exec:
+      #         container: redis
+      #         command: ["/usr/local/bin/redis-cli", "BGSAVE"]
+      #         timeout: 3m
+      #         onError: Fail
+      #   post:
+      #     - exec:
+      #         container: redis
+      #         command: ["/usr/local/bin/redis-cli", "LASTSAVE"]
+      #         timeout: 30s
+
+      # PostgreSQL: Dump database to persistent volume
+      # Add this when deploying PostgreSQL
+      # - name: postgres-dump
+      #   includedNamespaces:
+      #     - application
+      #   labelSelector:
+      #     matchLabels:
+      #       app: postgres
+      #   pre:
+      #     - exec:
+      #         container: postgres
+      #         command: ["/bin/bash", "-c"]
+      #         args: ["pg_dumpall -U postgres -f /var/lib/postgresql/backup.sql && sync"]
+      #         timeout: 15m
+      #         onError: Fail
+
+# Hook Types:
+#
+# pre:
+#   - Runs BEFORE volume snapshot is taken
+#   - Use for: flushing buffers, creating consistent backups, quiescing databases
+#   - Blocks backup if it fails (onError: Fail)
+#
+# post:
+#   - Runs AFTER volume snapshot is taken
+#   - Use for: verification, unlocking resources, cleanup
+#   - Can continue on error (onError: Continue)
+#
+# Timeout Recommendations:
+#   - Simple operations (Redis BGSAVE): 3m
+#   - Database dumps (PostgreSQL): 15m
+#   - Large data exports: 30m+
+
+# Comparison: Pod Annotations vs Centralized Hooks
+#
+# Pod Annotations (default method):
 #   pros:
 #     - Portable: follows the pod across clusters
 #     - Visible in pod manifest
+#     - No environment variable needed
 #   cons:
-#     - Scattered across multiple files
+#     - Scattered across deployment files
 #     - Requires pod redeployment to change
 #
-# Hooks File (Method 2):
+# Centralized Hooks (this file):
 #   pros:
-#     - Centralized management
+#     - Single file for all database hooks
 #     - Can target multiple pods with label selectors
-#     - No pod redeployment needed
+#     - No pod redeployment needed to change hooks
 #   cons:
-#     - Must be provided to every backup command
+#     - Requires environment variable export
 #     - Not visible in pod manifests
+#     - Must be available during backup/restore
 #
-# Recommendation: Use pod annotations for production-critical databases,
-# hooks file for development/testing or multi-pod policies.
+# Recommendation:
+# - Use pod annotations (default) for simplicity
+# - Use centralized hooks when managing many databases or testing different hook strategies

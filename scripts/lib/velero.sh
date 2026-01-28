@@ -21,22 +21,13 @@
 VELERO_BACKUP_BASE_NAME="${VELERO_BACKUP_NAME:-k8s-lab-backup}"
 VELERO_NAMESPACES="${VELERO_NAMESPACES:-application}"
 
-# Auto-detect hooks files if they exist (no manual export needed)
-# Override by setting VELERO_BACKUP_HOOKS_FILE or VELERO_RESTORE_HOOKS_FILE
-DEFAULT_BACKUP_HOOKS="${CONFIGS_DIR}/velero/backup-hooks.yaml"
-DEFAULT_RESTORE_HOOKS="${CONFIGS_DIR}/velero/restore-hooks.yaml"
-
-if [[ -z "${VELERO_BACKUP_HOOKS_FILE:-}" ]] && [[ -f "${DEFAULT_BACKUP_HOOKS}" ]]; then
-    VELERO_BACKUP_HOOKS_FILE="${DEFAULT_BACKUP_HOOKS}"
-else
-    VELERO_BACKUP_HOOKS_FILE="${VELERO_BACKUP_HOOKS_FILE:-}"
-fi
-
-if [[ -z "${VELERO_RESTORE_HOOKS_FILE:-}" ]] && [[ -f "${DEFAULT_RESTORE_HOOKS}" ]]; then
-    VELERO_RESTORE_HOOKS_FILE="${DEFAULT_RESTORE_HOOKS}"
-else
-    VELERO_RESTORE_HOOKS_FILE="${VELERO_RESTORE_HOOKS_FILE:-}"
-fi
+# Centralized hooks are opt-in via environment variables
+# By default, only pod annotations are used (simpler, more portable)
+# Set these to use centralized hooks with label selectors:
+#   export VELERO_BACKUP_HOOKS_FILE="${PWD}/configs/velero/backup-hooks.yaml"
+#   export VELERO_RESTORE_HOOKS_FILE="${PWD}/configs/velero/restore-hooks.yaml"
+VELERO_BACKUP_HOOKS_FILE="${VELERO_BACKUP_HOOKS_FILE:-}"
+VELERO_RESTORE_HOOKS_FILE="${VELERO_RESTORE_HOOKS_FILE:-}"
 
 # -----------------------------------------------------------------------------
 # Wait for Velero to be Ready
@@ -51,25 +42,83 @@ velero_wait_ready() {
 }
 
 # -----------------------------------------------------------------------------
+# Create Backup with Hooks (Internal)
+# -----------------------------------------------------------------------------
+# Creates a Backup CR with embedded hooks using kubectl.
+# Used when backup hooks file is provided.
+#
+# Parameters:
+#   $1: backup_name
+#   $2: namespaces (comma-separated)
+#   $3: hooks_file (path to hooks spec)
+# -----------------------------------------------------------------------------
+_create_backup_with_hooks() {
+    local backup_name=$1
+    local namespaces=$2
+    local hooks_file=$3
+
+    log_info "Creating Backup CR with embedded hooks"
+
+    # Convert comma-separated namespaces to YAML array
+    local ns_array=""
+    IFS=',' read -ra NS <<< "$namespaces"
+    for ns in "${NS[@]}"; do
+        ns_array+="    - ${ns}"$'\n'
+    done
+
+    # Read hooks spec from file
+    local hooks_spec
+    hooks_spec=$(cat "${hooks_file}")
+
+    # Create Backup CR with embedded hooks
+    cat <<EOF | kubectl apply -f -
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: ${backup_name}
+  namespace: velero
+spec:
+  includedNamespaces:
+${ns_array}
+  hooks:
+${hooks_spec}
+  storageLocation: default
+  ttl: 720h0m0s
+EOF
+
+    log_info "Waiting for backup to complete (timeout: 10m)"
+
+    # Wait for terminal phase (velero_verify_backup will check if it succeeded)
+    local timeout=600
+    local elapsed=0
+    until [[ $(kubectl get backup "${backup_name}" -n velero -o jsonpath='{.status.phase}' 2>/dev/null) =~ ^(Completed|Failed|PartiallyFailed)$ ]]; do
+        sleep 5
+        elapsed=$((elapsed + 5))
+        if [[ $elapsed -ge $timeout ]]; then
+            log_error "Backup timed out after ${timeout}s"
+            return 1
+        fi
+    done
+}
+
+# -----------------------------------------------------------------------------
 # Create Backup
 # -----------------------------------------------------------------------------
 # Creates a Velero backup with automatic timestamp suffix.
-# Supports custom backup name, namespaces, and optional hooks file.
+# Supports custom backup name, namespaces, and optional hooks.
 #
 # Environment variables:
 #   VELERO_BACKUP_NAME: Base name (default: k8s-lab-backup)
 #   VELERO_NAMESPACES: Comma-separated namespaces (default: application)
-#   VELERO_BACKUP_HOOKS_FILE: Path to backup hooks YAML (optional)
+#   VELERO_BACKUP_HOOKS_FILE: Path to backup hooks spec (optional)
 #
 # The backup name will always have -ddmmyyyyhhmm timestamp appended.
 # Example: k8s-lab-backup-27012026-1430
 #
-# --include-namespaces: Backs up specified namespaces
-# --wait: Blocks until backup completes or fails
-# --hooks-file: Centralized backup hooks (optional, pod annotations still work)
+# When hooks file is provided, creates a Backup CR with embedded hooks.
+# Otherwise, uses velero CLI (pod annotations still work).
 #
-# Note: Pod annotations take precedence over hooks file.
-# Redis already has backup hooks via annotations (apps/redis.yaml).
+# Note: Pod annotations take precedence over hooks in Backup CR.
 # -----------------------------------------------------------------------------
 velero_backup() {
     # Generate timestamp: ddmmyyyyhhmm (UTC)
@@ -82,23 +131,20 @@ velero_backup() {
     log_step "Creating Velero backup: ${backup_name}"
     log_info "Namespaces: ${VELERO_NAMESPACES}"
 
-    # Build backup command
-    local backup_cmd=(velero backup create "${backup_name}"
-        --include-namespaces "${VELERO_NAMESPACES}"
-        --wait)
-
-    # Add hooks file if provided
+    # Use CR-based approach if hooks file provided
     if [[ -n "${VELERO_BACKUP_HOOKS_FILE}" ]]; then
         if [[ ! -f "${VELERO_BACKUP_HOOKS_FILE}" ]]; then
             log_error "Backup hooks file not found: ${VELERO_BACKUP_HOOKS_FILE}"
             return 1
         fi
         log_info "Using backup hooks: ${VELERO_BACKUP_HOOKS_FILE}"
-        backup_cmd+=(--hooks-file "${VELERO_BACKUP_HOOKS_FILE}")
+        _create_backup_with_hooks "${backup_name}" "${VELERO_NAMESPACES}" "${VELERO_BACKUP_HOOKS_FILE}"
+    else
+        # Fallback to velero CLI
+        velero backup create "${backup_name}" \
+            --include-namespaces "${VELERO_NAMESPACES}" \
+            --wait
     fi
-
-    # Execute backup
-    "${backup_cmd[@]}"
 
     velero_verify_backup "${backup_name}"
 
@@ -131,13 +177,6 @@ velero_verify_backup() {
     velero backup describe "${backup_name}"
 }
 
-# -----------------------------------------------------------------------------
-# Restore from Backup
-# -----------------------------------------------------------------------------
-# Restores the application namespace from the most recent backup.
-# Velero recreates all resources and rebinds PVCs to new volumes
-# from disk snapshots.
-# -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # List Backups
 # -----------------------------------------------------------------------------
@@ -198,6 +237,55 @@ velero_delete_all_backups() {
 }
 
 # -----------------------------------------------------------------------------
+# Create Restore with Hooks (Internal)
+# -----------------------------------------------------------------------------
+# Creates a Restore CR with embedded hooks using kubectl.
+# Used when restore hooks file is provided.
+#
+# Parameters:
+#   $1: backup_name
+#   $2: hooks_file (path to hooks spec)
+# -----------------------------------------------------------------------------
+_create_restore_with_hooks() {
+    local backup_name=$1
+    local hooks_file=$2
+    local restore_name="${backup_name}-$(date -u +"%H%M%S")"
+
+    log_info "Creating Restore CR with embedded hooks"
+
+    # Read hooks spec from file
+    local hooks_spec
+    hooks_spec=$(cat "${hooks_file}")
+
+    # Create Restore CR with embedded hooks
+    cat <<EOF | kubectl apply -f -
+apiVersion: velero.io/v1
+kind: Restore
+metadata:
+  name: ${restore_name}
+  namespace: velero
+spec:
+  backupName: ${backup_name}
+  hooks:
+${hooks_spec}
+EOF
+
+    log_info "Waiting for restore to complete (timeout: 10m)"
+
+    # Wait for terminal phase (velero_verify_restore will check if it succeeded)
+    local timeout=600
+    local elapsed=0
+    until [[ $(kubectl get restore "${restore_name}" -n velero -o jsonpath='{.status.phase}' 2>/dev/null) =~ ^(Completed|Failed|PartiallyFailed)$ ]]; do
+        sleep 5
+        elapsed=$((elapsed + 5))
+        if [[ $elapsed -ge $timeout ]]; then
+            log_error "Restore timed out after ${timeout}s"
+            return 1
+        fi
+    done
+}
+
+# -----------------------------------------------------------------------------
 # Restore from Backup
 # -----------------------------------------------------------------------------
 # Restores from the most recent backup (or specified backup name).
@@ -207,10 +295,13 @@ velero_delete_all_backups() {
 #   $1: backup_name (optional, uses latest if not provided)
 #
 # Environment variables:
-#   VELERO_RESTORE_HOOKS_FILE: Path to restore hooks YAML (optional)
+#   VELERO_RESTORE_HOOKS_FILE: Path to restore hooks spec (optional)
 #
 # Velero recreates all resources and rebinds PVCs to new volumes from snapshots.
 # Post-restore hooks run after pods are running for validation.
+#
+# When hooks file is provided, creates a Restore CR with embedded hooks.
+# Otherwise, uses velero CLI (pod annotations still work).
 # -----------------------------------------------------------------------------
 velero_restore() {
     local backup_name="${1:-}"
@@ -227,23 +318,20 @@ velero_restore() {
 
     log_step "Restoring from backup: ${backup_name}"
 
-    # Build restore command
-    local restore_cmd=(velero restore create
-        --from-backup "${backup_name}"
-        --wait)
-
-    # Add hooks file if provided
+    # Use CR-based approach if hooks file provided
     if [[ -n "${VELERO_RESTORE_HOOKS_FILE}" ]]; then
         if [[ ! -f "${VELERO_RESTORE_HOOKS_FILE}" ]]; then
             log_error "Restore hooks file not found: ${VELERO_RESTORE_HOOKS_FILE}"
             return 1
         fi
         log_info "Using restore hooks: ${VELERO_RESTORE_HOOKS_FILE}"
-        restore_cmd+=(--hooks-file "${VELERO_RESTORE_HOOKS_FILE}")
+        _create_restore_with_hooks "${backup_name}" "${VELERO_RESTORE_HOOKS_FILE}"
+    else
+        # Fallback to velero CLI
+        velero restore create \
+            --from-backup "${backup_name}" \
+            --wait
     fi
-
-    # Execute restore
-    "${restore_cmd[@]}"
 
     velero_verify_restore
 }

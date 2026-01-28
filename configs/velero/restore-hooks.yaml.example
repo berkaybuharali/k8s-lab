@@ -1,92 +1,68 @@
-# Velero Restore Hooks - Templates for Future Databases
+# Velero Restore Hooks - Centralized Configuration Example
 #
-# This file contains examples for PostgreSQL, MySQL, and custom apps.
-# Redis is already configured in restore-hooks.yaml.
+# This file shows how to configure post-restore validation hooks using label selectors.
+# Hooks defined here apply to all pods matching the labelSelector.
 #
 # Usage:
-#   1. When adding a new database, copy the relevant section from this file
-#   2. Add it to restore-hooks.yaml
-#   3. Customize labels and commands for your deployment
-#   4. Restore scripts automatically use restore-hooks.yaml if it exists
+#   1. Copy this file to restore-hooks.yaml
+#   2. Customize for your deployments
+#   3. Set environment variable before restore:
+#      export VELERO_RESTORE_HOOKS_FILE="${PWD}/configs/velero/restore-hooks.yaml"
+#   4. Run: make restore gcp
 #
-# Hooks execute after resources are restored and pods are running.
-# Use cases:
-#   - Database schema migrations
-#   - Data integrity checks
-#   - Cache warming
-#   - Permission fixes
+# Format: Velero Restore CR spec.hooks section
+# Documentation: https://velero.io/docs/main/restore-hooks/
+# API Reference: https://velero.io/docs/main/api-types/restore/
 
-version: v1
-kind: RestoreHooks
+    resources:
+      # Redis: Validate connection after restore
+      - name: redis-validate
+        includedNamespaces:
+          - application
+        labelSelector:
+          matchLabels:
+            app: redis
+        postHooks:
+          - exec:
+              container: redis
+              command: ["/usr/local/bin/redis-cli", "PING"]
+              execTimeout: 5m
+              waitTimeout: 5m
+              onError: Fail
 
-hooks:
-  # PostgreSQL: Verify database accessible
-  # Add this to restore-hooks.yaml when deploying PostgreSQL
-  # - name: postgres-validate
-  #   labelSelector:
-  #     matchLabels:
-  #       app: postgres
-  #   postRestoreExec:
-  #     execHook:
-  #       container: postgres
-  #       command: ["/usr/bin/psql", "-U", "postgres", "-c", "SELECT 1"]
-  #       waitTimeout: 5m
-  #       onError: Fail
+      # PostgreSQL: Verify database accessible
+      # Add this when deploying PostgreSQL
+      # - name: postgres-validate
+      #   includedNamespaces:
+      #     - application
+      #   labelSelector:
+      #     matchLabels:
+      #       app: postgres
+      #   postHooks:
+      #     - exec:
+      #         container: postgres
+      #         command: ["/usr/bin/psql", "-U", "postgres", "-c", "SELECT 1"]
+      #         execTimeout: 5m
+      #         waitTimeout: 5m
+      #         onError: Fail
 
-  # PostgreSQL: Fix permissions on restored volume
-  # Init containers run BEFORE main container starts
-  # - name: postgres-permissions
-  #   labelSelector:
-  #     matchLabels:
-  #       app: postgres
-  #   postRestoreExec:
-  #     initContainers:
-  #       - name: fix-permissions
-  #         image: busybox
-  #         command: ["/bin/sh", "-c"]
-  #         args: ["chown -R 999:999 /var/lib/postgresql/data"]
-  #         volumeMounts:
-  #           - name: data
-  #             mountPath: /var/lib/postgresql/data
-
-  # MySQL: Verify tables accessible
-  # - name: mysql-validate
-  #   labelSelector:
-  #     matchLabels:
-  #       app: mysql
-  #   postRestoreExec:
-  #     execHook:
-  #       container: mysql
-  #       command: ["/usr/bin/mysql", "-u", "root", "-e", "SHOW DATABASES"]
-  #       waitTimeout: 5m
-  #       onError: Continue
-
-  # Custom app: Run database migrations
-  # - name: app-migrate
-  #   labelSelector:
-  #     matchLabels:
-  #       app: myapp
-  #   postRestoreExec:
-  #     execHook:
-  #       container: app
-  #       command: ["/app/migrate", "--up"]
-  #       waitTimeout: 10m
-  #       onError: Fail
-
-# Hook Types
+# Hook Types:
 #
-# initContainers:
-#   - Run BEFORE main container starts
-#   - Useful for: permissions, file transformations, schema migrations
-#   - Blocks pod startup if it fails
-#
-# execHook:
-#   - Run AFTER container is running
-#   - Useful for: validation, cache warming, post-restore cleanup
+# postHooks (execHook):
+#   - Runs AFTER pod is running and ready
+#   - Use for: validation, connectivity checks, cache warming
 #   - Can fail without blocking (onError: Continue)
 #
+# initContainers:
+#   - Runs BEFORE main container starts
+#   - Use for: permissions, file transformations, schema migrations
+#   - Blocks pod startup if it fails
+#
 # Timeout Recommendations:
-#   - Simple checks (PING): 1-2m
+#   - Simple checks (PING, SELECT 1): 1-2m
 #   - Database queries: 5m
 #   - Schema migrations: 10-15m
-#   - Large data imports: 30m+
+#
+# Note: Restore hooks are optional. Use them for validation only.
+# Unlike backup hooks (which ensure consistency), restore hooks
+# don't affect data integrity - they just verify the restore worked.
