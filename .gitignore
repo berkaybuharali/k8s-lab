@@ -38,7 +38,3 @@ Thumbs.db
 
 # Local notes and environment-specific docs (not for repo)
 LOCAL.md
-VELERO_MASTERY_PLAN.md
-REDIS_BACKUP_IMPLEMENTATION.md
-QUICKSTART.md
-PLAN_VELERO.md
