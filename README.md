@@ -46,6 +46,12 @@ Layers 1-2: Cloud-specific
 Layers 3-4: Cloud-agnostic (portable across providers)
 ```
 
+## Prerequisites
+
+**Required tools:** See [infra/README.md](infra/README.md#prerequisites)
+
+**Platform setup:** [GCP setup guide](infra/README.md#gcp-setup) (authentication, permissions, Talos image)
+
 ## Quick Start
 
 ### All-in-One Deployment
@@ -72,7 +78,7 @@ make connect gcp
 # Keep this terminal open, then in another terminal:
 
 # 5. Test the deployment
-export KUBECONFIG=configs/kubeconfig
+export KUBECONFIG=configs/talos/kubeconfig
 
 # Check pods are running
 kubectl get pods -n application
@@ -98,46 +104,28 @@ make deploy-infra gcp
 make deploy-tools gcp
 make deploy-applications gcp
 make seed-redis gcp
-make backup gcp
+make backup gcp               # Redis BGSAVE hooks auto-enabled
 make destroy gcp
 
 # Day 2+: Restore from backup
 make deploy-infra gcp
-make restore gcp              # Installs tools + restores apps
+make deploy-tools gcp
+make restore gcp              # Restores apps from latest backup
 
-# Verify backup and restore
-export KUBECONFIG=configs/kubeconfig
+# Verify restored data
+export KUBECONFIG=configs/talos/kubeconfig
+kubectl exec -it deploy/redis -n application -- redis-cli GET user:1
+# Should return seeded data
 
 # List backups
 kubectl get backup -n velero
 
-# Check backup details (use kubectl to avoid rate limiter errors)
-kubectl get backup -n velero <backup-name> -o json | jq .status
-
-# Verify restored data
-kubectl exec -it deploy/redis -n application -- redis-cli GET user:1
-# Should return seeded data
+# Delete all backups (cleanup)
+make delete-all-backups gcp
 ```
 
-## Setup
+**Note:** Redis backup hooks (BGSAVE before snapshot, PING validation after restore) are automatically enabled via `configs/velero/*.yaml`. Pod annotation examples in `apps/redis.yaml`. See `configs/velero/*.example` for PostgreSQL/MySQL templates.
 
-### 1. Install Prerequisites
-
-See [infra/README.md](infra/README.md#prerequisites) for required tools.
-
-### 2. Platform Setup
-
-Follow the setup guide for your cloud provider:
-
-| Platform | Setup Guide |
-|----------|-------------|
-| GCP | [infra/README.md#gcp-setup](infra/README.md#gcp-setup) |
-
-This includes: authentication, permissions, Talos image upload, and configuration.
-
-### 3. Create Cluster and Deploy Applications
-
-Run `make deploy gcp` followed by `make apply gcp`. See [scripts/README.md](scripts/README.md) for details.
 
 ## Repository Structure
 
@@ -146,7 +134,7 @@ k8s-lab/
 ├── apps/                     # Kubernetes manifests
 │   ├── gcp/                  # GCP-specific (StorageClass)
 │   ├── nginx.yaml            # NGINX deployment
-│   └── redis.yaml            # Redis deployment with PVC
+│   └── redis.yaml            # Redis deployment with PVC and backup hooks
 ├── infra/                    # Cloud infrastructure
 │   └── gcp/
 │       ├── talos-patches/    # Talos machine config patches
@@ -168,12 +156,27 @@ k8s-lab/
 │   │   ├── delete.sh         # Delete a backup by name
 │   │   └── delete-all.sh     # Delete all backups
 │   └── lib/                  # Shared functions (cloud-agnostic + cloud-specific)
-│       ├── common.sh         # Logging, prerequisites
+│       ├── common.sh         # Logging, prerequisites, utilities
 │       ├── workloads.sh      # Workload helpers (cloud-agnostic)
 │       ├── velero.sh         # Velero backup/restore (cloud-agnostic)
-│       ├── talos.sh          # Talos operations (cloud-agnostic)
+│       ├── talos.sh          # Talos config and bootstrap (cloud-agnostic)
 │       └── gcp/              # GCP-specific implementations
-├── configs/                  # Generated configs (gitignored)
+│           ├── infra.sh      # Terraform operations
+│           ├── tunnel.sh     # IAP tunnel management
+│           ├── csi.sh        # GCE PD CSI driver
+│           ├── velero.sh     # GCP Velero plugin installation
+│           └── verify.sh     # Resource verification
+├── configs/                  # Configuration files
+│   ├── velero/               # Velero hooks (backup/restore consistency)
+│   │   ├── backup-hooks.yaml         # Redis backup hooks (auto-detected)
+│   │   ├── restore-hooks.yaml        # Redis restore hooks (auto-detected)
+│   │   ├── backup-hooks.yaml.example # PostgreSQL, MySQL templates
+│   │   └── restore-hooks.yaml.example# PostgreSQL, MySQL templates
+│   └── talos/                # Generated Talos/K8s configs (gitignored)
+│       ├── controlplane.yaml
+│       ├── worker.yaml
+│       ├── talosconfig
+│       └── kubeconfig
 ├── Makefile                  # Entry points
 └── CLAUDE.md                 # Project policies and roadmap
 ```
@@ -184,19 +187,8 @@ k8s-lab/
 |-----------|------------|---------|
 | Infrastructure | Terraform | VMs, networking, firewall |
 | Kubernetes OS | Talos Linux | Immutable, API-driven nodes |
-| Backup | Velero | Cluster backup and restore to GCS |
-| Cluster | 1 CP + 2 Workers | Spread across availability zones |
-
-## Why Talos Linux?
-
-Traditional Kubernetes nodes run a full Linux distribution with SSH, package managers, and manual configuration. Talos takes a different approach:
-
-- **No SSH**: All management through a secure API (port 50000)
-- **Immutable**: Read-only filesystem, no runtime modifications
-- **Declarative**: Entire node configuration in a single YAML file
-- **Minimal**: Purpose-built for Kubernetes, nothing else
-
-This makes clusters reproducible - the same configuration always produces the same result.
+| Backup | Velero | Cluster backup/restore to GCS |
+| Cluster | 1 CP + 2 Workers | Multi-AZ |
 
 ## Lessons Learned
 

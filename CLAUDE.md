@@ -35,9 +35,9 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 
 ## Status
 
-**Phase 1-2: COMPLETE** - Infra, Talos v1.12.1 (vanilla), K8s bootstrap via IAP tunnel  
-**Phase 3: COMPLETE** - Velero installation, backup/restore via `make backup|restore gcp`
-**Phase 4: IN PROGRESS** - NGINX (2 replicas, stateless), Redis (1 replica + GCE PD), PostgreSQL deployment  
+**Phase 1-2: COMPLETE** - Infra, Talos v1.12.1 (vanilla), K8s bootstrap via IAP tunnel
+**Phase 3: COMPLETE** - Velero installation, backup/restore via `make backup|restore gcp`, Redis backup hooks (BGSAVE) for data consistency
+**Phase 4: IN PROGRESS** - NGINX (2 replicas, stateless), Redis (1 replica + GCE PD with RDB+AOF persistence), PostgreSQL deployment
 **Phase 5: PLANNED** - Multi-cloud (STACKIT), cross-cluster restore
 
 ## Development Rules
@@ -45,6 +45,7 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 **Public Repo Readiness:**
 - No hardcoded project IDs, buckets, or user-specific values
 - Use variables/tfvars with *.example files (e.g., terraform.tfvars.example with TODOs)
+- Do not put Co-Authored-by type of lines in commit messages
 
 **Makefile-First:**
 - All ops via `make deploy|apply|destroy <cloud>` (current: gcp only)
@@ -55,8 +56,11 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 - `terraform.tfvars` is source of truth for config
 
 **Documentation:**
-- READMEs: clear, no emojis, step-by-step
-- Explain Talos/Velero concepts when implementing
+- READMEs: practical and on-point, no emojis
+- Brief explanations, no tutorial-style excessive commands
+- Do not explain obvious methods - user should not be afraid of READMEs
+- Clear pointers to examples without hand-holding
+- **Exception:** Quick Start section in root README.md - only place where handholding is permitted
 - After changes, update all READMEs + CLAUDE.md + LOCAL.md
 
 **K8s Manifests:**
@@ -65,7 +69,7 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 - Scripts in `scripts/` handle apply/remove
 
 **Tooling:**
-- Install via brew: talosctl, kubectl, jq
+- Install via brew: talosctl, kubectl, jq, velero
 
 **Logging:**
 - Use colors/functions from common.sh
