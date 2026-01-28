@@ -55,7 +55,7 @@ install_velero() {
 
 check_prerequisites() {
     log_step "Checking prerequisites"
-    if [[ ! -f "${CONFIGS_DIR}/kubeconfig" ]]; then
+    if [[ ! -f "${TALOS_CONFIGS_DIR}/kubeconfig" ]]; then
         log_error "kubeconfig not found. Run 'make deploy-infra <cloud>' first"
         exit 1
     fi

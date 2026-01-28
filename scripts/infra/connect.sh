@@ -47,7 +47,7 @@ CONNECT TO CLUSTER
 
 2. In another terminal, use kubectl:
 
-   export KUBECONFIG=${CONFIGS_DIR}/kubeconfig
+   export KUBECONFIG=${TALOS_CONFIGS_DIR}/kubeconfig
    kubectl get nodes
    kubectl get pods -n application
 

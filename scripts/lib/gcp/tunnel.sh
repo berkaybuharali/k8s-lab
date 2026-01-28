@@ -147,7 +147,7 @@ k8s_connect() {
     tunnel_start "${CP_NAME}" "${CP_ZONE}" 6443 6443 >/dev/null
 
     # Set kubeconfig for kubectl
-    export KUBECONFIG="${CONFIGS_DIR}/kubeconfig"
+    export KUBECONFIG="${TALOS_CONFIGS_DIR}/kubeconfig"
 
     # Verify connection
     if ! kubectl cluster-info &>/dev/null; then

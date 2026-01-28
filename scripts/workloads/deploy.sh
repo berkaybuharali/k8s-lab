@@ -25,7 +25,7 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 
 check_prerequisites() {
     log_step "Checking prerequisites"
-    if [[ ! -f "${CONFIGS_DIR}/kubeconfig" ]]; then
+    if [[ ! -f "${TALOS_CONFIGS_DIR}/kubeconfig" ]]; then
         log_error "kubeconfig not found. Run 'make deploy-infra <cloud>' first"
         exit 1
     fi
@@ -77,7 +77,7 @@ To access applications:
   make connect ${cloud}
 
 Then in another terminal:
-  export KUBECONFIG=${CONFIGS_DIR}/kubeconfig
+  export KUBECONFIG=${TALOS_CONFIGS_DIR}/kubeconfig
 
   # Test NGINX
   kubectl port-forward svc/nginx -n application 8080:80

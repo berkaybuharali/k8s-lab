@@ -20,6 +20,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CONFIGS_DIR="${REPO_ROOT}/configs"
+TALOS_CONFIGS_DIR="${CONFIGS_DIR}/talos"
 LIB_DIR="${SCRIPT_DIR}/lib"
 
 # -----------------------------------------------------------------------------
@@ -126,21 +127,34 @@ setup_error_handling() {
 # Verifies required tools are installed before proceeding.
 # Exits with error if any tool is missing, listing all missing tools.
 #
-# Required tools:
-# - gcloud: GCP CLI for IAP tunneling (VMs have no external IPs)
+# Parameters:
+#   $1 - cloud provider (optional, checks cloud-specific tools)
+#
+# Required tools (cloud-agnostic):
 # - terraform: Infrastructure provisioning
 # - talosctl: Talos Linux CLI for cluster configuration
 # - kubectl: Kubernetes CLI for cluster management
 # - jq: JSON parsing for Terraform outputs
+# - velero: Backup/restore CLI
+#
+# Cloud-specific tools:
+# - gcloud (GCP): For IAP tunneling
 # -----------------------------------------------------------------------------
 check_prerequisites() {
+    local cloud="${1:-}"
     log_step "Checking prerequisites..."
     local missing=()
 
-    if ! command -v gcloud &> /dev/null; then
-        missing+=("gcloud    - https://cloud.google.com/sdk/docs/install")
-    fi
+    # Cloud-specific tools
+    case "$cloud" in
+        gcp)
+            if ! command -v gcloud &> /dev/null; then
+                missing+=("gcloud    - https://cloud.google.com/sdk/docs/install")
+            fi
+            ;;
+    esac
 
+    # Cloud-agnostic tools
     if ! command -v terraform &> /dev/null; then
         missing+=("terraform - brew install terraform")
     fi

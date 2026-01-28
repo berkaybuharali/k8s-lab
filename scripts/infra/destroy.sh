@@ -25,7 +25,7 @@ try_remove_apps() {
     local cloud=$1
     log_step "Attempting to remove applications"
 
-    if [[ ! -f "${CONFIGS_DIR}/kubeconfig" ]]; then
+    if [[ ! -f "${TALOS_CONFIGS_DIR}/kubeconfig" ]]; then
         log_info "No kubeconfig found - skipping app removal"
         return 0
     fi
@@ -42,7 +42,7 @@ try_remove_apps() {
         return 0
     }
 
-    export KUBECONFIG="${CONFIGS_DIR}/kubeconfig"
+    export KUBECONFIG="${TALOS_CONFIGS_DIR}/kubeconfig"
 
     if ! kubectl cluster-info &>/dev/null; then
         log_info "Cannot connect to cluster - skipping app removal"
