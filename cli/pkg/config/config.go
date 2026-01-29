@@ -97,37 +97,37 @@ func (c *Config) GetCloudAppsDir() string {
 	return filepath.Join(c.GetAppsDir(), c.Cloud)
 }
 
-// findRepoRoot walks up the directory tree to find the repository root.
-// It looks for a directory containing ".git" or "Makefile".
-// We prioritize .git and Makefile over go.mod because the Go module
-// is in the cli/ subdirectory, not the actual repo root.
+// findRepoRoot checks if the current directory is the repository root.
+// The k8s-lab CLI must be run from the repository root directory,
+// matching the behavior of Makefile commands.
+//
+// This is simpler than walking up the directory tree and matches user
+// expectations - both "make deploy gcp" and "k8s-lab infra deploy --cloud gcp"
+// should be run from the same location (repo root).
 func findRepoRoot() (string, error) {
-	// Start from current working directory
 	dir, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get current directory: %w", err)
 	}
 
-	// Walk up until we find repo markers or reach root
-	for {
-		// Check for .git first (most reliable indicator of repo root)
-		if fileExists(filepath.Join(dir, ".git")) {
-			return dir, nil
-		}
+	// Check if current directory has repo markers
+	hasGit := fileExists(filepath.Join(dir, ".git"))
+	hasMakefile := fileExists(filepath.Join(dir, "Makefile"))
+	hasInfra := fileExists(filepath.Join(dir, "infra"))
 
-		// Check for Makefile (our repo has one at root)
-		if fileExists(filepath.Join(dir, "Makefile")) {
-			return dir, nil
-		}
-
-		// Move up one directory
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			// Reached filesystem root without finding repo
-			return "", fmt.Errorf("repository root not found")
-		}
-		dir = parent
+	// Verify we're in the k8s-lab repository root
+	if hasGit && hasMakefile && hasInfra {
+		return dir, nil
 	}
+
+	// Provide helpful error message
+	return "", fmt.Errorf(
+		"must run k8s-lab from repository root directory\n" +
+			"Current directory: %s\n" +
+			"Expected: directory containing .git, Makefile, and infra/\n" +
+			"Hint: cd to your k8s-lab repository root",
+		dir,
+	)
 }
 
 // fileExists checks if a file or directory exists.

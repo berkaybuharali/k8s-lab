@@ -2,12 +2,51 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
+// setupTestDir changes to repo root for testing.
+// Tests need to run from repo root since that's where the CLI expects to run.
+func setupTestDir(t *testing.T) func() {
+	// Save original directory
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+
+	// Walk up to find repo root (for tests only)
+	dir := originalDir
+	for {
+		if fileExists(filepath.Join(dir, ".git")) &&
+			fileExists(filepath.Join(dir, "Makefile")) {
+			// Found repo root, change to it
+			if err := os.Chdir(dir); err != nil {
+				t.Fatalf("Failed to change to repo root: %v", err)
+			}
+			break
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatalf("Could not find repo root from: %s", originalDir)
+		}
+		dir = parent
+	}
+
+	// Return cleanup function
+	return func() {
+		os.Chdir(originalDir)
+	}
+}
+
 // TestNew verifies that New() creates a config with proper defaults.
 func TestNew(t *testing.T) {
+	cleanup := setupTestDir(t)
+	defer cleanup()
+
 	cfg, err := New()
 	if err != nil {
 		t.Fatalf("Failed to create config: %v", err)
@@ -50,6 +89,9 @@ func TestNew(t *testing.T) {
 
 // TestValidateCloud verifies cloud validation logic.
 func TestValidateCloud(t *testing.T) {
+	cleanup := setupTestDir(t)
+	defer cleanup()
+
 	cfg, _ := New()
 
 	// Test empty cloud
@@ -73,6 +115,9 @@ func TestValidateCloud(t *testing.T) {
 
 // TestGetTerraformDir verifies Terraform directory path construction.
 func TestGetTerraformDir(t *testing.T) {
+	cleanup := setupTestDir(t)
+	defer cleanup()
+
 	cfg, _ := New()
 	cfg.Cloud = "gcp"
 
@@ -88,6 +133,9 @@ func TestGetTerraformDir(t *testing.T) {
 
 // TestGetConfigsDir verifies configs directory path construction.
 func TestGetConfigsDir(t *testing.T) {
+	cleanup := setupTestDir(t)
+	defer cleanup()
+
 	cfg, _ := New()
 
 	configsDir := cfg.GetConfigsDir()
@@ -102,6 +150,9 @@ func TestGetConfigsDir(t *testing.T) {
 
 // TestGetTalosConfigsDir verifies Talos configs directory path construction.
 func TestGetTalosConfigsDir(t *testing.T) {
+	cleanup := setupTestDir(t)
+	defer cleanup()
+
 	cfg, _ := New()
 
 	talosDir := cfg.GetTalosConfigsDir()
@@ -116,6 +167,9 @@ func TestGetTalosConfigsDir(t *testing.T) {
 
 // TestGetAppsDir verifies apps directory path construction.
 func TestGetAppsDir(t *testing.T) {
+	cleanup := setupTestDir(t)
+	defer cleanup()
+
 	cfg, _ := New()
 
 	appsDir := cfg.GetAppsDir()
@@ -130,6 +184,9 @@ func TestGetAppsDir(t *testing.T) {
 
 // TestGetCloudAppsDir verifies cloud-specific apps directory path construction.
 func TestGetCloudAppsDir(t *testing.T) {
+	cleanup := setupTestDir(t)
+	defer cleanup()
+
 	cfg, _ := New()
 	cfg.Cloud = "gcp"
 
