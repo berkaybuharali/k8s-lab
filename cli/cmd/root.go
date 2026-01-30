@@ -1,6 +1,15 @@
 // cli/cmd/root.go
 // Package cmd implements the CLI commands using the Cobra framework.
 // Cobra provides command structure, flag parsing, and help generation.
+//
+// The root command sets up the CLI infrastructure:
+// - Global flags (--cloud, --verbose)
+// - Shared resources (config, logger, cloud provider)
+// - Prerequisites checking (ensures required tools are installed)
+// - Context-based dependency injection (passes resources to subcommands)
+//
+// All subcommands inherit PersistentPreRunE which runs before every command
+// to initialize these shared resources and validate prerequisites.
 package cmd
 
 import (
@@ -14,6 +23,7 @@ import (
 	_ "github.com/berkaybuharali/k8s-lab/cli/pkg/cloud/gcp" // Register GCP provider
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/config"
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/logger"
+	"github.com/berkaybuharali/k8s-lab/cli/pkg/prerequisites"
 )
 
 // Version is the CLI version, set at build time or defaulted here.
@@ -67,70 +77,181 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Verbose output")
 
 	// PersistentPreRunE runs before every command and is inherited by all subcommands.
-	// We use it to initialize shared resources that all commands need:
-	// 1. Configuration (paths, cluster name, etc.)
-	// 2. Logger (colored output)
-	// 3. Cloud provider (if --cloud flag is set)
+	// It initializes shared resources that all commands need:
+	// 1. Configuration and logger
+	// 2. Prerequisites checking (fail fast if tools missing, skipped for help/version)
+	// 3. Cloud provider validation (if --cloud flag is set)
 	//
-	// These are stored in the command context so subcommands can access them
-	// without needing to pass them as parameters.
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		// Get flag values
-		cloudFlag, _ := cmd.Flags().GetString("cloud")
-		verbose, _ := cmd.Flags().GetBool("verbose")
+	// These are stored in the command context for subcommands to access.
+	rootCmd.PersistentPreRunE = persistentPreRun
+}
 
-		// Initialize configuration
-		// This auto-detects the repository root and sets up paths
-		cfg, err := config.New()
-		if err != nil {
-			return fmt.Errorf("failed to initialize config: %w", err)
-		}
-		cfg.Cloud = cloudFlag
-		cfg.Verbose = verbose
+// persistentPreRun is the main setup function that runs before every command.
+// It orchestrates initialization, prerequisites checking, and cloud provider setup.
+//
+// This function is extracted from init() for better testability and readability.
+func persistentPreRun(cmd *cobra.Command, args []string) error {
+	// Step 1: Parse flags and initialize config/logger
+	cloudFlag, _ := cmd.Flags().GetString("cloud")
+	verbose, _ := cmd.Flags().GetBool("verbose")
 
-		// Initialize logger
-		// All output goes to stderr (stdout is for data/json)
-		log := logger.New(verbose)
-
-		// Store in command context for subcommands to access
-		ctx := context.WithValue(cmd.Context(), configKey, cfg)
-		ctx = context.WithValue(ctx, loggerKey, log)
-
-		// If cloud provider is specified, validate and store it
-		if cloudFlag != "" {
-			// Check if cloud provider name is valid
-			if err := cfg.ValidateCloud(); err != nil {
-				return err
-			}
-
-			// Get provider from registry
-			// Providers auto-register themselves via init() functions
-			provider := cloud.Get(cloudFlag)
-			if provider == nil {
-				return fmt.Errorf(
-					"cloud provider '%s' not available\n"+
-						"Available providers: %v",
-					cloudFlag, cloud.List(),
-				)
-			}
-
-			// Validate cloud provider prerequisites
-			// For GCP: checks Application Default Credentials exist
-			log.Debug("Validating cloud provider: %s", cloudFlag)
-			if err := provider.Validate(ctx); err != nil {
-				return fmt.Errorf("cloud provider validation failed: %w", err)
-			}
-			log.Debug("Cloud provider validated successfully")
-
-			// Store provider in context
-			ctx = context.WithValue(ctx, providerKey, provider)
-		}
-
-		// Update command context with all values
-		cmd.SetContext(ctx)
-
-		return nil
+	cfg, log, ctx, err := initializeConfigAndLogger(cmd.Context(), cloudFlag, verbose)
+	if err != nil {
+		return err
 	}
+
+	// Step 2: Check prerequisites (skip for help/version commands)
+	if !shouldSkipPrerequisites(cmd) {
+		log.Debug("Checking prerequisites...")
+		if err := checkPrerequisites(ctx, cmd, cloudFlag, log); err != nil {
+			return err
+		}
+		log.Debug("All prerequisites satisfied")
+	}
+
+	// Step 3: Initialize cloud provider if --cloud flag is set
+	if cloudFlag != "" {
+		provider, err := initializeCloudProvider(ctx, cloudFlag, cfg, log)
+		if err != nil {
+			return err
+		}
+		ctx = context.WithValue(ctx, providerKey, provider)
+	}
+
+	// Update command context with all initialized values
+	cmd.SetContext(ctx)
+
+	return nil
+}
+
+// initializeConfigAndLogger creates the config and logger instances
+// and stores them in the context.
+//
+// Returns:
+// - cfg: Configuration with paths and settings
+// - log: Logger instance for output
+// - ctx: Context with config and logger stored
+// - err: Any initialization error
+func initializeConfigAndLogger(parentCtx context.Context, cloudFlag string, verbose bool) (*config.Config, *logger.Logger, context.Context, error) {
+	// Initialize configuration
+	// This auto-detects the repository root and sets up paths
+	cfg, err := config.New()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to initialize config: %w", err)
+	}
+	cfg.Cloud = cloudFlag
+	cfg.Verbose = verbose
+
+	// Initialize logger
+	// All output goes to stderr (stdout is reserved for data/json)
+	log := logger.New(verbose)
+
+	// Store in context for subcommands to access
+	ctx := context.WithValue(parentCtx, configKey, cfg)
+	ctx = context.WithValue(ctx, loggerKey, log)
+
+	return cfg, log, ctx, nil
+}
+
+// shouldSkipPrerequisites determines if prerequisites checking should be skipped
+// for the given command.
+//
+// We skip prerequisites for:
+// - help command (users should be able to see help without tools installed)
+// - version command (just prints version)
+//
+// Returns: true if prerequisites should be skipped, false otherwise
+func shouldSkipPrerequisites(cmd *cobra.Command) bool {
+	skipCommands := map[string]bool{
+		"help":    true,
+		"version": true,
+	}
+	return skipCommands[cmd.Name()]
+}
+
+// checkPrerequisites verifies all required tools are installed before proceeding.
+// This implements fail-fast behavior: if any tool is missing, the command fails
+// immediately with a clear error listing ALL missing tools.
+//
+// Prerequisites are checked in two categories:
+// 1. Command-specific tools (e.g., terraform for infra, kubectl for platform)
+// 2. Cloud-specific tools (e.g., gcloud for GCP, if --cloud gcp is set)
+//
+// Parameters:
+// - ctx: Context for the check
+// - cmd: Cobra command being executed
+// - cloudFlag: Value of --cloud flag (empty string if not set)
+// - log: Logger for debug output
+//
+// Returns: Error listing all missing prerequisites, or nil if all are satisfied
+func checkPrerequisites(ctx context.Context, cmd *cobra.Command, cloudFlag string, log *logger.Logger) error {
+	var allPrereqs []prerequisites.Prerequisite
+
+	// Collect command-specific prerequisites
+	// Walk up command tree to find top-level command name
+	topLevelCmd := cmd
+	for topLevelCmd.Parent() != nil && topLevelCmd.Parent().Name() != "k8s-lab" {
+		topLevelCmd = topLevelCmd.Parent()
+	}
+	cmdPrereqs := prerequisites.GetCommandPrereqs(topLevelCmd.Name())
+	allPrereqs = append(allPrereqs, cmdPrereqs...)
+
+	// Collect cloud-specific prerequisites
+	if cloudFlag != "" {
+		cloudPrereqs := prerequisites.GetCloudPrereqs(cloudFlag)
+		allPrereqs = append(allPrereqs, cloudPrereqs...)
+	}
+
+	// Check all prerequisites at once
+	// This shows ALL missing tools in a single error, not one at a time
+	if len(allPrereqs) > 0 {
+		if err := prerequisites.CheckAll(ctx, allPrereqs...); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// initializeCloudProvider validates and initializes the cloud provider.
+// This includes:
+// 1. Validating the cloud provider name
+// 2. Getting the provider from the registry
+// 3. Validating cloud-specific authentication (e.g., GCP Application Default Credentials)
+//
+// Parameters:
+// - ctx: Context for cloud provider operations
+// - cloudFlag: Cloud provider name (e.g., "gcp")
+// - cfg: Configuration instance
+// - log: Logger for output
+//
+// Returns: Initialized cloud provider, or error if validation fails
+func initializeCloudProvider(ctx context.Context, cloudFlag string, cfg *config.Config, log *logger.Logger) (cloud.Provider, error) {
+	// Check if cloud provider name is valid
+	if err := cfg.ValidateCloud(); err != nil {
+		return nil, err
+	}
+
+	// Get provider from registry
+	// Providers auto-register themselves via init() functions
+	provider := cloud.Get(cloudFlag)
+	if provider == nil {
+		return nil, fmt.Errorf(
+			"cloud provider '%s' not available\n"+
+				"Available providers: %v",
+			cloudFlag, cloud.List(),
+		)
+	}
+
+	// Validate cloud provider authentication and configuration
+	// For GCP: checks Application Default Credentials exist
+	log.Debug("Validating cloud provider: %s", cloudFlag)
+	if err := provider.Validate(ctx); err != nil {
+		return nil, fmt.Errorf("cloud provider validation failed: %w", err)
+	}
+	log.Debug("Cloud provider validated successfully")
+
+	return provider, nil
 }
 
 // GetConfig retrieves the Config from the command context.
