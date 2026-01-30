@@ -71,7 +71,7 @@ func TestGetCommandPrereqs(t *testing.T) {
 		cmdName  string
 		expected int // Number of prerequisites expected
 	}{
-		{"infra command", "infra", 2},       // terraform + talosctl
+		{"infra command", "infra", 1},       // terraform only (Talos uses SDK)
 		{"platform command", "platform", 1}, // kubectl
 		{"unknown command", "unknown", 0},   // no prerequisites
 	}
@@ -157,8 +157,8 @@ func TestCheckAll_Empty(t *testing.T) {
 
 // TestPrerequisitesDefinitions verifies all pre-defined prerequisites are properly configured
 func TestPrerequisitesDefinitions(t *testing.T) {
-	// Verify command-specific tools
-	commandTools := []Prerequisite{Terraform, Kubectl, Talosctl, Velero}
+	// Verify command-specific tools (Talosctl removed - using Go SDK instead)
+	commandTools := []Prerequisite{Terraform, Kubectl, Velero}
 	for _, tool := range commandTools {
 		if tool.Name() == "" {
 			t.Errorf("Tool has empty name: %v", tool)

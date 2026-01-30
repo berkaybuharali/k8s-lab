@@ -100,13 +100,9 @@ var (
 		required:    true,
 	}
 
-	// Talosctl is required for Talos cluster bootstrapping (infra commands)
-	Talosctl = &BinaryPrerequisite{
-		name:        "talosctl",
-		binaryName:  "talosctl",
-		installHint: "brew install talosctl",
-		required:    true,
-	}
+	// NOTE: Talosctl is NOT required!
+	// We use the Talos Go SDK (github.com/siderolabs/talos/pkg/machinery)
+	// which is compiled into the binary. No external talosctl binary needed.
 
 	// Velero is required for backup operations (backup commands)
 	Velero = &BinaryPrerequisite{
@@ -138,12 +134,12 @@ var (
 // CommandPrereqs maps top-level command names to their required tools.
 // This is a declarative way for commands to specify their dependencies.
 //
-// Example: "infra" commands need terraform and talosctl
+// Example: "infra" commands need terraform only (Talos uses Go SDK, no binary)
 //
 // Note: This only includes command-specific tools, not cloud-specific tools
 // (those are in CloudPrereqs and checked separately based on --cloud flag)
 var CommandPrereqs = map[string][]Prerequisite{
-	"infra":     {Terraform, Talosctl},
+	"infra":     {Terraform}, // Talos uses Go SDK, no talosctl binary needed
 	"platform":  {Kubectl},
 	"workloads": {Kubectl},
 	"backup":    {Kubectl, Velero},
@@ -164,7 +160,7 @@ var CloudPrereqs = map[string][]Prerequisite{
 // GetCommandPrereqs returns prerequisites for the given command name.
 // Returns nil if command has no specific prerequisites.
 //
-// Example: GetCommandPrereqs("infra") returns {Terraform, Talosctl}
+// Example: GetCommandPrereqs("infra") returns {Terraform}
 //
 // Parameters:
 //   - cmdName: Top-level command name (e.g., "infra", "platform")
