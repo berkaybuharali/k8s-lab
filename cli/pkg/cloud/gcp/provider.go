@@ -1,13 +1,13 @@
 // cli/pkg/cloud/gcp/provider.go
 // Package gcp implements the cloud.Provider interface for Google Cloud Platform.
-// It uses Google Cloud Go SDK for all GCP operations:
-// - cloud.google.com/go/storage for GCS bucket operations
-// - golang.org/x/oauth2/google for authentication
+//
+// File organization:
+// - provider.go: Provider basics (Name, Validate, GetProjectID)
+// - storage.go: GCS bucket operations (EnsureStateBucket)
+// - tunnel.go: IAP tunnel for VM access (CreateTalosEndpoint, CreateK8sEndpoint)
 //
 // Authentication is via Application Default Credentials (ADC).
 // User sets up once with: gcloud auth application-default login
-//
-// This matches bash scripts behavior but uses Go libraries instead of CLI commands.
 package gcp
 
 import (
@@ -47,7 +47,8 @@ func (p *Provider) Name() string {
 // It verifies Application Default Credentials (ADC) exist.
 //
 // User setup (one time):
-//   gcloud auth application-default login
+//
+//	gcloud auth application-default login
 //
 // This creates: ~/.config/gcloud/application_default_credentials.json
 // All Google Cloud SDKs automatically use these credentials.
@@ -73,81 +74,6 @@ func (p *Provider) Validate(ctx context.Context) error {
 	}
 
 	// Credentials exist - actual access will be verified when we use them
-	return nil
-}
-
-// EnsureStateBucket creates a GCS bucket for Terraform state if it doesn't exist.
-// The bucket stores terraform.tfstate with versioning enabled.
-//
-// This operation is idempotent - safe to call multiple times.
-//
-// GCS bucket names must be globally unique across ALL Google Cloud users.
-// If creation fails, try a more unique name (add project ID or random suffix).
-func (p *Provider) EnsureStateBucket(ctx context.Context, bucketName, projectID string) error {
-	if bucketName == "" {
-		return fmt.Errorf("bucket name is required")
-	}
-	if projectID == "" {
-		return fmt.Errorf("project ID is required")
-	}
-
-	// Create storage client if not cached
-	if p.storageClient == nil {
-		client, err := storage.NewClient(ctx)
-		if err != nil {
-			return fmt.Errorf(
-				"failed to create storage client: %w\n"+
-					"Run: gcloud auth application-default login",
-				err,
-			)
-		}
-		p.storageClient = client
-	}
-
-	bucket := p.storageClient.Bucket(bucketName)
-
-	// Check if bucket already exists
-	_, err := bucket.Attrs(ctx)
-	if err == nil {
-		// Bucket exists, we're done
-		return nil
-	}
-
-	// If error is not "bucket doesn't exist", return it
-	if err != storage.ErrBucketNotExist {
-		return fmt.Errorf("failed to check bucket: %w", err)
-	}
-
-	// Bucket doesn't exist, create it
-	err = bucket.Create(ctx, projectID, &storage.BucketAttrs{
-		Location: "US-CENTRAL1", // TODO: Make configurable
-		UniformBucketLevelAccess: storage.UniformBucketLevelAccess{
-			Enabled: true, // Use IAM only (no ACLs)
-		},
-		VersioningEnabled: true, // Enable versioning for state file rollback
-	})
-
-	if err != nil {
-		// Check if error is due to bucket name already taken globally
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "already exists") ||
-			strings.Contains(errMsg, "You already own this bucket") {
-			return fmt.Errorf(
-				"bucket name '%s' is already taken (names are globally unique)\n"+
-					"Fix: Use a different name in terraform.tfvars\n"+
-					"Example: state_bucket = \"my-project-tfstate-abc123\"",
-				bucketName,
-			)
-		}
-
-		// Generic error
-		return fmt.Errorf(
-			"failed to create bucket '%s': %w\n"+
-				"Check: project ID, IAM permissions, billing enabled",
-			bucketName, err,
-		)
-	}
-
 	return nil
 }
 
