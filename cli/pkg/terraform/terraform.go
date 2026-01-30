@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/hashicorp/terraform-exec/tfexec"
 
@@ -87,29 +88,72 @@ func NewClient(ctx context.Context, workingDir string, log *logger.Logger) (*Cli
 	}, nil
 }
 
-// findTerraformBinary locates the terraform binary.
-// It uses the same logic as bash: command -v terraform
+// findTerraformBinary locates the terraform binary in PATH.
+// It uses exec.LookPath which searches the directories listed in the PATH
+// environment variable for an executable file named "terraform".
 //
-// This is a placeholder for step 3b.
-// For now, we just return "terraform" and let exec.LookPath find it.
+// This is equivalent to bash: command -v terraform
+//
+// Note: The prerequisites checking system already verified terraform exists,
+// so this function should always succeed during normal operation. However,
+// we still check and return a clear error in case something changes between
+// the prerequisites check and this call.
+//
+// Returns:
+// - path: Full path to terraform binary (e.g., "/opt/homebrew/bin/terraform")
+// - error: If terraform is not found in PATH
 func findTerraformBinary() (string, error) {
-	// TODO: Implement in step 3b
-	// Will use exec.LookPath to find terraform in PATH
-	return "terraform", nil
+	path, err := exec.LookPath("terraform")
+	if err != nil {
+		return "", fmt.Errorf(
+			"terraform binary not found in PATH\n"+
+				"Install: brew install terraform\n"+
+				"Verify: which terraform",
+		)
+	}
+	return path, nil
 }
 
-// Init runs terraform init.
+// Init runs terraform init with upgrade flag.
 // Equivalent to bash: terraform init -upgrade
 //
 // This operation:
-// - Downloads provider plugins
-// - Initializes the backend (GCS for state storage)
-// - Upgrades providers to latest allowed versions
+// - Downloads provider plugins (hashicorp/google, etc.)
+// - Initializes the backend (GCS bucket for state storage)
+// - Upgrades providers to latest allowed versions (respects version constraints)
+// - Creates .terraform directory and .terraform.lock.hcl
 //
 // This is idempotent - safe to run multiple times.
+// Running init again will:
+// - Re-download plugins if missing
+// - Re-configure backend if changed
+// - Upgrade plugins if new versions available
+//
+// Parameters:
+// - ctx: Context for cancellation and timeout
+//
+// Returns:
+// - nil if initialization succeeds
+// - error if terraform init fails (with full error details from terraform)
+//
+// Example error scenarios:
+// - Backend bucket doesn't exist
+// - Invalid terraform configuration syntax
+// - Network issues downloading providers
+// - Insufficient permissions for GCS backend
 func (c *Client) Init(ctx context.Context) error {
-	// TODO: Implement in step 3b
-	return fmt.Errorf("not implemented yet")
+	c.log.Step("Initializing Terraform in %s", c.workingDir)
+
+	// Run terraform init with upgrade flag
+	// tfexec.Upgrade(true) adds -upgrade to the command
+	// This is equivalent to: terraform init -upgrade
+	err := c.tf.Init(ctx, tfexec.Upgrade(true))
+	if err != nil {
+		return fmt.Errorf("terraform init failed: %w", err)
+	}
+
+	c.log.Info("Terraform initialized successfully")
+	return nil
 }
 
 // Apply runs terraform apply.
