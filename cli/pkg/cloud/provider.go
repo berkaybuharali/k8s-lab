@@ -66,13 +66,18 @@ type Provider interface {
 	// Equivalent to bash: tf_get_project_id()
 	GetProjectID(terraformDir string) (string, error)
 
-	// TODO: Future methods to add as needed:
-	// - CreateTunnel(ctx context.Context, target string) (Tunnel, error)
-	//   For IAP tunneling (GCP) or bastion hosts (other clouds)
-	// - GetCredentials(ctx context.Context) (Credentials, error)
-	//   For programmatic access to cloud APIs
-	// - ValidateRegion(ctx context.Context, region string) error
-	//   To check if a region is valid for this cloud
+	// CreateTalosEndpoint creates access to Talos API (port 50000).
+	// Returns endpoint string, cleanup function, and error.
+	// Caller must defer cleanup().
+	//
+	// GCP: Creates IAP tunnel, returns "localhost:50000"
+	// AWS: Creates SSM session
+	// Direct-access: Returns "ip:50000"
+	CreateTalosEndpoint(ctx context.Context, instance, zone, projectID string) (string, func(), error)
+
+	// CreateK8sEndpoint creates access to Kubernetes API (port 6443).
+	// Same pattern as CreateTalosEndpoint but for K8s API.
+	CreateK8sEndpoint(ctx context.Context, instance, zone, projectID string) (string, func(), error)
 }
 
 // Registry holds all registered cloud providers.

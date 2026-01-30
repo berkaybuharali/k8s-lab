@@ -91,3 +91,13 @@ func (m *mockProvider) EnsureStateBucket(ctx context.Context, bucket, project st
 func (m *mockProvider) GetProjectID(dir string) (string, error) {
 	return "test-project", nil
 }
+
+func (m *mockProvider) CreateTalosEndpoint(ctx context.Context, instance, zone, projectID string) (string, func(), error) {
+	noopCleanup := func() {}
+	return "localhost:50000", noopCleanup, nil
+}
+
+func (m *mockProvider) CreateK8sEndpoint(ctx context.Context, instance, zone, projectID string) (string, func(), error) {
+	noopCleanup := func() {}
+	return "localhost:6443", noopCleanup, nil
+}
