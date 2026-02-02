@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 
+	machineapi "github.com/siderolabs/talos/pkg/machinery/api/machine"
 	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
 	"github.com/siderolabs/talos/pkg/machinery/config"
 	"github.com/siderolabs/talos/pkg/machinery/config/generate"
@@ -256,8 +257,30 @@ func (c *Client) writeGeneratedConfigs(cpConfig, workerConfig config.Provider, t
 //
 // Implementation: Step 4d
 func (c *Client) ApplyConfig(ctx context.Context, endpoint string, configData []byte, insecure bool) error {
-	// TODO: Implement in 4d
-	return fmt.Errorf("not implemented yet")
+	c.log.Info("Applying Talos configuration to %s...", endpoint)
+
+	// Create insecure client (node has no certs yet)
+	talosClient, err := createInsecureClient(ctx, endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to create Talos client: %w", err)
+	}
+	defer talosClient.Close()
+
+	c.log.Info("Sending configuration to node...")
+
+	// Apply configuration without reboot
+	req := &machineapi.ApplyConfigurationRequest{
+		Data: configData,
+		Mode: machineapi.ApplyConfigurationRequest_NO_REBOOT,
+	}
+
+	_, err = talosClient.ApplyConfiguration(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to apply configuration: %w", err)
+	}
+
+	c.log.Info("Configuration applied successfully to %s", endpoint)
+	return nil
 }
 
 // Bootstrap initializes etcd and starts Kubernetes control plane using SDK.
