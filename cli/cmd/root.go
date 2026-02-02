@@ -243,6 +243,10 @@ func initializeCloudProvider(ctx context.Context, cloudFlag string, cfg *config.
 		)
 	}
 
+	// Inject logger into provider (cloud-agnostic requirement)
+	// All providers MUST have logger for operations logging
+	provider.SetLogger(log)
+
 	// Validate cloud provider authentication and configuration
 	// For GCP: checks Application Default Credentials exist
 	log.Debug("Validating cloud provider: %s", cloudFlag)

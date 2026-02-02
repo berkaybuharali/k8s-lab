@@ -22,12 +22,17 @@ import (
 	"golang.org/x/oauth2/google"
 
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/cloud"
+	"github.com/berkaybuharali/k8s-lab/cli/pkg/logger"
 )
 
 // Provider implements cloud.Provider for Google Cloud Platform.
 type Provider struct {
 	// storageClient is cached to avoid creating multiple clients.
 	storageClient *storage.Client
+
+	// log is the logger for user-facing messages.
+	// Must be set via SetLogger() after retrieving provider from registry.
+	log *logger.Logger
 }
 
 // Ensure Provider implements cloud.Provider interface at compile time.
@@ -41,6 +46,12 @@ func init() {
 // Name returns the cloud provider identifier "gcp".
 func (p *Provider) Name() string {
 	return "gcp"
+}
+
+// SetLogger sets the logger for this provider instance.
+// Must be called after retrieving provider from registry.
+func (p *Provider) SetLogger(log *logger.Logger) {
+	p.log = log
 }
 
 // Validate checks if Google Cloud credentials are configured.

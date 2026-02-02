@@ -9,7 +9,11 @@
 // cloud-specific modules (scripts/lib/gcp/*.sh, scripts/lib/stackit/*.sh).
 package cloud
 
-import "context"
+import (
+	"context"
+
+	"github.com/berkaybuharali/k8s-lab/cli/pkg/logger"
+)
 
 // Provider is the interface that all cloud providers must implement.
 // This abstraction allows the CLI to work with any cloud provider by
@@ -24,6 +28,11 @@ type Provider interface {
 	//
 	// Example: "gcp" for Google Cloud Platform
 	Name() string
+
+	// SetLogger sets the logger for this provider.
+	// This is called by root command after provider creation.
+	// Logger is MANDATORY for all operations.
+	SetLogger(log *logger.Logger)
 
 	// Validate checks if cloud-specific prerequisites are met.
 	// This includes:

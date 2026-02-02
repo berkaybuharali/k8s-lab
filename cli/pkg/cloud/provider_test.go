@@ -4,6 +4,8 @@ package cloud
 import (
 	"context"
 	"testing"
+
+	"github.com/berkaybuharali/k8s-lab/cli/pkg/logger"
 )
 
 // TestRegistry verifies that the provider registry works correctly.
@@ -74,10 +76,15 @@ func TestRegisterDuplicate(t *testing.T) {
 // mockProvider is a test implementation of the Provider interface.
 type mockProvider struct {
 	name string
+	log  *logger.Logger
 }
 
 func (m *mockProvider) Name() string {
 	return m.name
+}
+
+func (m *mockProvider) SetLogger(log *logger.Logger) {
+	m.log = log
 }
 
 func (m *mockProvider) Validate(ctx context.Context) error {

@@ -32,6 +32,8 @@ type Tunnel struct {
 func (p *Provider) StartTunnel(ctx context.Context, instance, zone, projectID string,
 	remotePort, localPort int) (*Tunnel, error) {
 
+	p.log.Info("Starting IAP tunnel to %s (port %d -> localhost:%d)...", instance, remotePort, localPort)
+
 	// Build gcloud command
 	// Equivalent to bash:
 	//   gcloud compute start-iap-tunnel instance port \
@@ -71,11 +73,15 @@ func (p *Provider) StartTunnel(ctx context.Context, instance, zone, projectID st
 		cmd:        cmd,
 	}
 
+	p.log.Info("Waiting for IAP tunnel connection...")
+
 	// Wait for tunnel to be ready
 	if err := tunnel.waitReady(ctx); err != nil {
 		tunnel.Stop()
 		return nil, fmt.Errorf("tunnel to %s failed to become ready: %w", instance, err)
 	}
+
+	p.log.Info("IAP tunnel ready: %s", tunnel.Endpoint())
 
 	return tunnel, nil
 }
@@ -112,12 +118,15 @@ func (t *Tunnel) Stop() error {
 // CreateTalosEndpoint creates IAP tunnel to Talos API (port 50000).
 // Returns "localhost:50000", cleanup function, error.
 func (p *Provider) CreateTalosEndpoint(ctx context.Context, instance, zone, projectID string) (string, func(), error) {
+	p.log.Info("Creating Talos API endpoint for %s...", instance)
+
 	tunnel, err := p.StartTunnel(ctx, instance, zone, projectID, 50000, 50000)
 	if err != nil {
 		return "", nil, err
 	}
 
 	cleanup := func() {
+		p.log.Info("Closing tunnel to %s", instance)
 		_ = tunnel.Stop()
 	}
 
@@ -127,12 +136,15 @@ func (p *Provider) CreateTalosEndpoint(ctx context.Context, instance, zone, proj
 // CreateK8sEndpoint creates IAP tunnel to Kubernetes API (port 6443).
 // Returns "localhost:6443", cleanup function, error.
 func (p *Provider) CreateK8sEndpoint(ctx context.Context, instance, zone, projectID string) (string, func(), error) {
+	p.log.Info("Creating Kubernetes API endpoint for %s...", instance)
+
 	tunnel, err := p.StartTunnel(ctx, instance, zone, projectID, 6443, 6443)
 	if err != nil {
 		return "", nil, err
 	}
 
 	cleanup := func() {
+		p.log.Info("Closing tunnel to %s", instance)
 		_ = tunnel.Stop()
 	}
 
