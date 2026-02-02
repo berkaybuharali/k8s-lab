@@ -44,10 +44,12 @@ type configOptions struct {
 	// Example: "v1.29.0"
 	kubernetesVersion string
 
-	// TODO: Add more options as needed in step 4c:
-	// - patchFiles []string (cloud-specific config patches)
-	// - installImage string (Talos installer image)
-	// - dnsDomain string (cluster DNS domain)
+	// TODO(step 4c - config patches): Add support for cloud-specific config patches
+	// GCP needs: infra/gcp/talos-patches/csi.yaml
+	//   - Binds /usr/lib/udev to /lib/udev for GCE PD CSI driver
+	//   - Required for CSI plugin installation (Phase 3)
+	// AWS may need similar patches for EBS CSI driver
+	// configPatches []string
 }
 
 // WithAdditionalSANs adds Subject Alternative Names to the API server certificate.
@@ -91,6 +93,22 @@ func WithKubernetesVersion(version string) ConfigOption {
 		opts.kubernetesVersion = version
 	}
 }
+
+// TODO(step 4c - config patches): Implement WithConfigPatches
+// This will allow cloud-specific patches to be applied during config generation.
+//
+// Example implementation:
+//   func WithConfigPatches(patches []string) ConfigOption {
+//       return func(opts *configOptions) {
+//           opts.configPatches = patches
+//       }
+//   }
+//
+// Usage in command code:
+//   patches := provider.GetTalosConfigPatches()  // Cloud-specific patches
+//   talosClient.GenerateConfigs(ctx, cluster, endpoint,
+//       talos.WithConfigPatches(patches),
+//   )
 
 // applyOptions applies ConfigOption functions to create final options.
 // This is called internally by GenerateConfigs to build the configOptions.

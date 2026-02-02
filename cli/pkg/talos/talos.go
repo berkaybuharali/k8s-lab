@@ -25,6 +25,13 @@ package talos
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+
+	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
+	"github.com/siderolabs/talos/pkg/machinery/config"
+	"github.com/siderolabs/talos/pkg/machinery/config/generate"
+	"github.com/siderolabs/talos/pkg/machinery/config/machine"
 
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/logger"
 )
@@ -73,6 +80,41 @@ func NewClient(ctx context.Context, configsDir string, log *logger.Logger) (*Cli
 	}, nil
 }
 
+// buildGenerateOptions converts configOptions to generate.Option slice.
+func (c *Client) buildGenerateOptions(options *configOptions) []generate.Option {
+	genOpts := []generate.Option{}
+
+	// Add additional SANs
+	if len(options.additionalSANs) > 0 {
+		genOpts = append(genOpts, generate.WithAdditionalSubjectAltNames(options.additionalSANs))
+	}
+
+	// Add install disk
+	if options.installDisk != "" {
+		genOpts = append(genOpts, generate.WithInstallDisk(options.installDisk))
+	}
+
+	return genOpts
+}
+
+// writeConfigFile writes config bytes to file with logging.
+// Creates parent directory if needed.
+func (c *Client) writeConfigFile(path string, data []byte, description string) error {
+	// Ensure parent directory exists
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", dir, err)
+	}
+
+	// Write file
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		return fmt.Errorf("failed to write %s: %w", description, err)
+	}
+
+	c.log.Info("%s written to: %s", description, path)
+	return nil
+}
+
 // GenerateConfigs generates Talos machine configurations using SDK.
 //
 // This creates three files:
@@ -105,8 +147,84 @@ func NewClient(ctx context.Context, configsDir string, log *logger.Logger) (*Cli
 //
 // Implementation: Step 4c
 func (c *Client) GenerateConfigs(ctx context.Context, clusterName, endpoint string, opts ...ConfigOption) error {
-	// TODO: Implement in 4c
-	return fmt.Errorf("not implemented yet")
+	c.log.Info("Generating Talos configurations for cluster: %s", clusterName)
+
+	// Apply functional options
+	options := applyOptions(opts...)
+
+	// Build generate options (SANs, install disk)
+	genOpts := c.buildGenerateOptions(options)
+
+	// Create generate.Input (contains all configs and secrets)
+	input, err := generate.NewInput(clusterName, endpoint, options.kubernetesVersion, genOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to create config input: %w", err)
+	}
+
+	// Generate control plane config
+	c.log.Info("Generating control plane configuration...")
+	controlPlaneConfig, err := input.Config(machine.TypeControlPlane)
+	if err != nil {
+		return fmt.Errorf("failed to generate control plane config: %w", err)
+	}
+
+	// Generate worker config
+	c.log.Info("Generating worker configuration...")
+	workerConfig, err := input.Config(machine.TypeWorker)
+	if err != nil {
+		return fmt.Errorf("failed to generate worker config: %w", err)
+	}
+
+	// Get talosconfig (client auth config)
+	talosconfig, err := input.Talosconfig()
+	if err != nil {
+		return fmt.Errorf("failed to generate talosconfig: %w", err)
+	}
+
+	// Write all configs to disk
+	if err := c.writeGeneratedConfigs(controlPlaneConfig, workerConfig, talosconfig); err != nil {
+		return err
+	}
+
+	c.log.Info("Configuration generation complete")
+	return nil
+}
+
+// writeGeneratedConfigs writes all three config files to disk.
+func (c *Client) writeGeneratedConfigs(cpConfig, workerConfig config.Provider, talosconfig *clientconfig.Config) error {
+	// Marshal configs to bytes
+	cpBytes, err := cpConfig.Bytes()
+	if err != nil {
+		return fmt.Errorf("failed to marshal control plane config: %w", err)
+	}
+
+	workerBytes, err := workerConfig.Bytes()
+	if err != nil {
+		return fmt.Errorf("failed to marshal worker config: %w", err)
+	}
+
+	talosconfigBytes, err := talosconfig.Bytes()
+	if err != nil {
+		return fmt.Errorf("failed to marshal talosconfig: %w", err)
+	}
+
+	// Write files
+	cpPath := filepath.Join(c.configsDir, "controlplane.yaml")
+	if err := c.writeConfigFile(cpPath, cpBytes, "Control plane config"); err != nil {
+		return err
+	}
+
+	workerPath := filepath.Join(c.configsDir, "worker.yaml")
+	if err := c.writeConfigFile(workerPath, workerBytes, "Worker config"); err != nil {
+		return err
+	}
+
+	talosconfigPath := filepath.Join(c.configsDir, "talosconfig")
+	if err := c.writeConfigFile(talosconfigPath, talosconfigBytes, "Talosconfig"); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ApplyConfig applies configuration to a Talos node using SDK client.
