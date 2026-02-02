@@ -42,15 +42,17 @@ import (
 //
 // Example:
 //
-//	c, err := createInsecureClient(ctx, "localhost:50000")
+//	talosClient, err := c.createInsecureClient(ctx, "localhost:50000")
 //	if err != nil {
 //	    return fmt.Errorf("failed to create client: %w", err)
 //	}
-//	defer c.Close()
-func createInsecureClient(ctx context.Context, endpoint string) (*client.Client, error) {
+//	defer talosClient.Close()
+func (c *Client) createInsecureClient(ctx context.Context, endpoint string) (*client.Client, error) {
+	c.log.Debug("Creating insecure Talos client for %s...", endpoint)
+
 	// Create client with insecure credentials
 	// This is equivalent to: talosctl --insecure
-	c, err := client.New(ctx,
+	talosClient, err := client.New(ctx,
 		client.WithEndpoints(endpoint),
 		client.WithGRPCDialOptions(
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -64,7 +66,8 @@ func createInsecureClient(ctx context.Context, endpoint string) (*client.Client,
 		)
 	}
 
-	return c, nil
+	c.log.Debug("Talos client created successfully")
+	return talosClient, nil
 }
 
 // createAuthenticatedClient creates a Talos client with authenticated connection.
@@ -83,12 +86,15 @@ func createInsecureClient(ctx context.Context, endpoint string) (*client.Client,
 //
 // Example:
 //
-//	c, err := createAuthenticatedClient(ctx, "localhost:50000", "configs/gcp/talos/talosconfig")
+//	talosClient, err := c.createAuthenticatedClient(ctx, "localhost:50000", "configs/gcp/talos/talosconfig")
 //	if err != nil {
 //	    return fmt.Errorf("failed to create client: %w", err)
 //	}
-//	defer c.Close()
-func createAuthenticatedClient(ctx context.Context, endpoint, talosconfigPath string) (*client.Client, error) {
+//	defer talosClient.Close()
+func (c *Client) createAuthenticatedClient(ctx context.Context, endpoint, talosconfigPath string) (*client.Client, error) {
+	c.log.Debug("Creating authenticated Talos client for %s...", endpoint)
+	c.log.Debug("Loading talosconfig from: %s", talosconfigPath)
+
 	// Load talosconfig (contains CA cert, client cert, endpoints)
 	cfg, err := config.Open(talosconfigPath)
 	if err != nil {
@@ -102,7 +108,7 @@ func createAuthenticatedClient(ctx context.Context, endpoint, talosconfigPath st
 
 	// Create client with config credentials
 	// This is equivalent to: talosctl --talosconfig <path>
-	c, err := client.New(ctx,
+	talosClient, err := client.New(ctx,
 		client.WithConfig(cfg),
 		client.WithEndpoints(endpoint),
 	)
@@ -114,7 +120,8 @@ func createAuthenticatedClient(ctx context.Context, endpoint, talosconfigPath st
 		)
 	}
 
-	return c, nil
+	c.log.Debug("Talos client created successfully")
+	return talosClient, nil
 }
 
 // waitForAPIReady waits for the Talos API to be ready.
@@ -124,7 +131,7 @@ func createAuthenticatedClient(ctx context.Context, endpoint, talosconfigPath st
 //
 // Parameters:
 //   - ctx: Context with timeout (caller should set timeout)
-//   - c: Authenticated Talos client
+//   - talosClient: Authenticated Talos client
 //
 // Returns:
 //   - error: If API doesn't become ready or context times out
@@ -133,14 +140,16 @@ func createAuthenticatedClient(ctx context.Context, endpoint, talosconfigPath st
 //
 //	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 //	defer cancel()
-//	if err := waitForAPIReady(ctx, client); err != nil {
+//	if err := c.waitForAPIReady(ctx, talosClient); err != nil {
 //	    return fmt.Errorf("API not ready: %w", err)
 //	}
 //
 // Implementation: Step 4e (needed for bootstrap)
-func waitForAPIReady(ctx context.Context, c *client.Client) error {
+func (c *Client) waitForAPIReady(ctx context.Context, talosClient *client.Client) error {
 	// TODO: Implement in 4e
+	// c.log.Info("Waiting for Talos API to be ready...")
 	// Poll client.Version() until it succeeds
 	// Equivalent to bash: talosctl version (polls until success)
+	// c.log.Info("Talos API is ready")
 	return fmt.Errorf("not implemented yet")
 }

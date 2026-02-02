@@ -260,7 +260,7 @@ func (c *Client) ApplyConfig(ctx context.Context, endpoint string, configData []
 	c.log.Info("Applying Talos configuration to %s...", endpoint)
 
 	// Create insecure client (node has no certs yet)
-	talosClient, err := createInsecureClient(ctx, endpoint)
+	talosClient, err := c.createInsecureClient(ctx, endpoint)
 	if err != nil {
 		return fmt.Errorf("failed to create Talos client: %w", err)
 	}
