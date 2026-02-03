@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	machineapi "github.com/siderolabs/talos/pkg/machinery/api/machine"
 	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
@@ -363,33 +364,130 @@ func (c *Client) Bootstrap(ctx context.Context, endpoint, talosconfig string) er
 // The kubeconfig contains:
 // - Cluster CA certificate
 // - Admin client certificate
-// - API server endpoint (may need to be modified for tunnel access)
+// - API server endpoint (modified to use k8sServerURL)
 //
 // Uses: client.Kubeconfig()
 // Replaces: talosctl kubeconfig <output> --nodes <endpoint> --endpoints <endpoint>
 //
 // Parameters:
 //   - ctx: Context for cancellation
-//   - endpoint: Talos API endpoint (e.g., "localhost:50000" via tunnel)
+//   - endpoint: Talos API endpoint (e.g., "localhost:50000" from CreateTalosEndpoint)
 //   - talosconfig: Path to talosconfig file (for authentication)
 //   - outputPath: Where to save the kubeconfig file
+//   - k8sServerURL: Kubernetes API server URL (from CreateK8sEndpoint, e.g., "https://localhost:6443")
 //
 // Returns:
 //   - error: If kubeconfig fetch fails
 //
-// Note: The returned kubeconfig may point to internal IPs. For cloud environments
-// with IAP tunneling, you may need to modify the server URL to use localhost.
+// Example (in command code):
 //
-// Example:
+//	k8sEndpoint, cleanup, _ := provider.CreateK8sEndpoint(ctx, cpInstance, zone, projectID)
+//	defer cleanup()
+//	k8sServerURL := "https://" + k8sEndpoint  // https://localhost:6443
+//	err := talosClient.FetchKubeconfig(ctx, talosEndpoint, talosconfig, kubeconfigPath, k8sServerURL)
+func (c *Client) FetchKubeconfig(ctx context.Context, endpoint, talosconfig, outputPath, k8sServerURL string) error {
+	c.log.Step("Fetching kubeconfig from cluster...")
+	c.log.Info("Endpoint: %s", endpoint)
+
+	// Create authenticated Talos client
+	talosClient, err := c.createAuthenticatedClient(ctx, endpoint, talosconfig)
+	if err != nil {
+		return fmt.Errorf("failed to create Talos client: %w", err)
+	}
+	defer talosClient.Close()
+
+	// Fetch kubeconfig from cluster
+	// This retrieves admin credentials and cluster configuration
+	c.log.Info("Requesting kubeconfig from Talos API...")
+
+	kubeconfigBytes, err := talosClient.Kubeconfig(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch kubeconfig: %w", err)
+	}
+
+	// Ensure parent directory exists
+	dir := filepath.Dir(outputPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", dir, err)
+	}
+
+	// Write kubeconfig to file with restrictive permissions (0600)
+	// This is critical for security - kubeconfig contains admin credentials
+	if err := os.WriteFile(outputPath, kubeconfigBytes, 0600); err != nil {
+		return fmt.Errorf("failed to write kubeconfig: %w", err)
+	}
+
+	c.log.Info("Kubeconfig saved: %s", outputPath)
+
+	// Modify kubeconfig server URL to use the endpoint from CreateK8sEndpoint
+	// Talos generates kubeconfig with internal cluster IP, but we access via cloud provider's endpoint
+	// (tunnel, VPN, direct access, etc. - cloud provider handles the details)
+	c.log.Info("Updating kubeconfig server URL to: %s", k8sServerURL)
+
+	if err := c.modifyKubeconfigServer(outputPath, k8sServerURL); err != nil {
+		return fmt.Errorf("failed to modify kubeconfig: %w", err)
+	}
+
+	c.log.Info("Kubeconfig ready for use")
+	return nil
+}
+
+// modifyKubeconfigServer updates the server URL in kubeconfig.
 //
-//	err := client.FetchKubeconfig(ctx,
-//	    "localhost:50000",
-//	    "configs/gcp/talos/talosconfig",
-//	    "configs/gcp/talos/kubeconfig",
-//	)
+// Why this is needed:
+// - Talos generates kubeconfig with server pointing to internal cluster IP (e.g., https://10.0.0.1:6443)
+// - Cloud provider gives us the correct endpoint to use (via CreateK8sEndpoint)
+// - Different clouds use different approaches:
+//   - GCP: IAP tunnel → https://localhost:6443
+//   - AWS: SSM tunnel → https://localhost:6443
+//   - Direct access clouds: https://external-ip:6443
+// - This method updates kubeconfig to use the cloud provider's endpoint
 //
-// Implementation: Step 4f
-func (c *Client) FetchKubeconfig(ctx context.Context, endpoint, talosconfig, outputPath string) error {
-	// TODO: Implement in 4f
-	return fmt.Errorf("not implemented yet")
+// Example transformation:
+//
+//	Before: server: https://10.0.0.1:6443
+//	After:  server: https://localhost:6443 (or whatever cloud provider returns)
+//
+// Equivalent to bash: sed -i.bak "s|server: https://${CP_IP}:6443|server: https://localhost:6443|g"
+func (c *Client) modifyKubeconfigServer(kubeconfigPath, newServerURL string) error {
+	// Read kubeconfig
+	data, err := os.ReadFile(kubeconfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to read kubeconfig: %w", err)
+	}
+
+	// Simple string replacement in YAML
+	// Look for "server: https://<anything>:6443" and replace with newServerURL
+	// This is simpler than parsing YAML and handles all edge cases bash sed handles
+	content := string(data)
+
+	// Find the server line
+	lines := strings.Split(content, "\n")
+	modified := false
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "server:") {
+			oldURL := strings.TrimSpace(strings.TrimPrefix(trimmed, "server:"))
+			c.log.Debug("Replacing server URL: %s -> %s", oldURL, newServerURL)
+
+			// Replace the entire line with correct indentation
+			indent := line[:len(line)-len(strings.TrimLeft(line, " "))]
+			lines[i] = indent + "server: " + newServerURL
+			modified = true
+			break // Typically only one cluster in kubeconfig
+		}
+	}
+
+	if !modified {
+		return fmt.Errorf("could not find server URL in kubeconfig")
+	}
+
+	// Write back
+	modifiedContent := strings.Join(lines, "\n")
+	if err := os.WriteFile(kubeconfigPath, []byte(modifiedContent), 0600); err != nil {
+		return fmt.Errorf("failed to write kubeconfig: %w", err)
+	}
+
+	c.log.Debug("Kubeconfig server URL updated successfully")
+	return nil
 }
