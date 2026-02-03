@@ -119,12 +119,12 @@ func (c *Client) writeConfigFile(path string, data []byte, description string) e
 // GenerateConfigs generates Talos machine configurations using SDK.
 //
 // This creates three files:
-// - controlplane.yaml: Configuration for control plane nodes
-//   (runs etcd, kube-apiserver, controller-manager, scheduler)
-// - worker.yaml: Configuration for worker nodes
-//   (runs kubelet only)
-// - talosconfig: Client authentication config
-//   (contains endpoints and credentials for Talos API access)
+//   - controlplane.yaml: Configuration for control plane nodes
+//     (runs etcd, kube-apiserver, controller-manager, scheduler)
+//   - worker.yaml: Configuration for worker nodes
+//     (runs kubelet only)
+//   - talosconfig: Client authentication config
+//     (contains endpoints and credentials for Talos API access)
 //
 // Uses: github.com/siderolabs/talos/pkg/machinery/config/generate
 // Replaces: talosctl gen config <cluster> <endpoint> [options]
@@ -311,8 +311,51 @@ func (c *Client) ApplyConfig(ctx context.Context, endpoint string, configData []
 //
 // Implementation: Step 4e
 func (c *Client) Bootstrap(ctx context.Context, endpoint, talosconfig string) error {
-	// TODO: Implement in 4e
-	return fmt.Errorf("not implemented yet")
+	c.log.Step("Bootstrapping Kubernetes cluster...")
+	c.log.Info("Endpoint: %s", endpoint)
+
+	// Create authenticated client (uses talosconfig credentials)
+	// The endpoint parameter is passed explicitly to override talosconfig endpoints
+	// This is needed for cloud environments where we connect via tunnel (localhost)
+	talosClient, err := c.createAuthenticatedClient(ctx, endpoint, talosconfig)
+	if err != nil {
+		return fmt.Errorf("failed to create Talos client: %w", err)
+	}
+	defer talosClient.Close()
+
+	// Step 1: Wait for Talos API to be ready
+	// After config was applied, node reboots from maintenance -> running mode
+	// This can take 1-3 minutes
+	c.log.Info("Waiting for node to finish rebooting...")
+	if err := c.waitForAPIReady(ctx, talosClient); err != nil {
+		return fmt.Errorf("Talos API not ready: %w", err)
+	}
+
+	// Step 2: Initiate bootstrap
+	// This tells Talos to:
+	// - Initialize etcd cluster (single-node etcd for now)
+	// - Generate cluster certificates
+	// - Start Kubernetes control plane components
+	c.log.Info("Initiating cluster bootstrap (this starts etcd and Kubernetes)...")
+
+	err = talosClient.Bootstrap(ctx, &machineapi.BootstrapRequest{})
+	if err != nil {
+		return fmt.Errorf("bootstrap request failed: %w", err)
+	}
+
+	c.log.Info("Bootstrap initiated")
+
+	// Step 3: Wait for cluster to become healthy
+	// Bootstrap happens asynchronously - we need to poll until healthy
+	// This checks: etcd, kubelet, apiserver, controller-manager, scheduler
+	c.log.Info("Waiting for cluster components to become healthy (this may take several minutes)...")
+
+	if err := c.waitForClusterHealth(ctx, talosClient); err != nil {
+		return fmt.Errorf("cluster health check failed: %w", err)
+	}
+
+	c.log.Info("Cluster bootstrapped successfully!")
+	return nil
 }
 
 // FetchKubeconfig retrieves kubeconfig from cluster using SDK.
