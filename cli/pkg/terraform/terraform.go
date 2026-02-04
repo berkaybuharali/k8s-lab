@@ -15,6 +15,7 @@ package terraform
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -355,9 +356,16 @@ func (c *Client) Outputs(ctx context.Context) (map[string]interface{}, error) {
 	// Convert terraform-exec's StateOutput format to simple map[string]interface{}
 	// StateOutput has fields: Value, Type, Sensitive
 	// We only need the Value field for our purposes
+	//
+	// IMPORTANT: output.Value is json.RawMessage (raw JSON bytes)
+	// We need to unmarshal it to get actual Go values
 	result := make(map[string]interface{})
 	for name, output := range tfOutputs {
-		result[name] = output.Value
+		var value interface{}
+		if err := json.Unmarshal(output.Value, &value); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal output '%s': %w", name, err)
+		}
+		result[name] = value
 	}
 
 	c.log.Debug("Read %d terraform outputs", len(result))

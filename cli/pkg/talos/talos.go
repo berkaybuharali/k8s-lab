@@ -269,10 +269,12 @@ func (c *Client) ApplyConfig(ctx context.Context, endpoint string, configData []
 
 	c.log.Info("Sending configuration to node...")
 
-	// Apply configuration without reboot
+	// Apply configuration with reboot
+	// In maintenance mode (initial config), the node MUST reboot to apply config
+	// After reboot, the node will start with the applied configuration
 	req := &machineapi.ApplyConfigurationRequest{
 		Data: configData,
-		Mode: machineapi.ApplyConfigurationRequest_NO_REBOOT,
+		Mode: machineapi.ApplyConfigurationRequest_REBOOT,
 	}
 
 	_, err = talosClient.ApplyConfiguration(ctx, req)

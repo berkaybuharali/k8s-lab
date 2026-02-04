@@ -134,16 +134,16 @@ var (
 // CommandPrereqs maps top-level command names to their required tools.
 // This is a declarative way for commands to specify their dependencies.
 //
-// Example: "infra" commands need terraform only (Talos uses Go SDK, no binary)
+// Example: "deploy-infra" commands need terraform only (Talos uses Go SDK, no binary)
 //
 // Note: This only includes command-specific tools, not cloud-specific tools
 // (those are in CloudPrereqs and checked separately based on --cloud flag)
 var CommandPrereqs = map[string][]Prerequisite{
-	"infra":     {Terraform}, // Talos uses Go SDK, no talosctl binary needed
-	"platform":  {Kubectl},
-	"workloads": {Kubectl},
-	"backup":    {Kubectl, Velero},
-	"restore":   {Kubectl, Velero},
+	"deploy-infra": {Terraform}, // Talos uses Go SDK, no talosctl binary needed
+	"platform":     {Kubectl},
+	"workloads":    {Kubectl},
+	"backup":       {Kubectl, Velero},
+	"restore":      {Kubectl, Velero},
 }
 
 // CloudPrereqs maps cloud provider names to their required tools.

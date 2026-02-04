@@ -16,14 +16,13 @@ package talos
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"time"
 
 	clusterapi "github.com/siderolabs/talos/pkg/machinery/api/cluster"
 	"github.com/siderolabs/talos/pkg/machinery/client"
 	"github.com/siderolabs/talos/pkg/machinery/client/config"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // createInsecureClient creates a Talos client with insecure connection.
@@ -52,13 +51,17 @@ import (
 func (c *Client) createInsecureClient(ctx context.Context, endpoint string) (*client.Client, error) {
 	c.log.Debug("Creating insecure Talos client for %s...", endpoint)
 
-	// Create client with insecure credentials
-	// This is equivalent to: talosctl --insecure
+	// Create TLS config that accepts any certificate
+	// This is required for maintenance mode where nodes use weak RSA keys
+	// Equivalent to: talosctl --insecure --nodes <endpoint>
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	// Create client with insecure TLS using SDK's WithTLSConfig option
 	talosClient, err := client.New(ctx,
 		client.WithEndpoints(endpoint),
-		client.WithGRPCDialOptions(
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		),
+		client.WithTLSConfig(tlsConfig),
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
