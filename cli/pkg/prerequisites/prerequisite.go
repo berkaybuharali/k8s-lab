@@ -141,7 +141,7 @@ var (
 var CommandPrereqs = map[string][]Prerequisite{
 	"deploy-infra": {Terraform}, // Talos uses Go SDK, no talosctl binary needed
 	"destroy":      {Terraform}, // Only Terraform needed for destroy
-	"platform":     {Kubectl},
+	"platform":     {Kubectl, Velero}, // Velero CLI used for installation (Go SDK doesn't support it)
 	"workloads":    {Kubectl},
 	"backup":       {Kubectl, Velero},
 	"restore":      {Kubectl, Velero},
