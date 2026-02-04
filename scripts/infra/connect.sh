@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TF_DIR="${REPO_ROOT}/infra/gcp/terraform"
 CONFIGS_DIR="${REPO_ROOT}/configs"
+TALOS_CONFIGS_DIR="${CONFIGS_DIR}/talos"
 
 CLOUD=${1:-}
 if [[ -z "$CLOUD" || "$CLOUD" != "gcp" ]]; then
