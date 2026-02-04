@@ -140,6 +140,7 @@ var (
 // (those are in CloudPrereqs and checked separately based on --cloud flag)
 var CommandPrereqs = map[string][]Prerequisite{
 	"deploy-infra": {Terraform}, // Talos uses Go SDK, no talosctl binary needed
+	"destroy":      {Terraform}, // Only Terraform needed for destroy
 	"platform":     {Kubectl},
 	"workloads":    {Kubectl},
 	"backup":       {Kubectl, Velero},
