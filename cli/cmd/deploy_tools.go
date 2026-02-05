@@ -10,8 +10,10 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -302,17 +304,35 @@ func applyStorageClassYAML(ctx context.Context, kubeconfigPath, yamlPath string)
 	}
 
 	// Read YAML file
-	file, err := os.Open(yamlPath)
+	data, err := os.ReadFile(yamlPath)
 	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
+		return fmt.Errorf("failed to read file: %w", err)
 	}
-	defer file.Close()
 
-	// Decode YAML
-	decoder := yaml.NewYAMLOrJSONDecoder(file, 4096)
+	// Decode YAML - handle multiple documents (--- separators)
+	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(data), 4096)
 	var storageClass storagev1.StorageClass
-	if err := decoder.Decode(&storageClass); err != nil {
-		return fmt.Errorf("failed to decode YAML: %w", err)
+
+	// Decode all documents until we find a valid StorageClass
+	for {
+		var sc storagev1.StorageClass
+		if err := decoder.Decode(&sc); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("failed to decode YAML: %w", err)
+		}
+
+		// Found a StorageClass with a name (not an empty document)
+		if sc.Name != "" {
+			storageClass = sc
+			break
+		}
+	}
+
+	// Validate we got a StorageClass
+	if storageClass.Name == "" {
+		return fmt.Errorf("no valid StorageClass found in %s", yamlPath)
 	}
 
 	// Apply StorageClass (create or update)
