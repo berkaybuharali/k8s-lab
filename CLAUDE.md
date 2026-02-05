@@ -14,33 +14,36 @@ K8s lab on cloud VMs with backup. Focus: reproducibility, cost-efficiency (PoC),
 
 Layers 3-4 reusable across clouds.
 
-**Stack:** Terraform (state: GCS), Talos Linux, Velero, Bash/Python/Make
+**Stack:** Terraform (state: GCS), Talos Linux, Velero, Bash/Python/Make/Go
 
 **Config:** `gcloud auth application-default login` or SA. 1 CP + 2 Workers (multi-AZ), smallest VMs.
 
 ## Daily Lifecycle (Cost Optimization)
 
-| Command | Action |
-|---------|--------|
-| `make deploy-infra gcp` | Create VPC, firewall, VMs, bootstrap K8s |
-| `make deploy-tools gcp` | Install CSI driver, StorageClass, Velero |
-| `make deploy-applications gcp` | Deploy apps (NGINX, Redis) |
-| `make deploy gcp` | All-in-one: infra + tools + apps |
-| `make seed-redis gcp` | Insert test data into Redis |
-| `make backup gcp` | Backup application namespace to GCS |
-| `make restore gcp` | Install tools + restore apps from backup |
-| `make destroy gcp` | Destroy all (apps + infra) |
+Two interfaces (user choice):
+- **Makefile (bash):** `make deploy-infra gcp`, `make deploy-tools gcp`, etc.
+- **Go CLI (binary):** `./k8s-lab deploy-infra gcp`, `./k8s-lab deploy-tools gcp`, etc.
+
+| Operation | Description |
+|-----------|-------------|
+| deploy-infra | VPC, firewall, VMs, bootstrap K8s |
+| deploy-tools | CSI driver, StorageClass, Velero |
+| deploy-applications | Apps (NGINX, Redis) |
+| deploy | All-in-one: infra + tools + apps |
+| seed-redis | Insert test data |
+| backup | Backup namespace to GCS |
+| restore | Install tools + restore from backup |
+| destroy | Destroy all (apps + infra) |
 
 Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 
-## Status
-
-**Phase 1-2: COMPLETE** - Infra, Talos v1.12.1 (vanilla), K8s bootstrap via IAP tunnel
-**Phase 3: COMPLETE** - Velero installation, backup/restore via `make backup|restore gcp`, Redis backup hooks (BGSAVE) for data consistency
-**Phase 4: IN PROGRESS** - NGINX (2 replicas, stateless), Redis (1 replica + GCE PD with RDB+AOF persistence), PostgreSQL deployment
-**Phase 5: PLANNED** - Multi-cloud (STACKIT), cross-cluster restore
-
 ## Development Rules
+
+**Dual-Agent Workflow:**
+- ALWAYS read `status_dev_guideline.md` FIRST before starting work
+- ALWAYS update `status_dev_guideline.md` BEFORE exiting (Active Task, Recent Accomplishments, Next Steps)
+- Claude = Lead Architect (complex logic, planning)
+- Gemini = Implementation Engineer (scaffolding, refactoring, docs, git ops)
 
 **Public Repo Readiness:**
 - No hardcoded project IDs, buckets, or user-specific values
