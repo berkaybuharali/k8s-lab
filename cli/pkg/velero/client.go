@@ -292,6 +292,9 @@ func (c *Client) isInstalled(ctx context.Context) (bool, error) {
 
 // WaitForReady waits for Velero deployment to be ready.
 //
+// Uses kubectl rollout status to avoid client-go rate limiter issues with
+// high-latency IAP tunnels. This matches the bash implementation exactly.
+//
 // Parameters:
 //   - ctx: Context for cancellation
 //   - timeout: Maximum time to wait
@@ -299,38 +302,28 @@ func (c *Client) isInstalled(ctx context.Context) (bool, error) {
 // Returns:
 //   - error: If timeout reached or context cancelled
 //
-// Equivalent to bash: velero_wait_ready() in scripts/lib/velero.sh
+// Equivalent to bash: velero_wait_ready() in scripts/lib/velero.sh:38-42
+//   kubectl rollout status deployment/velero -n velero --timeout=120s
 func (c *Client) WaitForReady(ctx context.Context, timeout time.Duration) error {
-	c.log.Info("Waiting for Velero deployment to be ready (timeout: %v)...", timeout)
+	c.log.Step("Waiting for Velero deployment to be ready")
 
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+	// Use kubectl rollout status (simpler than client-go watch, avoids rate limiter)
+	timeoutStr := fmt.Sprintf("%ds", int(timeout.Seconds()))
+	cmd := exec.CommandContext(ctx, "kubectl", "rollout", "status",
+		"deployment/velero",
+		"-n", VeleroNamespace,
+		"--timeout="+timeoutStr,
+		"--kubeconfig", c.kubeconfigPath,
+	)
 
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout waiting for Velero: %w", ctx.Err())
-
-		case <-ticker.C:
-			deployments, err := c.clientset.AppsV1().Deployments(VeleroNamespace).List(ctx, metav1.ListOptions{
-				LabelSelector: "app.kubernetes.io/name=velero",
-			})
-			if err != nil {
-				c.log.Debug("Failed to list Velero deployments: %v", err)
-				continue
-			}
-
-			for _, deploy := range deployments.Items {
-				if deploy.Status.ReadyReplicas > 0 {
-					c.log.Info("Velero is ready")
-					return nil
-				}
-			}
-		}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		c.log.Debug("kubectl rollout status output:\n%s", string(output))
+		return fmt.Errorf("Velero deployment not ready: %w", err)
 	}
+
+	c.log.Info("Velero is ready")
+	return nil
 }
 
 // CreateBackup creates a new Velero backup.
