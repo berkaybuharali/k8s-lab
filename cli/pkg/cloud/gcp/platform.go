@@ -290,21 +290,21 @@ func contains(s, substr string) bool {
 // GetVeleroInstallConfig returns GCP-specific Velero configuration.
 //
 // This reads Terraform outputs to build the Velero install config:
-// - bucket_name: GCS bucket for backups
+// - state_bucket: GCS bucket for backups (same as Terraform state bucket)
 // - project_id: GCP project ID
 // - node_service_account_email: Service account for GCS access
 //
 // Equivalent to bash (scripts/lib/gcp/velero.sh:30-64):
 //
-//	bucket=$(terraform output -raw bucket_name)
+//	bucket=$(terraform output -raw state_bucket)
 //	project=$(terraform output -raw project_id)
 //	sa=$(terraform output -raw node_service_account_email)
 //	velero install --provider gcp --bucket "$bucket" ...
 func (p *Provider) GetVeleroInstallConfig(terraformDir string) (interface{}, error) {
-	// Read bucket name
-	bucketName, err := p.getTerraformOutput(terraformDir, "bucket_name")
+	// Read bucket name (same bucket as Terraform state)
+	bucketName, err := p.getTerraformOutput(terraformDir, "state_bucket")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get bucket_name: %w", err)
+		return nil, fmt.Errorf("failed to get state_bucket: %w", err)
 	}
 
 	// Read project ID
