@@ -97,6 +97,17 @@ func (c *Config) GetCloudAppsDir() string {
 	return filepath.Join(c.GetAppsDir(), c.Cloud)
 }
 
+// GetKubeconfigPath returns the path to the kubeconfig file.
+// This is created by deploy-infra command and used by other commands.
+func (c *Config) GetKubeconfigPath() string {
+	return filepath.Join(c.GetTalosConfigsDir(), "kubeconfig")
+}
+
+// GetRepoRoot returns the repository root directory.
+func (c *Config) GetRepoRoot() string {
+	return c.RepoRoot
+}
+
 // findRepoRoot checks if the current directory is the repository root.
 // The k8s-lab CLI must be run from the repository root directory,
 // matching the behavior of Makefile commands.

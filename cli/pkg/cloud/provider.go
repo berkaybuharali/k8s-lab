@@ -87,6 +87,30 @@ type Provider interface {
 	// CreateK8sEndpoint creates access to Kubernetes API (port 6443).
 	// Same pattern as CreateTalosEndpoint but for K8s API.
 	CreateK8sEndpoint(ctx context.Context, instance, zone, projectID string) (string, func(), error)
+
+	// InstallCSIDriver installs the cloud-specific CSI driver for persistent storage.
+	// The CSI driver enables dynamic provisioning of persistent disks.
+	//
+	// Parameters:
+	//   - ctx: Context for cancellation
+	//   - kubeconfigPath: Path to kubeconfig file for cluster access
+	//
+	// Returns error if installation fails.
+	// Should be idempotent (safe to call if already installed).
+	//
+	// Equivalent to bash: gcp_csi_install() in scripts/lib/gcp/csi.sh
+	InstallCSIDriver(ctx context.Context, kubeconfigPath string) error
+
+	// GetVeleroInstallConfig returns cloud-specific Velero configuration.
+	// This reads Terraform outputs to build the Velero install config.
+	//
+	// Parameters:
+	//   - terraformDir: Path to Terraform directory
+	//
+	// Returns InstallConfig with cloud-specific settings (bucket, plugin, etc.)
+	//
+	// Equivalent to bash: Building args for gcp_velero_install()
+	GetVeleroInstallConfig(terraformDir string) (interface{}, error)
 }
 
 // Registry holds all registered cloud providers.

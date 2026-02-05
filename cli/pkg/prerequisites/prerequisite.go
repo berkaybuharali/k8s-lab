@@ -139,12 +139,13 @@ var (
 // Note: This only includes command-specific tools, not cloud-specific tools
 // (those are in CloudPrereqs and checked separately based on --cloud flag)
 var CommandPrereqs = map[string][]Prerequisite{
-	"deploy-infra": {Terraform}, // Talos uses Go SDK, no talosctl binary needed
-	"destroy":      {Terraform}, // Only Terraform needed for destroy
-	"platform":     {Kubectl, Velero}, // Velero CLI used for installation (Go SDK doesn't support it)
-	"workloads":    {Kubectl},
-	"backup":       {Kubectl, Velero},
-	"restore":      {Kubectl, Velero},
+	"deploy-infra":  {Terraform}, // Talos uses Go SDK, no talosctl binary needed
+	"destroy":       {Terraform}, // Only Terraform needed for destroy
+	"deploy-tools":  {Kubectl, Velero}, // Kubectl for manifests, Velero CLI for installation (Go SDK doesn't support it)
+	"platform":      {Kubectl, Velero}, // Alias for deploy-tools (legacy bash compatibility)
+	"workloads":     {Kubectl},
+	"backup":        {Kubectl, Velero},
+	"restore":       {Kubectl, Velero},
 }
 
 // CloudPrereqs maps cloud provider names to their required tools.
