@@ -25,6 +25,7 @@ import (
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/cloud"
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/config"
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/logger"
+	"github.com/berkaybuharali/k8s-lab/cli/pkg/terraform"
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/velero"
 )
 
@@ -73,6 +74,24 @@ func runDeployTools(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Get infrastructure info from Terraform
+	infra, err := getInfrastructureInfo(cfg, provider, log)
+	if err != nil {
+		return err
+	}
+
+	// Create K8s API tunnel (kubeconfig points to localhost:6443)
+	// This tunnel must stay alive for all K8s operations
+	log.Info("")
+	log.Info("Creating tunnel to Kubernetes API...")
+	k8sEndpoint, cleanup, err := provider.CreateK8sEndpoint(ctx, infra.CPName, infra.CPZone, infra.ProjectID)
+	if err != nil {
+		return fmt.Errorf("failed to create K8s tunnel: %w", err)
+	}
+	defer cleanup()
+
+	log.Debug("K8s API accessible at: %s", k8sEndpoint)
+
 	// Get kubeconfig path (created by deploy-infra)
 	kubeconfigPath := cfg.GetKubeconfigPath()
 
@@ -110,6 +129,58 @@ func checkToolsPrerequisites(cfg *config.Config, log *logger.Logger) error {
 
 	log.Info("Prerequisites satisfied")
 	return nil
+}
+
+// toolsInfraInfo holds minimal infrastructure info needed for tools deployment.
+// Only control plane info is needed to create K8s API tunnel.
+type toolsInfraInfo struct {
+	ProjectID string // Cloud project/account ID
+	CPName    string // Control plane instance name
+	CPZone    string // Control plane zone
+}
+
+// getInfrastructureInfo reads infrastructure info from Terraform outputs.
+// This is needed to create the K8s API tunnel.
+func getInfrastructureInfo(
+	cfg *config.Config,
+	provider cloud.Provider,
+	log *logger.Logger,
+) (*toolsInfraInfo, error) {
+	terraformDir := cfg.GetTerraformDir()
+
+	// Get project ID
+	projectID, err := provider.GetProjectID(terraformDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get project ID: %w", err)
+	}
+
+	// Get Terraform outputs
+	tfClient, err := terraform.NewClient(context.Background(), terraformDir, log)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create terraform client: %w", err)
+	}
+
+	outputs, err := tfClient.Outputs(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get terraform outputs: %w", err)
+	}
+
+	// Extract control plane info
+	cpName, ok := outputs["control_plane_name"].(string)
+	if !ok {
+		return nil, fmt.Errorf("control_plane_name output not found")
+	}
+
+	cpZone, ok := outputs["control_plane_zone"].(string)
+	if !ok {
+		return nil, fmt.Errorf("control_plane_zone output not found")
+	}
+
+	return &toolsInfraInfo{
+		ProjectID: projectID,
+		CPName:    cpName,
+		CPZone:    cpZone,
+	}, nil
 }
 
 // installCSIDriver installs the cloud-specific CSI driver.
