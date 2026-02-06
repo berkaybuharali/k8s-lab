@@ -19,8 +19,8 @@ import (
 	"os"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,8 +30,11 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/logger"
 )
@@ -55,6 +58,9 @@ type Client struct {
 
 	// restMapper maps GVK to GVR, cached for performance
 	restMapper meta.RESTMapper
+
+	// restConfig is the configuration used for REST clients (needed for Exec)
+	restConfig *rest.Config
 
 	// log is the logger for user-facing messages
 	log *logger.Logger
@@ -129,6 +135,7 @@ func NewClient(kubeconfigPath string, log *logger.Logger) (*Client, error) {
 		dynamicClient:   dynamicClient,
 		discoveryClient: discoveryClient,
 		restMapper:      mapper,
+		restConfig:      config,
 		log:             log,
 	}, nil
 }
@@ -307,7 +314,7 @@ func (c *Client) ApplyManifest(ctx context.Context, manifestPath string) error {
 
 		// Get GroupVersionKind
 		gvk := rawObj.GroupVersionKind()
-		
+
 		// Find GVR (GroupVersionResource) mapping using cached mapper
 		mapping, err := c.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
@@ -338,7 +345,7 @@ func (c *Client) ApplyManifest(ctx context.Context, manifestPath string) error {
 		_, err = dr.Patch(ctx, rawObj.GetName(), types.ApplyPatchType, data, metav1.PatchOptions{
 			FieldManager: "k8s-lab",
 		})
-		
+
 		if err != nil {
 			return fmt.Errorf("failed to apply %s/%s: %w", gvk.Kind, rawObj.GetName(), err)
 		}
@@ -434,3 +441,77 @@ func (c *Client) CheckStorageClassExists(ctx context.Context) (bool, error) {
 	return len(list.Items) > 0, nil
 }
 
+// Exec executes a command inside a pod container.
+//
+// It sets up a SPDY executor to stream stdin/stdout/stderr.
+// This is equivalent to `kubectl exec`.
+//
+// Parameters:
+//   - ctx: Context for cancellation
+//   - namespace: Pod namespace
+//   - podName: Name of the pod
+//   - containerName: Name of the container (optional, defaults to first container)
+//   - command: Command to execute (e.g., []string{"ls", "-la"})
+//   - stdin: Reader for stdin (can be nil)
+//
+// Returns:
+//   - stdout: Standard output as string
+//   - stderr: Standard error as string
+//   - error: If execution fails or pod is not running
+func (c *Client) Exec(ctx context.Context, namespace, podName, containerName string, command []string, stdin io.Reader) (string, string, error) {
+	// Verify pod is running
+	pod, err := c.clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get pod %s: %w", podName, err)
+	}
+
+	if pod.Status.Phase != corev1.PodRunning {
+		return "", "", fmt.Errorf("pod %s is not running (phase: %s)", podName, pod.Status.Phase)
+	}
+
+	req := c.clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec")
+
+	req.VersionedParams(&corev1.PodExecOptions{
+		Container: containerName,
+		Command:   command,
+		Stdin:     stdin != nil,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       false,
+	}, scheme.ParameterCodec)
+
+	executor, err := remotecommand.NewSPDYExecutor(c.restConfig, "POST", req.URL())
+	if err != nil {
+		return "", "", fmt.Errorf("failed to initialize executor: %w", err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	err = executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdin:  stdin,
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+
+	return stdout.String(), stderr.String(), err
+}
+
+// GetFirstPodByLabel returns the name of the first pod matching the label selector.
+//
+// Warning: If multiple pods match the selector, the returned pod is non-deterministic
+// (based on API list order). This is primarily useful for single-replica deployments.
+func (c *Client) GetFirstPodByLabel(ctx context.Context, namespace, labelSelector string) (string, error) {
+	pods, err := c.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list pods: %w", err)
+	}
+	if len(pods.Items) == 0 {
+		return "", fmt.Errorf("no pods found matching label %s", labelSelector)
+	}
+	return pods.Items[0].Name, nil
+}
