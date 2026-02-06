@@ -37,44 +37,39 @@
 
 # Active Task
 
-**Task:** Documentation Update (Phase 7)
+**Task:** Testing & Validation (Phase 8)
 
 **Context:**
-- All implementation phases (6a-6e) are complete and verified.
-- The Go CLI now supports the full lifecycle: infra -> tools -> apps -> data -> backup -> restore.
-- Need to document the new Go CLI usage alongside the existing Makefile/Bash commands.
+- All implementation phases (6a-6e) are complete and verified
+- Documentation (Phase 7) is complete
+- Need to validate full lifecycle end-to-end
 
 **Requirements:**
-1. **New `cli/README.md`:**
-   - Architecture overview (Cobra, packages)
-   - Testing guide (`go test`, mocks)
-   - Directory structure explanation
-2. **Update root `README.md`:**
-   - Dual-CLI usage guide (Bash vs Go)
-   - Quick Start section using Go CLI
-   - Prerequisites
-3. **Update `apps/README.md` & `infra/README.md`:**
-   - Add Go CLI examples for relevant commands
-4. **Housekeeping:**
-   - Ensure `terraform.tfvars.example` has clear TODOs
-   - Verify `CLAUDE.md` is up to date
+1. **Full Lifecycle Integration Test:**
+   - Script or manual test: deploy-infra → deploy-tools → deploy-applications → seed-redis → backup → destroy → restore
+   - Verify data integrity after restore (Redis keys)
+   - Test both Makefile and Go CLI paths
+2. **Edge Case Testing:**
+   - Backup/restore with no data
+   - Restore to fresh cluster
+   - Volume snapshot verification
 
-**Files to Create/Modify:**
-- `cli/README.md` (new)
-- `README.md` (update)
-- `apps/README.md` (update)
-- `infra/README.md` (update)
+**Next Steps:**
+- Create integration test script or document manual test procedure
+- Run full lifecycle with both interfaces
+- Document any issues or limitations
 
 ---
 
 # Recent Accomplishments
 
-1. **Implemented `backup` and `restore` commands** - Full DR capability via Go CLI (Phase 6e complete)
-2. **Fixed Velero Volume Snapshots** - Correctly configured Backup CR to capture GCP Persistent Disks
-3. **Implemented `seed-redis` command** - Populates Redis with 100+ keys via optimized bulk `Exec` (Phase 6d complete)
-4. **Enhanced K8s Client** - Added robust `Exec`, `DeleteNamespace`, and `ApplyManifest` with SSA support
-5. **Implemented `deploy-applications` command** - Deploys NGINX and Redis using Go CLI (Phase 6c complete)
-6. **Implemented `deploy-tools gcp` command** - Installs CSI driver, StorageClass, and Velero via Go CLI (Phase 6b complete)
+1. **Completed Documentation (Phase 7)** - Created cli/README.md with architecture docs, updated root README with dual-interface Quick Start (Makefile vs Go CLI), installation instructions
+2. **Fixed Velero Volume Snapshots** - Removed `IncludeClusterResources: false` from Backup CR to enable PV snapshot creation
+3. **Implemented `backup` and `restore` commands** - Full DR capability via Go CLI (Phase 6e complete)
+4. **Implemented `seed-redis` command** - Populates Redis with 100+ keys via optimized bulk `Exec` (Phase 6d complete)
+5. **Enhanced K8s Client** - Added robust `Exec`, `DeleteNamespace`, and `ApplyManifest` with SSA support
+6. **Implemented `deploy-applications` command** - Deploys NGINX and Redis using Go CLI (Phase 6c complete)
+7. **Implemented `deploy-tools gcp` command** - Installs CSI driver, StorageClass, and Velero via Go CLI (Phase 6b complete)
 
 ---
 
