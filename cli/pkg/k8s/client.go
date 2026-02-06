@@ -21,6 +21,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -427,6 +428,60 @@ func (c *Client) WaitForDeploymentReady(ctx context.Context, namespace, name str
 			if isFailed {
 				return fmt.Errorf("deployment %s failed to progress", name)
 			}
+		}
+	}
+}
+
+// DeleteNamespace deletes a namespace and waits for it to be fully removed.
+//
+// It returns nil immediately if the namespace does not exist.
+// It waits for the namespace to be deleted before returning (up to 5 minutes).
+//
+// Parameters:
+//   - ctx: Context for cancellation
+//   - name: Name of the namespace to delete
+//
+// Returns:
+//   - error: If deletion fails or timeout reached
+func (c *Client) DeleteNamespace(ctx context.Context, name string) error {
+	c.log.Info("Deleting namespace %s...", name)
+
+	// Trigger deletion
+	err := c.clientset.CoreV1().Namespaces().Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			c.log.Debug("Namespace %s does not exist, skipping deletion", name)
+			return nil
+		}
+		return fmt.Errorf("failed to delete namespace %s: %w", name, err)
+	}
+
+	// Wait for deletion to complete
+	c.log.Debug("Waiting for namespace %s to be removed...", name)
+	
+	// Create timeout context (5 minutes should be enough for most namespaces)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	defer cancel()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for namespace %s deletion: %w", name, ctx.Err())
+
+		case <-ticker.C:
+			_, err := c.clientset.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					c.log.Info("Namespace %s deleted", name)
+					return nil
+				}
+				c.log.Debug("Error checking namespace status: %v", err)
+				continue
+			}
+			// Namespace still exists, continue waiting
 		}
 	}
 }

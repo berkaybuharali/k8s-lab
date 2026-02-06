@@ -197,6 +197,8 @@ func (c *Client) Install(ctx context.Context, config *InstallConfig) error {
 		"--bucket", config.BucketName,
 		"--prefix", "velero",
 		"--snapshot-location-config", fmt.Sprintf("project=%s", config.ProjectID),
+		"--use-volume-snapshots=true",
+		"--default-volumes-to-fs-backup=false",
 		"--kubeconfig", c.kubeconfigPath,
 	}
 
@@ -359,7 +361,9 @@ func (c *Client) CreateBackup(ctx context.Context, name string, namespaces strin
 	nsSlice := strings.Split(namespaces, ",")
 
 	// Create Backup CR
-	includeClusterResources := false
+	// Only set essential fields - let Velero use defaults for snapshot behavior
+	// Key: Do NOT set IncludeClusterResources=false or SnapshotVolumes explicitly
+	// Velero will automatically snapshot PVs when VolumeSnapshotLocations is set
 	backup := &velerov1.Backup{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "velero.io/v1",
@@ -372,8 +376,8 @@ func (c *Client) CreateBackup(ctx context.Context, name string, namespaces strin
 		Spec: velerov1.BackupSpec{
 			IncludedNamespaces:      nsSlice,
 			StorageLocation:         "default",
+			VolumeSnapshotLocations: []string{"default"},
 			TTL:                     metav1.Duration{Duration: DefaultBackupTTL},
-			IncludeClusterResources: &includeClusterResources,
 		},
 	}
 
