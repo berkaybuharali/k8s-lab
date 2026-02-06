@@ -38,3 +38,14 @@ Thumbs.db
 
 # Local notes and environment-specific docs (not for repo)
 LOCAL.md
+
+# Migration planning (work in progress)
+GO_MIGRATION_PLAN.md
+GO_PLAN.md
+
+# Go
+bin/
+*.test
+*.out
+coverage.txt
+coverage.html
