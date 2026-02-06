@@ -1,6 +1,6 @@
 # Project Status
 
-**Current Phase:** Migration to Go CLI (Phase 6d - Data Operations)
+**Current Phase:** Migration to Go CLI (Phase 6e - Backup/Restore)
 
 **Branch:** `feature/go-migration`
 
@@ -37,71 +37,62 @@
 
 # Active Task
 
-**Task:** Implement `seed-redis` command (Phase 6d)
+**Task:** Implement `backup` and `restore` commands (Phase 6e)
 
 **Context:**
-- `deploy-applications` verified and working (`./bin/k8s-lab deploy-applications --cloud gcp`)
-- Need to populate Redis with test data to verify statefulness and backup capabilities
+- `seed-redis` verified and working (`./bin/k8s-lab seed-redis --cloud gcp`)
+- Need to implement the core disaster recovery features using Velero Go SDK (or API)
 
 **Requirements:**
-1. **Connect to Redis:**
-   - Use `kubectl exec` equivalent via client-go (SPDY executor)
-   - Target the `redis` pod in `application` namespace
-2. **Seed Data:**
-   - Set 100+ keys (e.g., `user:1`, `user:2`...)
-   - Verify keys are set (count them)
+1. **Backup Command:**
+   - Command: `./k8s-lab backup --cloud gcp`
+   - Create a Velero backup of the `application` namespace
+   - Use dynamic backup naming (e.g., `lab-backup-YYYYMMDD-HHMMSS`)
+   - Wait for backup completion (status: `Completed`)
+2. **Restore Command:**
+   - Command: `./k8s-lab restore --cloud gcp --backup <name>`
+   - Restore the `application` namespace from the specified backup
+   - Wait for restore completion
 3. **Implementation Notes:**
-   - Command: `./k8s-lab seed-redis --cloud gcp`
-   - Use `cli/pkg/k8s/client.go` - might need to add `Exec` method
-   - Reuse existing tunnel creation logic
-   - Log progress clearly
+   - Use Velero Go SDK or Dynamic Client to interact with Velero CRDs
+   - Reuse existing tunnel and k8s client logic
    - While implementing go functionality, if you have a doubt, look the bash way. Bash way is implemented before and working as expected.
 
 **Files to Create/Modify:**
-- `cli/cmd/seed_redis.go` (new command)
-- `cli/pkg/k8s/client.go` (add Exec method)
+- `cli/cmd/backup.go` (new)
+- `cli/cmd/restore.go` (new)
+- `cli/pkg/velero/client.go` (implement backup/restore logic)
 
 ---
 
 # Recent Accomplishments
 
-1. **Implemented `deploy-applications` command** - Deploys NGINX and Redis using Go CLI (Phase 6c complete)
-2. **Implemented `deploy-tools gcp` command** - Installs CSI driver, StorageClass, and Velero via Go CLI (Phase 6b complete)
-3. **Verified deploy-tools in production** - `./bin/k8s-lab deploy-tools --cloud gcp --verbose` working end-to-end
-4. **Fixed Velero deployment** - Correct Terraform output names, kubectl rollout status for wait
-5. **Established K8s API tunnel** - Deploy-tools creates IAP tunnel before K8s operations
+1. **Implemented `seed-redis` command** - Populates Redis with 100+ keys via optimized bulk `Exec` (Phase 6d complete)
+2. **Enhanced K8s Client** - Added robust `Exec` with pod readiness checks and `ApplyManifest` with SSA support
+3. **Implemented `deploy-applications` command** - Deploys NGINX and Redis using Go CLI (Phase 6c complete)
+4. **Implemented `deploy-tools gcp` command** - Installs CSI driver, StorageClass, and Velero via Go CLI (Phase 6b complete)
+5. **Verified deploy-tools in production** - `./bin/k8s-lab deploy-tools --cloud gcp --verbose` working end-to-end
 6. **Created dual-agent coordination files** - status_dev_guideline.md, GEMINI.md for Claude/Gemini workflow
 
 ---
 
 # Next Steps
 
-**Phase 6e - Backup/Restore:**
-1. Implement `backup gcp` command
-   - Create Velero backup of application namespace
-   - Wait for backup completion
-   - Verify backup in GCS
-
-2. Implement `restore gcp` command
-   - Install tools if needed
-   - Restore application namespace from backup
-   - Verify application data integrity
-
 **Phase 7 - Documentation:**
-3. Comprehensive documentation update
+1. Comprehensive documentation update
    - Create `cli/README.md` (architecture, packages, testing)
    - Update root `README.md` (dual-CLI usage, Quick Start)
    - Update all READMEs with Go CLI examples
    - Ensure terraform.tfvars.example has TODOs
 
 **Phase 8 - Testing & Validation:**
-4. Full lifecycle integration test
+2. Full lifecycle integration test
    - Script: deploy-infra → deploy-tools → deploy-applications → seed-redis → backup → destroy → restore
    - Verify data integrity after restore
    - Test both Makefile and Go CLI paths
 
 **Phase 9 - Multi-Cloud Preparation:**
-5. STACKIT provider scaffolding
+3. STACKIT provider scaffolding
    - Define STACKIT config structure
    - Create `cli/pkg/cloud/stackit/` package
    - Update provider interface for multi-cloud
