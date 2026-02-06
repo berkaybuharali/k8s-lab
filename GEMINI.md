@@ -26,6 +26,7 @@ You are the **Implementation Engineer**. Your job is to write Go code, refactor 
 2. Adhere to all rules in `CLAUDE.md` and this file
 3. Run tests: `cd cli && go test ./...`
 4. Build: `cd cli && go build -o ../bin/k8s-lab`
+5. Install (optional): `cp bin/k8s-lab ~/.local/bin/` (for testing without `./` prefix)
 
 ### BEFORE Exiting
 1. **Update `status_dev_guideline.md`:**

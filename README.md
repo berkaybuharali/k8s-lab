@@ -52,7 +52,20 @@ Layers 3-4: Cloud-agnostic (portable across providers)
 
 **Platform setup:** [GCP setup guide](infra/README.md#gcp-setup) (authentication, permissions, Talos image)
 
-## Quick Start
+## Two Ways to Use This Lab
+
+This lab provides two interfaces with identical functionality:
+
+| Interface | Command Example | Installation |
+|-----------|-----------------|--------------|
+| **Makefile (Bash)** | `make deploy-infra gcp` | No installation needed (scripts in repo) |
+| **Go CLI** | `k8s-lab deploy-infra --cloud gcp` | Build and install binary (see Go CLI Quick Start) |
+
+Choose your preferred interface. The Quick Start sections below show both options.
+
+---
+
+## Quick Start: Makefile (Bash)
 
 ### All-in-One Deployment
 
@@ -146,10 +159,134 @@ make restore gcp
 
 Centralized hooks use label selectors to target multiple pods and can be changed without redeploying applications. Pod annotations take precedence when both are defined.
 
+---
+
+## Quick Start: Go CLI
+
+### Installing the Go CLI
+
+**Option 1: Standard Go install (for Go developers)**
+```bash
+# From repo root
+go install ./cli
+# Binary installed to ~/go/bin/k8s-lab
+```
+
+**Option 2: Manual install (for general users)**
+```bash
+# Build binary
+cd cli && go build -o ../bin/k8s-lab .
+
+# Install to user bin
+mkdir -p ~/.local/bin
+cp ../bin/k8s-lab ~/.local/bin/
+```
+
+**Add to PATH (one-time setup):**
+```bash
+# For ~/.local/bin
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc  # or ~/.zshrc
+source ~/.bashrc
+
+# For ~/go/bin (if using go install)
+echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.bashrc  # or ~/.zshrc
+source ~/.bashrc
+```
+
+**Verify installation:**
+```bash
+k8s-lab --help
+```
+
+### All-in-One Deployment
+
+```bash
+# Deploy everything at once
+k8s-lab deploy-infra --cloud gcp
+k8s-lab deploy-tools --cloud gcp
+k8s-lab deploy-applications --cloud gcp
+
+# Destroy all resources
+# Note: destroy command not yet implemented in Go CLI - use Makefile for now
+make destroy gcp
+```
+
+### Step-by-Step Deployment
+
+```bash
+# 1. Create infrastructure and bootstrap Kubernetes cluster
+k8s-lab deploy-infra --cloud gcp
+
+# 2. Deploy cluster tools (CSI driver, StorageClass, Velero)
+k8s-lab deploy-tools --cloud gcp
+
+# 3. Deploy applications (NGINX, Redis)
+k8s-lab deploy-applications --cloud gcp
+
+# 4. Connect to cluster for testing
+make connect gcp
+# Keep this terminal open, then in another terminal:
+
+# 5. Test the deployment
+export KUBECONFIG=configs/talos/kubeconfig
+
+# Check pods are running
+kubectl get pods -n application
+
+# Test Redis
+kubectl exec -it deploy/redis -n application -- redis-cli ping
+# Should return: PONG
+
+# Test NGINX
+kubectl port-forward svc/nginx -n application 8080:80 &
+curl http://localhost:8080
+# Should return: NGINX welcome page
+
+# 6. Clean up
+make destroy gcp
+```
+
+### Backup and Restore Workflow
+
+```bash
+# Day 1: Deploy, seed data, backup
+k8s-lab deploy-infra --cloud gcp
+k8s-lab deploy-tools --cloud gcp
+k8s-lab deploy-applications --cloud gcp
+k8s-lab seed-redis --cloud gcp
+k8s-lab backup --cloud gcp
+make destroy gcp
+
+# Day 2+: Restore from backup
+k8s-lab deploy-infra --cloud gcp
+k8s-lab deploy-tools --cloud gcp
+k8s-lab restore --cloud gcp
+# Or restore specific backup: k8s-lab restore --cloud gcp --backup <name>
+
+# Verify restored data
+export KUBECONFIG=configs/talos/kubeconfig
+kubectl exec -it deploy/redis -n application -- redis-cli GET user:1
+# Should return seeded data
+
+# List backups
+kubectl get backup -n velero
+```
+
+**Flags:**
+- `--verbose, -v`: Enable detailed logging
+- `--backup <name>`: Specify backup name for restore (default: latest)
+- `--clean`: Delete namespace before restore (default: true)
+
+**Note:** Centralized Velero hooks (via config files) are currently only supported in Makefile interface. Go CLI uses pod annotations for backup hooks.
+
 ## Repository Structure
 
 ```
 k8s-lab/
+├── cli/                      # Go CLI (alternative to Makefile)
+│   ├── cmd/                  # Cobra commands (deploy-infra, backup, restore, etc.)
+│   ├── pkg/                  # Packages (cloud, k8s, terraform, velero, logger)
+│   └── main.go               # Entry point
 ├── apps/                     # Kubernetes manifests
 │   ├── gcp/                  # GCP-specific (StorageClass)
 │   ├── nginx.yaml            # NGINX deployment
@@ -225,6 +362,7 @@ k8s-lab/
 | Document | Description |
 |----------|-------------|
 | [CLAUDE.md](CLAUDE.md) | Project policies, roadmap, architecture decisions |
+| [cli/README.md](cli/README.md) | Go CLI architecture and package structure |
 | [apps/README.md](apps/README.md) | Application manifests and deployment |
 | [infra/README.md](infra/README.md) | Infrastructure overview and platform links |
 | [scripts/README.md](scripts/README.md) | Script details and Talos debugging guide |
