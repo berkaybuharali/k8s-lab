@@ -8,9 +8,9 @@
 // - Backup/restore status monitoring
 //
 // Design Decision:
-// - Installation uses velero CLI binary (like terraform/gcloud pattern)
-//   because Velero's Go SDK does not support installation
-// - Backup/restore use client-go dynamic client for pure Go operations
+//   - Installation uses velero CLI binary (like terraform/gcloud pattern)
+//     because Velero's Go SDK does not support installation
+//   - Backup/restore use client-go dynamic client for pure Go operations
 package velero
 
 import (
@@ -303,7 +303,8 @@ func (c *Client) isInstalled(ctx context.Context) (bool, error) {
 //   - error: If timeout reached or context cancelled
 //
 // Equivalent to bash: velero_wait_ready() in scripts/lib/velero.sh:38-42
-//   kubectl rollout status deployment/velero -n velero --timeout=120s
+//
+//	kubectl rollout status deployment/velero -n velero --timeout=120s
 func (c *Client) WaitForReady(ctx context.Context, timeout time.Duration) error {
 	c.log.Step("Waiting for Velero deployment to be ready")
 

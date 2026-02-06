@@ -443,6 +443,7 @@ func (c *Client) FetchKubeconfig(ctx context.Context, endpoint, talosconfig, out
 //   - GCP: IAP tunnel → https://localhost:6443
 //   - AWS: SSM tunnel → https://localhost:6443
 //   - Direct access clouds: https://external-ip:6443
+//
 // - This method updates kubeconfig to use the cloud provider's endpoint
 //
 // Example transformation:

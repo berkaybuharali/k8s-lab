@@ -29,6 +29,12 @@ import (
 // Version is the CLI version, set at build time or defaulted here.
 var Version = "0.1.0"
 
+const (
+	// ApplicationNamespace is the shared namespace for standard lab applications.
+	// This must match the namespace defined in apps/namespace.yaml.
+	ApplicationNamespace = "application"
+)
+
 // Context keys for storing values in command context.
 // These are used to pass config, logger, and provider between commands.
 type contextKey string

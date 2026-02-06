@@ -20,12 +20,6 @@ import (
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/logger"
 )
 
-const (
-	// ApplicationNamespace is the namespace where applications are deployed.
-	// This must match the namespace defined in apps/namespace.yaml.
-	ApplicationNamespace = "application"
-)
-
 func init() {
 	rootCmd.AddCommand(deployApplicationsCmd)
 }

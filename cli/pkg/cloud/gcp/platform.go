@@ -276,8 +276,8 @@ func (p *Provider) waitForDaemonSet(ctx context.Context, clientset *kubernetes.C
 // isAlreadyExistsError checks if error is "already exists".
 func isAlreadyExistsError(err error) bool {
 	return err != nil && (
-		// K8s errors contain "already exists" in the message
-		contains(err.Error(), "already exists") ||
+	// K8s errors contain "already exists" in the message
+	contains(err.Error(), "already exists") ||
 		contains(err.Error(), "AlreadyExists"))
 }
 

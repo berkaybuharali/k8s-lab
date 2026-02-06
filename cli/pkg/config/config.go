@@ -133,9 +133,9 @@ func findRepoRoot() (string, error) {
 
 	// Provide helpful error message
 	return "", fmt.Errorf(
-		"must run k8s-lab from repository root directory\n" +
-			"Current directory: %s\n" +
-			"Expected: directory containing .git, Makefile, and infra/\n" +
+		"must run k8s-lab from repository root directory\n"+
+			"Current directory: %s\n"+
+			"Expected: directory containing .git, Makefile, and infra/\n"+
 			"Hint: cd to your k8s-lab repository root",
 		dir,
 	)

@@ -119,20 +119,23 @@ type Provider interface {
 // a list in the main package.
 //
 // Example:
-//   gcp.Provider registers as "gcp"
-//   stackit.Provider registers as "stackit"
+//
+//	gcp.Provider registers as "gcp"
+//	stackit.Provider registers as "stackit"
 //
 // Usage:
-//   provider := cloud.Get("gcp")
+//
+//	provider := cloud.Get("gcp")
 var Registry = make(map[string]Provider)
 
 // Register adds a provider to the global registry.
 // This should be called by each provider's init() function.
 //
 // Example from gcp/provider.go:
-//   func init() {
-//       cloud.Register("gcp", &Provider{})
-//   }
+//
+//	func init() {
+//	    cloud.Register("gcp", &Provider{})
+//	}
 //
 // Panics if a provider with the same name is already registered
 // (indicates programming error - two providers claiming same name).
@@ -147,10 +150,11 @@ func Register(name string, provider Provider) {
 // Returns nil if provider not found (caller should check).
 //
 // Example:
-//   provider := cloud.Get("gcp")
-//   if provider == nil {
-//       return fmt.Errorf("cloud provider 'gcp' not available")
-//   }
+//
+//	provider := cloud.Get("gcp")
+//	if provider == nil {
+//	    return fmt.Errorf("cloud provider 'gcp' not available")
+//	}
 func Get(name string) Provider {
 	return Registry[name]
 }

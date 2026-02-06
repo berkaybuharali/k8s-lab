@@ -107,8 +107,8 @@ func findTerraformBinary() (string, error) {
 	path, err := exec.LookPath("terraform")
 	if err != nil {
 		return "", fmt.Errorf(
-			"terraform binary not found in PATH\n"+
-				"Install: brew install terraform\n"+
+			"terraform binary not found in PATH\n" +
+				"Install: brew install terraform\n" +
 				"Verify: which terraform",
 		)
 	}
