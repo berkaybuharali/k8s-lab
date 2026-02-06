@@ -99,6 +99,17 @@
 
 ---
 
+# Post-Merge Tasks
+
+**Bash Script Alignment (After feature/go-migration Merge):**
+- **Add `--clean` flag to bash restore script** (`scripts/backup/restore.sh`)
+  - Implementation: `if [[ "$2" == "--clean" ]]; then kubectl delete namespace application --timeout=5m; fi`
+  - Purpose: Align bash restore behavior with Go CLI (both support optional clean restore)
+  - Currently: Bash never deletes namespace, Go supports `--clean` flag (default: true)
+  - After: Both CLIs will support `--clean` flag for disaster recovery testing
+
+---
+
 # Development Workflow
 
 **CRITICAL:** Both agents (Claude + Gemini) MUST:
