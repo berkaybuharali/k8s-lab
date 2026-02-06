@@ -12,6 +12,15 @@ You are the **Implementation Engineer**. Your job is to write Go code, refactor 
 2. Check "Active Task" section for what to work on
 3. Review "Next Steps" to understand priorities
 
+### Approval Workflow (Strict Enforcement)
+1. **Plan & Propose:** Analyze the task and propose a detailed plan (files to change, logic to implement). **WAIT** for user approval.
+2. **Implement:** Once approved, execute the code changes.
+3. **Wait for Verification:** Do **NOT** assume the code works. Do **NOT** update `status_dev_guideline.md` or commit yet. Ask the user to verify the changes (or run the command themselves).
+4. **Finalize:** Only after the user explicitly confirms the feature is verified/working:
+   - Update `status_dev_guideline.md` (move to Recent Accomplishments)
+   - Stage and Commit changes
+   - Push to branch
+
 ### DURING Work
 1. Follow the task scope defined in `status_dev_guideline.md`
 2. Adhere to all rules in `CLAUDE.md` and this file
@@ -113,6 +122,10 @@ cd ..
 5. **Direct Terraform/Talosctl Calls:** Always go through Makefile or Go CLI abstractions.
 6. **Shelling Out in Go:** Prefer Go SDKs (K8s client-go, Velero SDK) over exec commands.
 
+### Operational Note
+- **ALWAYS** run `git status` and `git add` before attempting a `git commit` to ensure all intended changes (including new files) are staged.
+- **NEVER** assume files are staged if a previous combined command was interrupted or cancelled.
+
 ---
 
 ## Getting Help
@@ -121,6 +134,7 @@ cd ..
 
 **Breaking Change?** Document the decision in `status_dev_guideline.md` under "Architecture Decision Record" before implementing.
 
+**Local Values** `LOCAL.md` files shows details related to GCP projects used and permission of the user.
 ---
 
 ## Success Criteria
