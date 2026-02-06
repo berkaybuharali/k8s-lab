@@ -1,6 +1,6 @@
 # Project Status
 
-**Current Phase:** Migration to Go CLI (Phase 6e - Backup/Restore)
+**Current Phase:** Migration to Go CLI (Phase 7 - Documentation)
 
 **Branch:** `feature/go-migration`
 
@@ -37,62 +37,57 @@
 
 # Active Task
 
-**Task:** Implement `backup` and `restore` commands (Phase 6e)
+**Task:** Documentation Update (Phase 7)
 
 **Context:**
-- `seed-redis` verified and working (`./bin/k8s-lab seed-redis --cloud gcp`)
-- Need to implement the core disaster recovery features using Velero Go SDK (or API)
+- All implementation phases (6a-6e) are complete and verified.
+- The Go CLI now supports the full lifecycle: infra -> tools -> apps -> data -> backup -> restore.
+- Need to document the new Go CLI usage alongside the existing Makefile/Bash commands.
 
 **Requirements:**
-1. **Backup Command:**
-   - Command: `./k8s-lab backup --cloud gcp`
-   - Create a Velero backup of the `application` namespace
-   - Use dynamic backup naming (e.g., `lab-backup-YYYYMMDD-HHMMSS`)
-   - Wait for backup completion (status: `Completed`)
-2. **Restore Command:**
-   - Command: `./k8s-lab restore --cloud gcp --backup <name>`
-   - Restore the `application` namespace from the specified backup
-   - Wait for restore completion
-3. **Implementation Notes:**
-   - Use Velero Go SDK or Dynamic Client to interact with Velero CRDs
-   - Reuse existing tunnel and k8s client logic
-   - While implementing go functionality, if you have a doubt, look the bash way. Bash way is implemented before and working as expected.
+1. **New `cli/README.md`:**
+   - Architecture overview (Cobra, packages)
+   - Testing guide (`go test`, mocks)
+   - Directory structure explanation
+2. **Update root `README.md`:**
+   - Dual-CLI usage guide (Bash vs Go)
+   - Quick Start section using Go CLI
+   - Prerequisites
+3. **Update `apps/README.md` & `infra/README.md`:**
+   - Add Go CLI examples for relevant commands
+4. **Housekeeping:**
+   - Ensure `terraform.tfvars.example` has clear TODOs
+   - Verify `CLAUDE.md` is up to date
 
 **Files to Create/Modify:**
-- `cli/cmd/backup.go` (new)
-- `cli/cmd/restore.go` (new)
-- `cli/pkg/velero/client.go` (implement backup/restore logic)
+- `cli/README.md` (new)
+- `README.md` (update)
+- `apps/README.md` (update)
+- `infra/README.md` (update)
 
 ---
 
 # Recent Accomplishments
 
-1. **Implemented `seed-redis` command** - Populates Redis with 100+ keys via optimized bulk `Exec` (Phase 6d complete)
-2. **Enhanced K8s Client** - Added robust `Exec` with pod readiness checks and `ApplyManifest` with SSA support
-3. **Implemented `deploy-applications` command** - Deploys NGINX and Redis using Go CLI (Phase 6c complete)
-4. **Implemented `deploy-tools gcp` command** - Installs CSI driver, StorageClass, and Velero via Go CLI (Phase 6b complete)
-5. **Verified deploy-tools in production** - `./bin/k8s-lab deploy-tools --cloud gcp --verbose` working end-to-end
-6. **Created dual-agent coordination files** - status_dev_guideline.md, GEMINI.md for Claude/Gemini workflow
+1. **Implemented `backup` and `restore` commands** - Full DR capability via Go CLI (Phase 6e complete)
+2. **Fixed Velero Volume Snapshots** - Correctly configured Backup CR to capture GCP Persistent Disks
+3. **Implemented `seed-redis` command** - Populates Redis with 100+ keys via optimized bulk `Exec` (Phase 6d complete)
+4. **Enhanced K8s Client** - Added robust `Exec`, `DeleteNamespace`, and `ApplyManifest` with SSA support
+5. **Implemented `deploy-applications` command** - Deploys NGINX and Redis using Go CLI (Phase 6c complete)
+6. **Implemented `deploy-tools gcp` command** - Installs CSI driver, StorageClass, and Velero via Go CLI (Phase 6b complete)
 
 ---
 
 # Next Steps
 
-**Phase 7 - Documentation:**
-1. Comprehensive documentation update
-   - Create `cli/README.md` (architecture, packages, testing)
-   - Update root `README.md` (dual-CLI usage, Quick Start)
-   - Update all READMEs with Go CLI examples
-   - Ensure terraform.tfvars.example has TODOs
-
 **Phase 8 - Testing & Validation:**
-2. Full lifecycle integration test
+1. Full lifecycle integration test
    - Script: deploy-infra → deploy-tools → deploy-applications → seed-redis → backup → destroy → restore
    - Verify data integrity after restore
    - Test both Makefile and Go CLI paths
 
 **Phase 9 - Multi-Cloud Preparation:**
-3. STACKIT provider scaffolding
+2. STACKIT provider scaffolding
    - Define STACKIT config structure
    - Create `cli/pkg/cloud/stackit/` package
    - Update provider interface for multi-cloud
