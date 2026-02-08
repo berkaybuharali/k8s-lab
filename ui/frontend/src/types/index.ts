@@ -21,3 +21,40 @@ export interface LogMessage {
   data: string
   timestamp: string
 }
+
+export interface K8sNode {
+  metadata: { 
+    name: string
+    labels: Record<string, string> 
+  }
+  status: {
+    addresses: { type: string; address: string }[]
+    conditions: { type: string; status: string }[]
+    nodeInfo: { osImage: string; kernelVersion: string; kubeletVersion: string }
+  }
+}
+
+export interface K8sPod {
+  metadata: { 
+    name: string
+    namespace: string
+    creationTimestamp: string 
+  }
+  status: { 
+    phase: string
+    startTime: string
+    containerStatuses?: { restartCount: number }[] 
+  }
+  spec: { nodeName: string }
+}
+
+export interface K8sPVC {
+  metadata: { name: string; namespace: string }
+  spec: { resources: { requests: { storage: string } } }
+  status: { phase: string }
+}
+
+export interface VeleroBackup {
+  metadata: { name: string }
+  status: { phase: string; expiration: string; completionTimestamp: string }
+}

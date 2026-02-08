@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -79,6 +80,23 @@ func (s *Server) Start(ctx context.Context) error {
 	for _, op := range ops {
 		mux.HandleFunc("/api/"+op, s.handleOperation)
 	}
+
+	// Data Routes
+	mux.HandleFunc("/api/nodes", s.handleNodes)
+	mux.HandleFunc("/api/pods", s.handlePods)
+	// Match specific pod routes first? No, ServeMux matches longest pattern.
+	// /api/pods/ matches /api/pods/foo and /api/pods/foo/logs
+	mux.HandleFunc("/api/pods/", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/logs") {
+			s.handlePodLogs(w, r)
+		} else {
+			s.handlePodDetail(w, r)
+		}
+	})
+	mux.HandleFunc("/api/pvcs", s.handlePVCs)
+	mux.HandleFunc("/api/backups", s.handleBackups)
+	mux.HandleFunc("/api/terraform/resources", s.handleTerraformResources)
+	mux.HandleFunc("/api/namespaces", s.handleNamespaces)
 
 	// Static files
 	// dist folder is embedded as "dist", but we want to serve the content of "dist" at root

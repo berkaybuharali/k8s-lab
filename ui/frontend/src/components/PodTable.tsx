@@ -1,0 +1,97 @@
+import { useEffect, useState } from 'react'
+import { AppWindow, RotateCw } from 'lucide-react'
+import type { K8sPod } from '../types'
+import { cn } from '@/lib/utils'
+
+export function PodTable() {
+  const [pods, setPods] = useState<K8sPod[]>([])
+  const [namespaces, setNamespaces] = useState<string[]>([])
+  const [ns, setNs] = useState('application')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    // Fetch namespaces
+    fetch('/api/namespaces')
+      .then(res => res.json())
+      .then(data => {
+        const list = data.items?.map((n: any) => n.metadata.name) || []
+        setNamespaces(list)
+      })
+      .catch(console.error)
+  }, [])
+
+  useEffect(() => {
+    setLoading(true)
+    const fetchData = () => {
+      fetch(`/api/pods?ns=${ns}`)
+        .then(res => res.json())
+        .then(data => setPods(data.items || []))
+        .catch(console.error)
+        .finally(() => setLoading(false))
+    }
+
+    fetchData()
+    const interval = setInterval(fetchData, 15000)
+    return () => clearInterval(interval)
+  }, [ns])
+
+  return (
+    <div className="border rounded-lg bg-card shadow-sm flex flex-col h-[400px]">
+      <div className="p-4 border-b flex items-center justify-between">
+        <h2 className="font-semibold flex items-center gap-2">
+          <AppWindow className="w-4 h-4" /> Pods
+        </h2>
+        <select 
+          value={ns} 
+          onChange={(e) => setNs(e.target.value)}
+          className="text-xs border rounded px-2 py-1 bg-background"
+        >
+          {namespaces.map(n => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </div>
+      
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-sm text-left">
+          <thead className="text-xs text-muted-foreground bg-muted/50 sticky top-0">
+            <tr>
+              <th className="p-3 font-medium">Name</th>
+              <th className="p-3 font-medium">Status</th>
+              <th className="p-3 font-medium">Restarts</th>
+              <th className="p-3 font-medium">Age</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {loading && <tr><td colSpan={4} className="p-4 text-center">Loading...</td></tr>}
+            {!loading && pods.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No pods found</td></tr>}
+            
+            {!loading && pods.map(pod => {
+              const status = pod.status.phase
+              const restarts = pod.status.containerStatuses?.reduce((acc, c) => acc + c.restartCount, 0) || 0
+              const age = new Date().getTime() - new Date(pod.metadata.creationTimestamp).getTime()
+              const ageStr = age > 3600000 ? `${Math.floor(age/3600000)}h` : `${Math.floor(age/60000)}m`
+
+              return (
+                <tr key={pod.metadata.name} className="hover:bg-muted/50 transition-colors cursor-pointer">
+                  <td className="p-3 font-medium">{pod.metadata.name}</td>
+                  <td className="p-3">
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-xs font-bold",
+                      status === 'Running' ? "bg-green-500/10 text-green-500" : 
+                      status === 'Pending' ? "bg-yellow-500/10 text-yellow-500" : "bg-red-500/10 text-red-500"
+                    )}>{status}</span>
+                  </td>
+                  <td className="p-3 flex items-center gap-1">
+                    <RotateCw className="w-3 h-3 text-muted-foreground" /> {restarts}
+                  </td>
+                  <td className="p-3 text-muted-foreground">
+                    {ageStr}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}

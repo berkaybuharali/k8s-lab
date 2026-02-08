@@ -10,17 +10,19 @@ A local web dashboard for k8s-lab that provides a visual interface to all cluste
 
 ## Current Status
 
-**Phase:** Phase 4: Data Panels
+**Phase:** Phase 5: Polish & Missing Features
 **Branch:** `feature/ui`
-**Next Step:** Phase 4, Step 4.1 (Nodes panel)
+**Next Step:** Phase 5, Step 5.1 (Missing action buttons)
 
 | Phase | Status |
 |-------|--------|
 | Phase 1: Foundation | Complete |
 | Phase 2: Tunnel Manager + Status | Complete |
 | Phase 3: Operations + Log Streaming | Complete |
-| Phase 4: Data Panels | Not started |
-| Phase 5: Polish | Not started |
+| Phase 4: Data Panels | Complete (core panels: Nodes, Pods, PVCs, Backups) |
+| Phase 5: Polish & Missing Features | Not started |
+
+**Phase 4 deferred items** (moved to Phase 5): PodDetail view, RestoreDialog, RedisExplorer, TerraformResources view. These were in the Phase 4 plan but not implemented. Core data panels are working and reviewed.
 
 ---
 
@@ -171,20 +173,19 @@ k8s-lab/
 |       |   |-- main.tsx
 |       |   |-- index.css           # Tailwind + dark/light theme vars
 |       |   |-- components/
-|       |   |   |-- CloudInfoPanel.tsx
-|       |   |   |-- StatusPanel.tsx
-|       |   |   |-- ActionsPanel.tsx      # Phase 3
-|       |   |   |-- LogStream.tsx         # Phase 3
-|       |   |   |-- NodesPanel.tsx        # Phase 4
-|       |   |   |-- PodTable.tsx          # Phase 4
-|       |   |   |-- PodDetail.tsx         # Phase 4
-|       |   |   |-- PersistentDisks.tsx   # Phase 4
-|       |   |   |-- BackupList.tsx        # Phase 4
-|       |   |   |-- RedisExplorer.tsx     # Phase 4
-|       |   |   |-- TerraformResources.tsx # Phase 4
-|       |   |   |-- RestoreDialog.tsx     # Phase 4
-|       |   |   |-- Banner.tsx            # Phase 5
-|       |   |   \-- ThemeToggle.tsx        # Phase 5
+|       |   |   |-- CloudInfoPanel.tsx      # Phase 2
+|       |   |   |-- StatusPanel.tsx         # Phase 2
+|       |   |   |-- ActionsPanel.tsx        # Phase 3
+|       |   |   |-- LogStream.tsx           # Phase 3
+|       |   |   |-- NodesPanel.tsx          # Phase 4
+|       |   |   |-- PodTable.tsx            # Phase 4
+|       |   |   |-- PersistentDisks.tsx     # Phase 4
+|       |   |   |-- BackupList.tsx          # Phase 4
+|       |   |   |-- PodDetail.tsx           # Phase 5.6
+|       |   |   |-- TerraformResources.tsx  # Phase 5.7
+|       |   |   |-- RestoreDialog.tsx       # Phase 5.8
+|       |   |   |-- RedisExplorer.tsx       # Phase 5.9
+|       |   |   \-- Banner.tsx              # Phase 5.2
 |       |   |-- hooks/                    # Created when needed
 |       |   |   |-- useWebSocket.ts       # Phase 3
 |       |   |   \-- useApi.ts             # Phase 3
@@ -206,10 +207,11 @@ k8s-lab/
     |   \-- ui.go             # k8s-lab ui command
     \-- pkg/
         \-- ui/               # UI backend package
-            |-- server.go     # HTTP server, static file serving, signal handler
-            |-- handlers.go   # API endpoint handlers
-            |-- tunnel.go     # Persistent tunnel manager with health checks
-            \-- websocket.go  # Log streaming via WebSocket (Phase 3)
+            |-- server.go        # HTTP server, static file serving, signal handler
+            |-- handlers.go      # Auth, status, operation handlers
+            |-- handlers_data.go # Data handlers (nodes, pods, pvcs, backups, terraform, namespaces)
+            |-- tunnel.go        # Persistent tunnel manager with health checks
+            \-- websocket.go     # Log streaming via WebSocket
 ```
 
 Go backend code lives inside `cli/` so it compiles into the same `k8s-lab` binary.
@@ -224,7 +226,8 @@ All API endpoints are Go HTTP handlers in `cli/pkg/ui/handlers.go`. The routing 
 |------|-------------|
 | `cli/cmd/ui.go` | Cobra command definition, flag parsing, starts server |
 | `cli/pkg/ui/server.go` | HTTP router, static file embedding, CORS, signal handler |
-| `cli/pkg/ui/handlers.go` | All `/api/*` endpoint handlers (auth, status, pods, redis, operations) |
+| `cli/pkg/ui/handlers.go` | Auth, status, and operation endpoint handlers |
+| `cli/pkg/ui/handlers_data.go` | Data endpoint handlers (nodes, pods, pvcs, backups, terraform, namespaces) |
 | `cli/pkg/ui/tunnel.go` | `TunnelManager` struct: Start/Stop/HealthCheck/Reconnect |
 | `cli/pkg/ui/websocket.go` | WebSocket upgrade, log broadcasting, connection management |
 
@@ -450,35 +453,106 @@ Each phase has verification steps. **Do not move to the next phase until verific
 > 11. Click "12 resources" in Cloud Environment -> Terraform detail view with grouped resources
 > 12. Back button returns to dashboard
 
-### Phase 5: Polish
+### Phase 5: Polish & Missing Features
 
-**Step 5.1: Theme toggle**
-- Dark/light with system preference detection, persist in localStorage
+Everything in `ui/mockup.html` is in scope. Gaps identified by comparing current implementation against the mockup.
 
-**Step 5.2: Banner system**
-- `Banner.tsx`: red (not auth, deploy failed), yellow (tunnel lost)
+**Step 5.1: Complete ActionsPanel (mockup: Idle, Running, Deploying views)**
+- Add "Deploy All" button (backend `deploy` op already wired in server.go:78)
+- Add "Create Backup" button (backend `backup` op already wired)
+- Add "Restore from Backup" button (backend `restore` op already wired)
+- Layout: group buttons as mockup shows — "Quick" (Deploy All, Destroy All), "Step by Step" (1-4 with step numbers), "Backup & Restore"
+- Step number badges: numbered circles on step-by-step buttons (1, 2, 3, 4). Done state = green checkmark. Active state = pulsing blue. Failed state = red "!".
+- Disable logic per mockup: no auth = all disabled; no infra = only Deploy Infra/Deploy All; full deploy = Seed Redis/Backup/Restore/Destroy enabled
 
-**Step 5.3: Error handling**
-- API errors -> toast, operation failures -> banner + log, tunnel disconnect -> grey out panels
+**Step 5.2: Banner system (mockup: Not Authenticated, Tunnel Lost, Deploy Failed views)**
+- Create `Banner.tsx`: full-width bar below header
+- Red banner (not authenticated): "Run `gcloud auth application-default login` and restart the UI."
+- Red banner (deploy failed): "deploy-infra failed. Check the operation log for details."
+- Yellow banner (tunnel lost): "Tunnel lost. Reconnecting in 5s... Cluster data may be stale."
+- App.tsx renders banner conditionally based on auth/status/tunnel/last-operation state
 
-**Step 5.4: Build integration**
-- Makefile target: `make build-ui` (npm build + go build)
-- Dev mode: `--dev` flag proxies to Vite dev server
+**Step 5.3: Theme toggle (mockup: all views have moon/sun button in header)**
+- Dark/light mode with CSS variables matching mockup `.light-theme` class
+- Toggle button in header (Moon/Sun icon from lucide-react)
+- Detect system preference on first load, persist choice in localStorage
 
-**Step 5.5: Documentation**
+**Step 5.4: Header operation indicator (mockup: Deploying view)**
+- Show spinner + operation name in header-left during active operations (e.g., "Deploying Infrastructure...")
+- When `isRunning` is true, display next to the logo
+
+**Step 5.5: Panel warnings for degraded states (mockup: Tunnel Lost view)**
+- When tunnel disconnected: yellow footer on data panels ("Data may be stale. Last updated X minutes ago.")
+- When not authenticated: error footer on Actions panel ("Authentication required to perform any operations")
+- When tunnel disconnected: Actions panel footer ("Tunnel disconnected. Only Destroy All works without tunnel.")
+- Grey out / reduce opacity on stale data panels
+- Disable namespace dropdown on Pods when tunnel is down
+
+**Step 5.6: Pod Detail view (mockup: Pod Detail view)**
+- Backend endpoints already exist: `GET /api/pods/:name?ns=...` and `GET /api/pods/:name/logs?ns=...`
+- Create `PodDetail.tsx`: breadcrumb ("← Pods / pod-name"), pod info grid (name, namespace, node, pod IP, image, age, restarts, service IP), volumes table
+- Tab bar with "Pod Logs" tab showing logs from backend
+- Make PodTable rows clickable -> show PodDetail (use React state in App.tsx, no router needed)
+- Back button returns to main dashboard
+
+**Step 5.7: Terraform detail view (mockup: Terraform Detail view)**
+- Backend endpoint already exists: `GET /api/terraform/resources`
+- Create `TerraformResources.tsx`: breadcrumb ("← Dashboard / Terraform Resources"), grouped resource list (Network, Compute, IAM)
+- Make CloudInfoPanel "TF State" value clickable when resources exist -> navigates to detail view
+- Show resource count ("12 managed resources") in header
+
+**Step 5.8: Restore dialog (mockup: Restore Dialog overlay)**
+- Create `RestoreDialog.tsx`: modal overlay with backdrop
+- Backup picker: radio button list with backup name, age, volume info
+- "Clean restore" checkbox (delete application namespace first)
+- Prerequisites checklist: infra deployed, tools installed, tunnel connected (check marks or X)
+- Cancel / Restore buttons in footer
+- Triggered from ActionsPanel "Restore from Backup" button and from BackupList per-row "Restore" button
+
+**Step 5.9: Redis Data Explorer (mockup: Running view, Tunnel Lost view)**
+- Backend (new): Add to `handlers_data.go`:
+  - `GET /api/redis/keys?pattern=*&limit=50` — `kubectl exec` redis pod, run `KEYS` or `SCAN`
+  - `GET /api/redis/get/:key` — `kubectl exec` redis pod, run `GET`
+  - `POST /api/redis/set` — `kubectl exec` redis pod, run `SET` with `{key, value}` body
+  - `DELETE /api/redis/del/:key` — `kubectl exec` redis pod, run `DEL`
+  - `POST /api/redis/flush` — `kubectl exec` redis pod, run `FLUSHDB`
+  - All endpoints use `kubectl exec -n application deploy/redis -- redis-cli <cmd>` with `--kubeconfig`
+- Register routes in server.go
+- Frontend: Create `RedisExplorer.tsx`:
+  - Toolbar: Key input, Value input, SET button | Search input (glob pattern), Search button, Refresh button | Flush DB button
+  - Key-Value grid: 3 columns (Key, Value, Del button per row)
+  - Show "N keys" count in card header
+  - When tunnel disconnected: show "Cannot reach Redis. Waiting for reconnection..."
+
+**Step 5.10: Wire BackupList buttons**
+- BackupList restore/delete buttons currently render but have no onClick handlers
+- Restore button -> opens RestoreDialog with that backup pre-selected
+- Delete button -> `DELETE /api/backups/:name` (needs new backend endpoint in handlers_data.go)
+- Add delete backup handler: `velero backup delete <name> --confirm --kubeconfig ...`
+- Register `DELETE` method handling on `/api/backups/` route in server.go
+
+**Step 5.11: Documentation**
 - `ui/README.md`: architecture, dev setup, build
-- Node.js (npm) as build-time only dependency
-- Fully self-contained binary explanation (go:embed)
-- One-time setup (`npm install`) and build (`make build-ui`) instructions
-- Tooling list update (node/npm)
-- Explanation of the `dist/` copy step for `go:embed` requirements
+- Node.js (npm) as build-time only dependency (not needed at runtime)
+- One-time setup: `cd ui/frontend && npm install`
+- Build: `make build-ui` (runs npm build, copies dist to cli/pkg/ui/dist/, runs go build)
+- Explanation of `go:embed` limitation requiring the dist copy step
+- Dev mode: Vite dev server (port 5173) with proxy to Go backend (port 8080)
 
 > **Phase 5 Verification:**
-> 1. Theme toggle works, persists across page refresh
-> 2. Banner shows on auth failure / deploy failure / tunnel disconnect
-> 3. Panels grey out when tunnel lost, show "stale" warning
-> 4. `make build-ui` produces working binary
-> 5. `./bin/k8s-lab ui --help` shows usage
+> 1. ActionsPanel shows all buttons from mockup: Deploy All, Destroy All, step-by-step (1-4) with step badges, Create Backup, Restore from Backup
+> 2. Button enable/disable matches mockup state rules (no auth, no infra, no tools, etc.)
+> 3. Banner shows on auth failure / deploy failure / tunnel disconnect with correct colors and messages
+> 4. Theme toggle switches dark/light, persists across refresh
+> 5. Header shows spinner + operation name during deploys
+> 6. Data panels show "stale" warning footer when tunnel lost, reduced opacity
+> 7. Click a pod row -> PodDetail opens with breadcrumb, info grid, logs tab. Back returns to dashboard.
+> 8. Click "N resources" in Cloud sidebar -> Terraform detail view with grouped resources. Back returns.
+> 9. Click "Restore from Backup" -> Restore dialog with backup picker, clean checkbox, prerequisites
+> 10. Redis Explorer: search keys, SET new key, DEL key, Flush DB
+> 11. BackupList: Restore button opens dialog, Delete button removes backup
+> 12. `make build-ui` produces working binary
+> 13. `./bin/k8s-lab ui --help` shows usage
 
 ---
 

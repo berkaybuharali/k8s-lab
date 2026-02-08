@@ -4,6 +4,10 @@ import { CloudInfoPanel } from './components/CloudInfoPanel'
 import { StatusPanel } from './components/StatusPanel'
 import { ActionsPanel } from './components/ActionsPanel'
 import { LogStream } from './components/LogStream'
+import { NodesPanel } from './components/NodesPanel'
+import { PodTable } from './components/PodTable'
+import { PersistentDisks } from './components/PersistentDisks'
+import { BackupList } from './components/BackupList'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useApi } from './hooks/useApi'
 import type { AuthStatus, GlobalStatus } from './types'
@@ -16,15 +20,12 @@ function App() {
   const { trigger } = useApi()
 
   useEffect(() => {
-    // Initial fetch
     fetch('/api/auth')
       .then(res => res.json())
       .then(data => setAuth(data))
       .catch(err => console.error("Failed to fetch auth:", err))
 
     fetchStatus()
-
-    // Poll status every 15s
     const interval = setInterval(fetchStatus, 15000)
     return () => clearInterval(interval)
   }, [])
@@ -38,8 +39,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      {/* Header */}
-      <header className="h-14 border-b px-4 flex items-center justify-between bg-card shrink-0">
+      <header className="h-14 border-b px-4 flex items-center justify-between bg-card shrink-0 sticky top-0 z-10">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-primary-foreground font-bold">
             K
@@ -75,7 +75,6 @@ function App() {
         </div>
       </header>
 
-      {/* Main Layout */}
       <div className="flex-1 flex overflow-hidden">
         <CloudInfoPanel auth={auth} />
         
@@ -88,13 +87,25 @@ function App() {
               connected={connected} 
               onClear={clearLogs} 
             />
-            
             <ActionsPanel 
               status={status} 
               onTrigger={trigger} 
               loading={isRunning}
             />
           </div>
+
+          {status?.k8s === 'Ready' && (
+            <>
+              <NodesPanel />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <PodTable />
+                <div className="space-y-6">
+                  <PersistentDisks />
+                  <BackupList />
+                </div>
+              </div>
+            </>
+          )}
         </main>
       </div>
     </div>
