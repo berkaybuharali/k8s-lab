@@ -10,14 +10,14 @@ A local web dashboard for k8s-lab that provides a visual interface to all cluste
 
 ## Current Status
 
-**Phase:** Phase 1 Complete
+**Phase:** Phase 3: Operations + Log Streaming
 **Branch:** `feature/ui`
-**Next Step:** Phase 2, Step 2.1 (Persistent tunnel manager)
+**Next Step:** Phase 3, Step 3.1 (WebSocket server)
 
 | Phase | Status |
 |-------|--------|
 | Phase 1: Foundation | Complete |
-| Phase 2: Tunnel Manager + Status | Not started |
+| Phase 2: Tunnel Manager + Status | Complete |
 | Phase 3: Operations + Log Streaming | Not started |
 | Phase 4: Data Panels | Not started |
 | Phase 5: Polish | Not started |

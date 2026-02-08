@@ -7,11 +7,14 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/cloud"
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/config"
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/logger"
+	"github.com/berkaybuharali/k8s-lab/cli/pkg/terraform"
 )
 
 //go:embed dist
@@ -24,26 +27,44 @@ type Server struct {
 	logger   *logger.Logger
 	provider cloud.Provider
 	config   *config.Config
+	tunnel   *TunnelManager
 }
 
 // NewServer creates a new UI server instance.
 func NewServer(port int, cloudName string, cfg *config.Config, log *logger.Logger, provider cloud.Provider) (*Server, error) {
-	return &Server{
+	s := &Server{
 		port:     port,
 		cloud:    cloudName,
 		logger:   log,
 		provider: provider,
 		config:   cfg,
-	}, nil
+	}
+
+	return s, nil
 }
 
 // Start starts the HTTP server and blocks until context is cancelled.
 func (s *Server) Start(ctx context.Context) error {
+	// Check if infra exists and setup tunnel
+	if projectID, err := s.provider.GetProjectID(s.config.GetTerraformDir()); err == nil {
+		// Try to find control plane name from state
+		// We'll use a simplified check: if we can get CP name, infra exists
+		if cpName, zone, err := s.getControlPlaneInfo(); err == nil && cpName != "" {
+			s.tunnel = NewTunnelManager(projectID, cpName, zone, s.logger)
+			s.tunnel.Start(ctx)
+		} else {
+			s.logger.Info("Infrastructure not found or incomplete, tunnel will remain Idle")
+		}
+	} else {
+		s.logger.Debug("Could not get project ID (normal if terraform.tfvars not set): %v", err)
+	}
+
 	// Setup router
 	mux := http.NewServeMux()
 
 	// API Routes
 	mux.HandleFunc("/api/auth", s.handleAuth)
+	mux.HandleFunc("/api/status", s.handleStatus)
 
 	// Static files
 	// dist folder is embedded as "dist", but we want to serve the content of "dist" at root
@@ -115,8 +136,51 @@ func (s *Server) Start(ctx context.Context) error {
 	<-ctx.Done()
 	s.logger.Info("Shutting down UI server...")
 
+	if s.tunnel != nil {
+		s.tunnel.Stop()
+	}
+
 	// Graceful shutdown
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
+}
+
+// getControlPlaneInfo retrieves CP name and zone from Terraform state.
+func (s *Server) getControlPlaneInfo() (string, string, error) {
+	// This uses the same logic as deploy-infra to extract info
+	tfDir := s.config.GetTerraformDir()
+	
+	// Check if state file exists first to avoid unnecessary terraform calls
+	statePath := filepath.Join(tfDir, "terraform.tfstate")
+	if _, err := os.Stat(statePath); os.IsNotExist(err) {
+		return "", "", fmt.Errorf("state file not found")
+	}
+
+	// We use context.Background because this is a one-off check on startup
+	// and we don't want to block server start indefinitely if terraform hangs
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tfClient, err := terraform.NewClient(ctx, tfDir, s.logger)
+	if err != nil {
+		return "", "", err
+	}
+
+	outputs, err := tfClient.Outputs(ctx)
+	if err != nil {
+		return "", "", err
+	}
+
+	cpName, ok := outputs["control_plane_name"].(string)
+	if !ok {
+		return "", "", fmt.Errorf("control_plane_name not found in outputs")
+	}
+
+	cpZone, ok := outputs["control_plane_zone"].(string)
+	if !ok {
+		return "", "", fmt.Errorf("control_plane_zone not found in outputs")
+	}
+
+	return cpName, cpZone, nil
 }

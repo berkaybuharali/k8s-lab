@@ -21,6 +21,64 @@ type AuthStatus struct {
 	Error         string `json:"error,omitempty"`
 }
 
+type GlobalStatus struct {
+	Infra   string `json:"infra"`   // "Running", "Not Created", "Error"
+	K8s     string `json:"k8s"`     // "Ready", "Not Ready", "Error"
+	Tools   string `json:"tools"`   // "Installed", "Not Installed"
+	Apps    string `json:"apps"`    // "Deployed", "Not Deployed"
+	Tunnel  string `json:"tunnel"`  // Connected, Reconnecting, etc.
+	Version string `json:"version"`
+}
+
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	status := GlobalStatus{
+		Infra:   "Not Created",
+		K8s:     "Not Ready",
+		Tools:   "Not Installed",
+		Apps:    "Not Deployed",
+		Tunnel:  string(TunnelStatusIdle),
+		Version: "0.1.0", // TODO: Get from cmd.Version
+	}
+
+	if s.tunnel != nil {
+		status.Tunnel = string(s.tunnel.GetStatus())
+		status.Infra = "Running"
+	}
+
+	// 2. Check K8s + Tools + Apps (requires tunnel)
+	if status.Tunnel == string(TunnelStatusConnected) {
+		// Use a short timeout for status checks
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+
+		// K8s Check: Try to get nodes
+		cmd := exec.CommandContext(ctx, "kubectl", "get", "nodes", "--kubeconfig", s.config.GetKubeconfigPath())
+		if err := cmd.Run(); err == nil {
+			status.K8s = "Ready"
+
+			// Tools Check: check for velero namespace
+			cmd = exec.CommandContext(ctx, "kubectl", "get", "ns", "velero", "--kubeconfig", s.config.GetKubeconfigPath())
+			if err := cmd.Run(); err == nil {
+				status.Tools = "Installed"
+			}
+
+			// Apps Check: check for application namespace
+			cmd = exec.CommandContext(ctx, "kubectl", "get", "ns", "application", "--kubeconfig", s.config.GetKubeconfigPath())
+			if err := cmd.Run(); err == nil {
+				status.Apps = "Deployed"
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
 func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
