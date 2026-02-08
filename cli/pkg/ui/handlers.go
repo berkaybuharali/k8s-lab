@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -155,4 +157,103 @@ func readTerraformVariable(tfDir, varName string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+// handleOperation executes a CLI command and streams output to WebSocket.
+func (s *Server) handleOperation(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	operation := strings.TrimPrefix(r.URL.Path, "/api/")
+	
+	// Validate operation
+	allowed := map[string]bool{
+		"deploy-infra": true, "deploy-tools": true, "deploy-applications": true,
+		"deploy": true, "destroy": true, "seed-redis": true, "backup": true, "restore": true,
+	}
+	if !allowed[operation] {
+		http.Error(w, "Invalid operation", http.StatusBadRequest)
+		return
+	}
+
+	// Lock mutex to prevent concurrent operations
+	if !s.opMu.TryLock() {
+		http.Error(w, "Another operation is already in progress", http.StatusConflict)
+		return
+	}
+
+	// Prepare arguments
+	args := []string{operation, "--cloud", s.cloud, "--verbose"}
+
+	exe, err := os.Executable()
+	if err != nil {
+		s.opMu.Unlock()
+		http.Error(w, "Failed to get executable path", http.StatusInternalServerError)
+		return
+	}
+
+	cmd := exec.Command(exe, args...)
+	
+	// Only set managed tunnel for non-infra/lifecycle operations
+	// deploy-infra, deploy, and destroy must manage their own connectivity/lifecycle
+	if operation != "deploy-infra" && operation != "deploy" && operation != "destroy" {
+		cmd.Env = append(os.Environ(), "K8SLAB_TUNNEL_MANAGED=true")
+	} else {
+		cmd.Env = os.Environ()
+	}
+
+	stdout, _ := cmd.StdoutPipe()
+	stderr, _ := cmd.StderrPipe()
+
+	if err := cmd.Start(); err != nil {
+		s.opMu.Unlock()
+		http.Error(w, fmt.Sprintf("Failed to start command: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Send immediate response
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{"status": "started", "operation": operation})
+
+	// Background streaming
+	go func() {
+		defer s.opMu.Unlock()
+
+		s.wsHub.Broadcast("start", fmt.Sprintf(">>> Starting operation: %s\n", operation))
+
+		// Stream stdout/stderr synchronously to ensure all logs are sent before Wait()
+		scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
+		for scanner.Scan() {
+			s.wsHub.Broadcast("log", scanner.Text())
+		}
+
+		err := cmd.Wait()
+		if err != nil {
+			s.wsHub.Broadcast("error", fmt.Sprintf("\n>>> Operation failed: %v", err))
+		} else {
+			s.wsHub.Broadcast("done", "\n>>> Operation completed successfully.")
+			
+			// If deploy-infra (or deploy) succeeded, we should start the persistent tunnel
+			if operation == "deploy-infra" || operation == "deploy" {
+				// Refresh infra info and start tunnel
+				if projectID, err := s.provider.GetProjectID(s.config.GetTerraformDir()); err == nil {
+					if cpName, zone, err := s.getControlPlaneInfo(); err == nil {
+						// Stop existing if any (re-deploy case)
+						if s.tunnel != nil {
+							s.tunnel.Stop()
+						}
+						s.tunnel = NewTunnelManager(projectID, cpName, zone, s.logger)
+						s.tunnel.Start(context.Background())
+					}
+				}
+			}
+			
+			// If destroy succeeded, stop the tunnel
+			if operation == "destroy" && s.tunnel != nil {
+				s.tunnel.Stop()
+			}
+		}
+	}()
 }

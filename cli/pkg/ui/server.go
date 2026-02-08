@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/cloud"
@@ -28,6 +29,8 @@ type Server struct {
 	provider cloud.Provider
 	config   *config.Config
 	tunnel   *TunnelManager
+	wsHub    *WebSocketHub
+	opMu     sync.Mutex
 }
 
 // NewServer creates a new UI server instance.
@@ -38,6 +41,7 @@ func NewServer(port int, cloudName string, cfg *config.Config, log *logger.Logge
 		logger:   log,
 		provider: provider,
 		config:   cfg,
+		wsHub:    NewWebSocketHub(),
 	}
 
 	return s, nil
@@ -65,6 +69,16 @@ func (s *Server) Start(ctx context.Context) error {
 	// API Routes
 	mux.HandleFunc("/api/auth", s.handleAuth)
 	mux.HandleFunc("/api/status", s.handleStatus)
+	mux.HandleFunc("/ws/logs", s.wsHub.HandleWebSocket)
+
+	// Operation Routes
+	ops := []string{
+		"deploy-infra", "deploy-tools", "deploy-applications",
+		"deploy", "destroy", "seed-redis", "backup", "restore",
+	}
+	for _, op := range ops {
+		mux.HandleFunc("/api/"+op, s.handleOperation)
+	}
 
 	// Static files
 	// dist folder is embedded as "dist", but we want to serve the content of "dist" at root

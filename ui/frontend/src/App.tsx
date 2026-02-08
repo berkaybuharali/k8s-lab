@@ -2,11 +2,18 @@ import { useEffect, useState } from 'react'
 import { cn } from "@/lib/utils"
 import { CloudInfoPanel } from './components/CloudInfoPanel'
 import { StatusPanel } from './components/StatusPanel'
+import { ActionsPanel } from './components/ActionsPanel'
+import { LogStream } from './components/LogStream'
+import { useWebSocket } from './hooks/useWebSocket'
+import { useApi } from './hooks/useApi'
 import type { AuthStatus, GlobalStatus } from './types'
 
 function App() {
   const [auth, setAuth] = useState<AuthStatus | null>(null)
   const [status, setStatus] = useState<GlobalStatus | null>(null)
+  
+  const { logs, connected, isRunning, clearLogs } = useWebSocket()
+  const { trigger } = useApi()
 
   useEffect(() => {
     // Initial fetch
@@ -76,19 +83,17 @@ function App() {
           <StatusPanel status={status} />
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="p-6 border rounded-lg shadow-sm bg-card text-card-foreground h-[400px] flex flex-col">
-              <h2 className="font-semibold mb-4">Operations Log</h2>
-              <div className="flex-1 bg-black rounded p-4 font-mono text-sm text-green-400 overflow-auto">
-                <p>&gt; Select an operation to begin...</p>
-              </div>
-            </div>
+            <LogStream 
+              logs={logs} 
+              connected={connected} 
+              onClear={clearLogs} 
+            />
             
-            <div className="p-6 border rounded-lg shadow-sm bg-card text-card-foreground">
-              <h2 className="font-semibold mb-4">Quick Actions</h2>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">Action buttons will appear here in Phase 3.</p>
-              </div>
-            </div>
+            <ActionsPanel 
+              status={status} 
+              onTrigger={trigger} 
+              loading={isRunning}
+            />
           </div>
         </main>
       </div>

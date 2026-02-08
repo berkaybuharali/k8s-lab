@@ -15,3 +15,9 @@ export interface GlobalStatus {
   tunnel: string
   version?: string
 }
+
+export interface LogMessage {
+  type: 'log' | 'error' | 'done' | 'start'
+  data: string
+  timestamp: string
+}

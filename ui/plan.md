@@ -10,15 +10,15 @@ A local web dashboard for k8s-lab that provides a visual interface to all cluste
 
 ## Current Status
 
-**Phase:** Phase 3: Operations + Log Streaming
+**Phase:** Phase 4: Data Panels
 **Branch:** `feature/ui`
-**Next Step:** Phase 3, Step 3.1 (WebSocket server)
+**Next Step:** Phase 4, Step 4.1 (Nodes panel)
 
 | Phase | Status |
 |-------|--------|
 | Phase 1: Foundation | Complete |
 | Phase 2: Tunnel Manager + Status | Complete |
-| Phase 3: Operations + Log Streaming | Not started |
+| Phase 3: Operations + Log Streaming | Complete |
 | Phase 4: Data Panels | Not started |
 | Phase 5: Polish | Not started |
 
