@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { cn } from "@/lib/utils"
+import { Loader2 } from 'lucide-react'
 import { CloudInfoPanel } from './components/CloudInfoPanel'
 import { StatusPanel } from './components/StatusPanel'
 import { ActionsPanel } from './components/ActionsPanel'
@@ -8,6 +9,8 @@ import { NodesPanel } from './components/NodesPanel'
 import { PodTable } from './components/PodTable'
 import { PersistentDisks } from './components/PersistentDisks'
 import { BackupList } from './components/BackupList'
+import { Banner } from './components/Banner'
+import { ThemeToggle } from './components/ThemeToggle'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useApi } from './hooks/useApi'
 import type { AuthStatus, GlobalStatus } from './types'
@@ -37,14 +40,25 @@ function App() {
       .catch(err => console.error("Failed to fetch status:", err))
   }
 
+  const isStale = status?.infra === 'Running' && status?.tunnel !== 'Connected'
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <header className="h-14 border-b px-4 flex items-center justify-between bg-card shrink-0 sticky top-0 z-10">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-primary-foreground font-bold">
-            K
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-primary-foreground font-bold">
+              K
+            </div>
+            <h1 className="font-semibold text-lg">Kubernetes Lab</h1>
           </div>
-          <h1 className="font-semibold text-lg">Kubernetes Lab</h1>
+
+          {isRunning && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground border-l pl-4">
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              <span>Operation in progress...</span>
+            </div>
+          )}
         </div>
         
         <div className="flex items-center gap-4">
@@ -72,8 +86,12 @@ function App() {
               <span>{auth.authenticated ? (auth.account || "Authenticated") : "Not Authenticated"}</span>
             </div>
           )}
+
+          <ThemeToggle />
         </div>
       </header>
+
+      <Banner auth={auth} status={status} />
 
       <div className="flex-1 flex overflow-hidden">
         <CloudInfoPanel auth={auth} />
@@ -88,6 +106,7 @@ function App() {
               onClear={clearLogs} 
             />
             <ActionsPanel 
+              auth={auth}
               status={status} 
               onTrigger={trigger} 
               loading={isRunning}
@@ -95,16 +114,16 @@ function App() {
           </div>
 
           {status?.k8s === 'Ready' && (
-            <>
-              <NodesPanel />
+            <div className={cn("space-y-6 transition-opacity", isStale && "opacity-60")}>
+              <NodesPanel isStale={isStale} />
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <PodTable />
+                <PodTable isStale={isStale} />
                 <div className="space-y-6">
-                  <PersistentDisks />
-                  <BackupList />
+                  <PersistentDisks isStale={isStale} />
+                  <BackupList isStale={isStale} />
                 </div>
               </div>
-            </>
+            </div>
           )}
         </main>
       </div>

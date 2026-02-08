@@ -12,15 +12,15 @@ A local web dashboard for k8s-lab that provides a visual interface to all cluste
 
 **Phase:** Phase 5: Polish & Missing Features
 **Branch:** `feature/ui`
-**Next Step:** Phase 5, Step 5.1 (Missing action buttons)
+**Next Step:** Phase 5, Step 5.6 (Pod Detail view)
 
 | Phase | Status |
 |-------|--------|
 | Phase 1: Foundation | Complete |
 | Phase 2: Tunnel Manager + Status | Complete |
 | Phase 3: Operations + Log Streaming | Complete |
-| Phase 4: Data Panels | Complete (core panels: Nodes, Pods, PVCs, Backups) |
-| Phase 5: Polish & Missing Features | Not started |
+| Phase 4: Data Panels | Complete |
+| Phase 5: Polish & Missing Features | In Progress (Steps 5.1-5.5 complete) |
 
 **Phase 4 deferred items** (moved to Phase 5): PodDetail view, RestoreDialog, RedisExplorer, TerraformResources view. These were in the Phase 4 plan but not implemented. Core data panels are working and reviewed.
 

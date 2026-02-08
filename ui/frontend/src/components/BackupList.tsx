@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Archive, Trash2, RotateCcw } from 'lucide-react'
+import { Archive, Trash2, RotateCcw, WifiOff } from 'lucide-react'
 import type { VeleroBackup } from '../types'
 import { cn } from '@/lib/utils'
 
-export function BackupList() {
+export function BackupList({ isStale }: { isStale?: boolean }) {
   const [backups, setBackups] = useState<VeleroBackup[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -71,6 +71,11 @@ export function BackupList() {
             ))}
           </tbody>
         </table>
+      )}
+      {isStale && (
+        <div className="px-4 py-2 bg-yellow-500/10 border-t border-yellow-500/20 text-yellow-600 text-xs flex items-center gap-2">
+          <WifiOff className="w-3 h-3" /> Data may be stale. Tunnel disconnected.
+        </div>
       )}
     </div>
   )
