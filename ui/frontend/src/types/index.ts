@@ -43,9 +43,13 @@ export interface K8sPod {
   status: { 
     phase: string
     startTime: string
+    podIP?: string
     containerStatuses?: { restartCount: number }[] 
   }
-  spec: { nodeName: string }
+  spec: { 
+    nodeName: string
+    containers: { image: string }[]
+  }
 }
 
 export interface K8sPVC {

@@ -11,6 +11,10 @@ import { PersistentDisks } from './components/PersistentDisks'
 import { BackupList } from './components/BackupList'
 import { Banner } from './components/Banner'
 import { ThemeToggle } from './components/ThemeToggle'
+import { PodDetail } from './components/PodDetail'
+import { TerraformResources } from './components/TerraformResources'
+import { RestoreDialog } from './components/RestoreDialog'
+import { RedisExplorer } from './components/RedisExplorer'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useApi } from './hooks/useApi'
 import type { AuthStatus, GlobalStatus } from './types'
@@ -18,6 +22,10 @@ import type { AuthStatus, GlobalStatus } from './types'
 function App() {
   const [auth, setAuth] = useState<AuthStatus | null>(null)
   const [status, setStatus] = useState<GlobalStatus | null>(null)
+  const [view, setView] = useState<'dashboard' | 'pod-detail' | 'tf-detail'>('dashboard')
+  const [selectedPod, setSelectedPod] = useState<{name: string, ns: string} | null>(null)
+  const [restoreOpen, setRestoreOpen] = useState(false)
+  const [restoreBackup, setRestoreBackup] = useState('')
   
   const { logs, connected, isRunning, clearLogs } = useWebSocket()
   const { trigger } = useApi()
@@ -38,6 +46,25 @@ function App() {
       .then(res => res.json())
       .then(data => setStatus(data))
       .catch(err => console.error("Failed to fetch status:", err))
+  }
+
+  const handlePodClick = (name: string, ns: string) => {
+    setSelectedPod({ name, ns })
+    setView('pod-detail')
+  }
+
+  const handleRestoreClick = (name: string) => {
+    setRestoreBackup(name)
+    setRestoreOpen(true)
+  }
+
+  const handleRestoreAction = (backupName: string) => {
+    trigger(`restore?backup=${backupName}&clean=true`)
+  }
+
+  const handleActionsRestore = () => {
+    setRestoreBackup('')
+    setRestoreOpen(true)
   }
 
   const isStale = status?.infra === 'Running' && status?.tunnel !== 'Connected'
@@ -94,39 +121,65 @@ function App() {
       <Banner auth={auth} status={status} />
 
       <div className="flex-1 flex overflow-hidden">
-        <CloudInfoPanel auth={auth} />
+        <CloudInfoPanel auth={auth} onTFClick={() => setView('tf-detail')} />
         
         <main className="flex-1 overflow-auto p-6 space-y-6">
-          <StatusPanel status={status} />
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <LogStream 
-              logs={logs} 
-              connected={connected} 
-              onClear={clearLogs} 
-            />
-            <ActionsPanel 
-              auth={auth}
-              status={status} 
-              onTrigger={trigger} 
-              loading={isRunning}
-            />
-          </div>
-
-          {status?.k8s === 'Ready' && (
-            <div className={cn("space-y-6 transition-opacity", isStale && "opacity-60")}>
-              <NodesPanel isStale={isStale} />
+          {view === 'dashboard' && (
+            <>
+              <StatusPanel status={status} />
+              
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <PodTable isStale={isStale} />
-                <div className="space-y-6">
-                  <PersistentDisks isStale={isStale} />
-                  <BackupList isStale={isStale} />
-                </div>
+                <LogStream 
+                  logs={logs} 
+                  connected={connected} 
+                  onClear={clearLogs} 
+                />
+                <ActionsPanel 
+                  auth={auth}
+                  status={status} 
+                  onTrigger={(op) => op === 'restore' ? handleActionsRestore() : trigger(op)} 
+                  loading={isRunning}
+                />
               </div>
-            </div>
+
+              {status?.k8s === 'Ready' && (
+                <div className={cn("space-y-6 transition-opacity", isStale && "opacity-60")}>
+                  <NodesPanel isStale={isStale} />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-6">
+                      <PodTable isStale={isStale} onPodClick={handlePodClick} />
+                      <RedisExplorer />
+                    </div>
+                    <div className="space-y-6">
+                      <PersistentDisks isStale={isStale} />
+                      <BackupList isStale={isStale} onRestore={handleRestoreClick} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {view === 'pod-detail' && selectedPod && (
+            <PodDetail 
+              podName={selectedPod.name} 
+              namespace={selectedPod.ns} 
+              onBack={() => setView('dashboard')} 
+            />
+          )}
+
+          {view === 'tf-detail' && (
+            <TerraformResources onBack={() => setView('dashboard')} />
           )}
         </main>
       </div>
+
+      <RestoreDialog 
+        isOpen={restoreOpen} 
+        onClose={() => setRestoreOpen(false)} 
+        onRestore={handleRestoreAction}
+        preSelectedBackup={restoreBackup}
+      />
     </div>
   )
 }

@@ -186,6 +186,19 @@ func (s *Server) handleOperation(w http.ResponseWriter, r *http.Request) {
 
 	// Prepare arguments
 	args := []string{operation, "--cloud", s.cloud, "--verbose"}
+	if operation == "destroy" {
+		args = []string{"destroy", "--cloud", s.cloud, "--verbose"}
+	}
+
+	// Handle operation-specific flags from query params
+	if operation == "restore" {
+		if backup := r.URL.Query().Get("backup"); backup != "" {
+			args = append(args, "--backup", backup)
+		}
+		if r.URL.Query().Get("clean") == "true" {
+			args = append(args, "--clean")
+		}
+	}
 
 	exe, err := os.Executable()
 	if err != nil {

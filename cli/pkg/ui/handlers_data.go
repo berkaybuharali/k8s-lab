@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os/exec"
@@ -214,5 +215,169 @@ func (s *Server) handlePodLogs(w http.ResponseWriter, r *http.Request) {
 	
 	// Return as plain text
 	w.Header().Set("Content-Type", "text/plain")
+	w.Write(output)
+}
+
+// --- Redis Handlers ---
+
+// execRedis runs a redis-cli command in the redis pod.
+func (s *Server) execRedis(ctx context.Context, args ...string) ([]byte, error) {
+	// kubectl exec -n application deploy/redis --kubeconfig ... -- redis-cli <args>
+	fullArgs := []string{"exec", "-n", "application", "deploy/redis", "--kubeconfig", s.config.GetKubeconfigPath(), "--", "redis-cli"}
+	fullArgs = append(fullArgs, args...)
+
+	cmd := exec.CommandContext(ctx, "kubectl", fullArgs...)
+	return cmd.Output()
+}
+
+func (s *Server) handleRedisKeys(w http.ResponseWriter, r *http.Request) {
+	if !ensureGet(w, r) {
+		return
+	}
+	pattern := r.URL.Query().Get("pattern")
+	if pattern == "" {
+		pattern = "*"
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	// Use KEYS for simplicity (in prod SCAN is better, but this is a lab)
+	output, err := s.execRedis(ctx, "KEYS", pattern)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Parse newlines to array
+	keys := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(keys) == 1 && keys[0] == "" {
+		keys = []string{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(keys)
+}
+
+func (s *Server) handleRedisGet(w http.ResponseWriter, r *http.Request) {
+	if !ensureGet(w, r) {
+		return
+	}
+	pathParts := strings.Split(r.URL.Path, "/")
+	// /api/redis/get/{key}
+	if len(pathParts) < 5 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	key := pathParts[4]
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	output, err := s.execRedis(ctx, "GET", key)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(output)
+}
+
+func (s *Server) handleRedisSet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Key   string `json:"key"`
+		Value string `json:"value"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid body", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	output, err := s.execRedis(ctx, "SET", req.Key, req.Value)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(output)
+}
+
+func (s *Server) handleRedisDel(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 5 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	key := pathParts[4]
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	output, err := s.execRedis(ctx, "DEL", key)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(output)
+}
+
+func (s *Server) handleRedisFlush(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	output, err := s.execRedis(ctx, "FLUSHDB")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Write(output)
+}
+
+// --- Backup Handler ---
+
+func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	pathParts := strings.Split(r.URL.Path, "/")
+	// /api/backups/{name}
+	if len(pathParts) < 4 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	name := pathParts[3]
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	// velero backup delete <name> --confirm
+	cmd := exec.CommandContext(ctx, "velero", "backup", "delete", name, "--confirm", "--kubeconfig", s.config.GetKubeconfigPath())
+	output, err := cmd.Output()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to delete backup: %v\n%s", err, output), http.StatusInternalServerError)
+		return
+	}
+
 	w.Write(output)
 }

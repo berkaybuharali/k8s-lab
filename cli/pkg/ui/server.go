@@ -95,8 +95,16 @@ func (s *Server) Start(ctx context.Context) error {
 	})
 	mux.HandleFunc("/api/pvcs", s.handlePVCs)
 	mux.HandleFunc("/api/backups", s.handleBackups)
+	mux.HandleFunc("/api/backups/", s.handleDeleteBackup)
 	mux.HandleFunc("/api/terraform/resources", s.handleTerraformResources)
 	mux.HandleFunc("/api/namespaces", s.handleNamespaces)
+
+	// Redis Routes
+	mux.HandleFunc("/api/redis/keys", s.handleRedisKeys)
+	mux.HandleFunc("/api/redis/get/", s.handleRedisGet)
+	mux.HandleFunc("/api/redis/set", s.handleRedisSet)
+	mux.HandleFunc("/api/redis/del/", s.handleRedisDel)
+	mux.HandleFunc("/api/redis/flush", s.handleRedisFlush)
 
 	// Static files
 	// dist folder is embedded as "dist", but we want to serve the content of "dist" at root
