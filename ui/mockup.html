@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>k8s-lab UI Mockup v3</title>
+<style>
+  :root {
+    --bg-primary: #0f1117;
+    --bg-secondary: #1a1d27;
+    --bg-card: #1e2130;
+    --bg-card-hover: #252839;
+    --border: #2a2d3a;
+    --text-primary: #e4e4e7;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #06b6d4;
+    --purple: #a855f7;
+    --log-bg: #0d0f14;
+    --btn-secondary-bg: #2a2d3a;
+    --btn-secondary-hover: #353849;
+    --shadow: rgba(0, 0, 0, 0.3);
+  }
+  .light-theme {
+    --bg-primary: #f8fafc; --bg-secondary: #f1f5f9; --bg-card: #ffffff;
+    --bg-card-hover: #f8fafc; --border: #e2e8f0; --text-primary: #1e293b;
+    --text-secondary: #64748b; --text-muted: #94a3b8; --log-bg: #f8fafc;
+    --btn-secondary-bg: #e2e8f0; --btn-secondary-hover: #cbd5e1;
+    --shadow: rgba(0, 0, 0, 0.08);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg-primary); color: var(--text-primary);
+    min-height: 100vh; transition: background 0.2s, color 0.2s;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 32px; background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .cloud-badge {
+    display: flex; align-items: center; gap: 6px; padding: 4px 12px;
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+    font-size: 13px; font-weight: 500;
+  }
+  .header-right { display: flex; align-items: center; gap: 14px; }
+  .auth-badge {
+    display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary);
+    padding: 4px 10px; border-radius: 6px; background: var(--bg-card); border: 1px solid var(--border);
+  }
+  .tunnel-status {
+    display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary);
+    padding: 4px 10px; border-radius: 6px; background: var(--bg-card); border: 1px solid var(--border);
+  }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .status-dot.green { background: var(--success); box-shadow: 0 0 6px var(--success); }
+  .status-dot.yellow { background: var(--warning); box-shadow: 0 0 6px var(--warning); }
+  .status-dot.red { background: var(--danger); box-shadow: 0 0 6px var(--danger); }
+  .status-dot.gray { background: var(--text-muted); }
+  .theme-toggle {
+    background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; cursor: pointer; font-size: 16px; color: var(--text-primary);
+  }
+  .theme-toggle:hover { background: var(--bg-card-hover); }
+  .header-op {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--accent); font-size: 13px; font-weight: 500;
+  }
+
+  /* ===== Banner ===== */
+  .banner {
+    padding: 10px 32px; display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 500; border-bottom: 1px solid;
+  }
+  .banner-danger { background: rgba(239,68,68,0.08); border-color: var(--danger); color: var(--danger); }
+  .banner-warning { background: rgba(245,158,11,0.08); border-color: var(--warning); color: var(--warning); }
+
+  /* ===== Layout: 3-column with left sidebar ===== */
+  .main {
+    display: grid; grid-template-columns: 280px 1fr 1fr; gap: 16px;
+    padding: 20px 32px; max-width: 1600px; margin: 0 auto;
+  }
+  .main-2col {
+    grid-template-columns: 1fr 1fr;
+  }
+  .span-2 { grid-column: span 2; }
+  .span-all { grid-column: 1 / -1; }
+
+  /* ===== Cards ===== */
+  .card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px var(--shadow);
+  }
+  .card-header {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-secondary);
+  }
+  .card-body { padding: 14px 16px; }
+  .card-body-np { padding: 0; }
+
+  /* ===== Cloud Environment (Left Sidebar) ===== */
+  .cloud-sidebar { grid-row: span 3; }
+  .cloud-item {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+  }
+  .cloud-item:last-child { border-bottom: none; }
+  .cloud-label {
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 3px;
+  }
+  .cloud-value { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .cloud-value.clickable {
+    color: var(--accent); cursor: pointer; text-decoration: underline;
+    text-decoration-style: dotted; text-underline-offset: 2px;
+  }
+  .cloud-value.clickable:hover { text-decoration-style: solid; }
+
+  /* ===== Status Panel ===== */
+  .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .status-item {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+    background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border);
+  }
+  .status-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .status-icon.infra { background: rgba(59,130,246,0.15); color: var(--accent); }
+  .status-icon.k8s { background: rgba(168,85,247,0.15); color: var(--purple); }
+  .status-icon.tools { background: rgba(6,182,212,0.15); color: var(--info); }
+  .status-icon.apps { background: rgba(34,197,94,0.15); color: var(--success); }
+  .status-label { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+  .status-value { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+
+  /* ===== Buttons ===== */
+  .actions-section { display: flex; flex-direction: column; gap: 12px; }
+  .actions-group-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--text-muted); margin-bottom: -4px;
+  }
+  .actions-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    padding: 8px 14px; border-radius: 7px; border: 1px solid transparent;
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px; font-family: inherit; white-space: nowrap;
+  }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+  .btn-danger:hover { background: rgba(239,68,68,0.1); }
+  .btn-secondary { background: var(--btn-secondary-bg); color: var(--text-primary); border-color: var(--border); }
+  .btn-secondary:hover { background: var(--btn-secondary-hover); }
+  .btn-success { background: transparent; color: var(--success); border-color: var(--success); }
+  .btn-success:hover { background: rgba(34,197,94,0.1); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-xs { padding: 3px 8px; font-size: 11px; }
+  .btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+  .step-number {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--bg-primary);
+    border: 1px solid var(--border); display: flex; align-items: center;
+    justify-content: center; font-size: 11px; font-weight: 600;
+    color: var(--text-muted); flex-shrink: 0;
+  }
+  .step-number.done { background: var(--success); border-color: var(--success); color: #fff; }
+  .step-number.active { background: var(--accent); border-color: var(--accent); color: #fff; animation: pulse 1.5s infinite; }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(59,130,246,0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(59,130,246,0); }
+  }
+
+  /* ===== Tables ===== */
+  .table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table th {
+    text-align: left; padding: 9px 12px; font-weight: 600; color: var(--text-muted);
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .table td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+  .table tr:last-child td { border-bottom: none; }
+  .table tr:hover td { background: var(--bg-card-hover); }
+  .table tr.clickable { cursor: pointer; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+    border-radius: 4px; font-size: 11px; font-weight: 600;
+  }
+  .badge-success { background: rgba(34,197,94,0.15); color: var(--success); }
+  .badge-warning { background: rgba(245,158,11,0.15); color: var(--warning); }
+  .badge-danger { background: rgba(239,68,68,0.15); color: var(--danger); }
+  .badge-info { background: rgba(59,130,246,0.15); color: var(--accent); }
+
+  /* ===== Tabs ===== */
+  .tab-bar {
+    display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--bg-secondary);
+  }
+  .tab {
+    padding: 9px 18px; font-size: 12px; font-weight: 500; cursor: pointer;
+    color: var(--text-muted); border-bottom: 2px solid transparent;
+    background: none; border-top: none; border-left: none; border-right: none; font-family: inherit;
+  }
+  .tab:hover { color: var(--text-secondary); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ===== Namespace Dropdown ===== */
+  .ns-select {
+    padding: 4px 8px; font-size: 12px; border-radius: 5px;
+    background: var(--bg-secondary); color: var(--text-primary);
+    border: 1px solid var(--border); font-family: inherit; cursor: pointer;
+  }
+
+  /* ===== Log Panel ===== */
+  .log-content {
+    background: var(--log-bg);
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 12.5px; line-height: 1.7; padding: 14px 18px;
+    max-height: 380px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+  }
+  .log-line { color: var(--text-secondary); }
+  .log-line .time { color: var(--text-muted); }
+  .log-line .info { color: var(--accent); }
+  .log-line .success { color: var(--success); }
+  .log-line .warn { color: var(--warning); }
+  .log-line .error { color: var(--danger); }
+  .log-line .cmd { color: var(--purple); font-weight: 600; }
+  .log-cursor {
+    display: inline-block; width: 7px; height: 15px; background: var(--accent);
+    animation: blink 1s step-end infinite; vertical-align: text-bottom; margin-left: 2px;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .btn-group { display: flex; gap: 4px; }
+
+  /* ===== Redis Data Panel ===== */
+  .redis-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+  .redis-input {
+    padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg-secondary); color: var(--text-primary);
+    font-size: 12px; font-family: inherit; flex: 1; min-width: 100px;
+  }
+  .redis-input:focus { outline: none; border-color: var(--accent); }
+  .redis-kv-grid {
+    display: grid; grid-template-columns: 1fr 2fr auto;
+    gap: 1px; background: var(--border); border-radius: 6px; overflow: hidden;
+    max-height: 200px; overflow-y: auto;
+  }
+  .redis-kv-header {
+    padding: 7px 10px; font-size: 11px; font-weight: 600;
+    text-transform: uppercase; color: var(--text-muted); background: var(--bg-secondary);
+  }
+  .redis-kv-cell {
+    padding: 6px 10px; font-size: 12px; background: var(--bg-card);
+    font-family: 'SF Mono', monospace; color: var(--text-secondary);
+    display: flex; align-items: center;
+  }
+  .redis-kv-cell.key { color: var(--info); font-weight: 500; }
+  .redis-kv-cell.actions { justify-content: center; }
+
+  /* ===== Nodes Panel ===== */
+  .node-cards { display: flex; gap: 10px; flex-wrap: wrap; }
+  .node-card {
+    flex: 1; min-width: 160px; padding: 12px 14px;
+    background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border);
+  }
+  .node-name { font-size: 13px; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .node-meta { font-size: 11px; color: var(--text-muted); line-height: 1.6; }
+
+  /* ===== Disk Bar ===== */
+  .disk-bar-bg { height: 6px; background: var(--bg-primary); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .disk-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+
+  /* ===== Pod Detail YAML ===== */
+  .pod-detail-yaml {
+    font-family: 'SF Mono', monospace; font-size: 12px; line-height: 1.6;
+    background: var(--log-bg); padding: 14px; max-height: 300px;
+    overflow-y: auto; color: var(--text-secondary); white-space: pre;
+  }
+
+  /* ===== Terraform Resources ===== */
+  .tf-resource-list { display: flex; flex-direction: column; gap: 4px; }
+  .tf-resource {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 10px; font-size: 12px; background: var(--bg-secondary);
+    border-radius: 5px; border: 1px solid var(--border);
+  }
+  .tf-resource-name { font-family: 'SF Mono', monospace; color: var(--info); }
+  .tf-resource-type { color: var(--text-muted); font-size: 11px; }
+
+  /* ===== Spinner ===== */
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== View Switcher (mockup only) ===== */
+  .view-switcher {
+    display: flex; gap: 6px; justify-content: center; padding: 14px;
+    background: var(--bg-secondary); border-bottom: 1px solid var(--border); flex-wrap: wrap;
+  }
+  .view-btn {
+    padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg-card); color: var(--text-secondary); cursor: pointer;
+    font-size: 12px; font-weight: 500; font-family: inherit;
+  }
+  .view-btn:hover { background: var(--bg-card-hover); }
+  .view-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ===== Dialog ===== */
+  .dialog-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 300;
+  }
+  .dialog-overlay.show { display: flex; }
+  .dialog {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .dialog-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .dialog-header h3 { font-size: 16px; font-weight: 600; }
+  .dialog-body { padding: 18px 20px; }
+  .dialog-footer {
+    padding: 14px 20px; border-top: 1px solid var(--border);
+    display: flex; justify-content: flex-end; gap: 8px;
+  }
+  .radio-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .radio-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+  }
+  .radio-item:hover { border-color: var(--accent); }
+  .radio-item.selected { border-color: var(--accent); background: rgba(59,130,246,0.05); }
+  .radio-dot {
+    width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .radio-item.selected .radio-dot { border-color: var(--accent); }
+  .radio-item.selected .radio-dot::after {
+    content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+  }
+  .radio-label { font-size: 13px; font-weight: 500; }
+  .radio-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+  .checkbox-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text-secondary); cursor: pointer; margin-bottom: 14px;
+  }
+  .prereq-list { display: flex; flex-direction: column; gap: 5px; }
+  .prereq-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .prereq-item.ok { color: var(--success); }
+  .prereq-item.fail { color: var(--danger); }
+  .section-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px;
+  }
+
+  /* ===== Misc ===== */
+  .empty-state { text-align: center; padding: 28px; color: var(--text-muted); font-size: 13px; }
+  .card-warning {
+    padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+    background: rgba(245,158,11,0.06); color: var(--warning); font-size: 12px;
+    border-top: 1px solid rgba(245,158,11,0.15);
+  }
+  .card-error {
+    padding: 10px 16px; display: flex; align-items: center; gap: 8px;
+    background: rgba(239,68,68,0.06); color: var(--danger); font-size: 12px;
+    border-top: 1px solid rgba(239,68,68,0.15);
+  }
+  .separator { color: var(--border); margin: 0 6px; }
+</style>
+</head>
+<body>
+
+<!-- ===== MOCKUP NAV ===== -->
+<div class="view-switcher">
+  <button class="view-btn active" onclick="switchView('noauth')">Not Authenticated</button>
+  <button class="view-btn" onclick="switchView('idle')">Idle (No Infra)</button>
+  <button class="view-btn" onclick="switchView('deploying')">Deploying</button>
+  <button class="view-btn" onclick="switchView('running')">Cluster Running</button>
+  <button class="view-btn" onclick="switchView('tunnel-lost')">Tunnel Lost</button>
+  <button class="view-btn" onclick="switchView('pod-detail')">Pod Detail</button>
+  <button class="view-btn" onclick="switchView('terraform')">Terraform Detail</button>
+  <button class="view-btn" onclick="switchView('deploy-failed')">Deploy Failed</button>
+</div>
+
+<!-- ================================================== -->
+<!-- VIEW: NOT AUTHENTICATED                            -->
+<!-- ================================================== -->
+<div class="view active" id="view-noauth">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">k8s<span>-lab</span></div>
+      <div class="cloud-badge">GCP</div>
+    </div>
+    <div class="header-right">
+      <div class="auth-badge" style="border-color:var(--danger);"><span class="status-dot red"></span> Not Authenticated</div>
+      <div class="tunnel-status"><span class="status-dot gray"></span> Tunnel: N/A</div>
+      <button class="theme-toggle" onclick="toggleTheme()"><span class="t-icon">&#9790;</span></button>
+    </div>
+  </div>
+  <div class="banner banner-danger">
+    Run <code style="background:rgba(239,68,68,0.15);padding:2px 6px;border-radius:3px;margin:0 4px;">gcloud auth application-default login</code> and restart the UI.
+  </div>
+  <div class="main main-2col">
+    <!-- Status -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Cluster Status</span></div>
+      <div class="card-body">
+        <div class="status-grid">
+          <div class="status-item"><div class="status-icon infra">&#9729;</div><div><div class="status-label">Infrastructure</div><div class="status-value"><span class="status-dot gray"></span> Unknown</div></div></div>
+          <div class="status-item"><div class="status-icon k8s">&#9096;</div><div><div class="status-label">Kubernetes</div><div class="status-value"><span class="status-dot gray"></span> Unknown</div></div></div>
+          <div class="status-item"><div class="status-icon tools">&#9881;</div><div><div class="status-label">Tools</div><div class="status-value"><span class="status-dot gray"></span> Unknown</div></div></div>
+          <div class="status-item"><div class="status-icon apps">&#9654;</div><div><div class="status-label">Applications</div><div class="status-value"><span class="status-dot gray"></span> Unknown</div></div></div>
+        </div>
+      </div>
+    </div>
+    <!-- Actions ALL disabled -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Actions</span></div>
+      <div class="card-body">
+        <div class="actions-section">
+          <div class="actions-row"><button class="btn btn-primary" disabled>Deploy All</button><button class="btn btn-danger" disabled>Destroy All</button></div>
+          <div class="actions-row">
+            <button class="btn btn-secondary" disabled><span class="step-number">1</span> Deploy Infra</button>
+            <button class="btn btn-secondary" disabled><span class="step-number">2</span> Deploy Tools</button>
+            <button class="btn btn-secondary" disabled><span class="step-number">3</span> Deploy Apps</button>
+          </div>
+          <div class="actions-row"><button class="btn btn-secondary" disabled>Create Backup</button><button class="btn btn-success" disabled>Restore from Backup</button></div>
+        </div>
+      </div>
+      <div class="card-error">Authentication required to perform any operations</div>
+    </div>
+    <!-- Log -->
+    <div class="card span-all">
+      <div class="card-header"><span class="card-title">Operation Log</span></div>
+      <div class="log-content" style="max-height:200px;">
+<div class="log-line"><span class="time">18:32:01</span>  <span class="info">[INFO]</span>  k8s-lab ui started on http://localhost:3000</div>
+<div class="log-line"><span class="time">18:32:01</span>  <span class="error">[ERROR]</span> GCP authentication check failed</div>
+<div class="log-line"><span class="time">18:32:01</span>  <span class="error">[ERROR]</span> Run: gcloud auth application-default login</div>
+<div class="log-line"><span class="time">18:32:01</span>  <span class="warn">[WARN]</span>  All operations disabled until authenticated<span class="log-cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================== -->
+<!-- VIEW: IDLE (authenticated, no infra)               -->
+<!-- ================================================== -->
+<div class="view" id="view-idle">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">k8s<span>-lab</span></div>
+      <div class="cloud-badge">GCP</div>
+    </div>
+    <div class="header-right">
+      <div class="auth-badge"><span class="status-dot green"></span> Authenticated</div>
+      <div class="tunnel-status"><span class="status-dot gray"></span> Tunnel: Idle</div>
+      <button class="theme-toggle" onclick="toggleTheme()"><span class="t-icon">&#9790;</span></button>
+    </div>
+  </div>
+  <div class="main">
+    <!-- Cloud Environment (left sidebar) -->
+    <div class="card cloud-sidebar">
+      <div class="card-header"><span class="card-title">Cloud Environment</span></div>
+      <div class="cloud-item"><div class="cloud-label">Provider</div><div class="cloud-value">Google Cloud (GCP)</div></div>
+      <div class="cloud-item"><div class="cloud-label">Account</div><div class="cloud-value">berkay@example.com</div></div>
+      <div class="cloud-item"><div class="cloud-label">Project ID</div><div class="cloud-value">my-k8s-lab-project</div></div>
+      <div class="cloud-item"><div class="cloud-label">Region</div><div class="cloud-value">europe-west4</div></div>
+      <div class="cloud-item"><div class="cloud-label">Terraform State</div><div class="cloud-value" style="color:var(--text-muted);">Empty (no resources)</div></div>
+      <div class="cloud-item"><div class="cloud-label">State Backend</div><div class="cloud-value">GCS bucket</div></div>
+    </div>
+    <!-- Status -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Cluster Status</span></div>
+      <div class="card-body">
+        <div class="status-grid">
+          <div class="status-item"><div class="status-icon infra">&#9729;</div><div><div class="status-label">Infrastructure</div><div class="status-value"><span class="status-dot gray"></span> Not Created</div></div></div>
+          <div class="status-item"><div class="status-icon k8s">&#9096;</div><div><div class="status-label">Kubernetes</div><div class="status-value"><span class="status-dot gray"></span> Not Running</div></div></div>
+          <div class="status-item"><div class="status-icon tools">&#9881;</div><div><div class="status-label">Tools</div><div class="status-value"><span class="status-dot gray"></span> Not Installed</div></div></div>
+          <div class="status-item"><div class="status-icon apps">&#9654;</div><div><div class="status-label">Applications</div><div class="status-value"><span class="status-dot gray"></span> Not Deployed</div></div></div>
+        </div>
+      </div>
+    </div>
+    <!-- Actions -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Actions</span></div>
+      <div class="card-body">
+        <div class="actions-section">
+          <div class="actions-group-label">Quick</div>
+          <div class="actions-row"><button class="btn btn-primary">Deploy All</button><button class="btn btn-danger" disabled>Destroy All</button></div>
+          <div class="actions-group-label">Step by Step</div>
+          <div class="actions-row">
+            <button class="btn btn-secondary"><span class="step-number">1</span> Deploy Infra</button>
+            <button class="btn btn-secondary" disabled><span class="step-number">2</span> Deploy Tools</button>
+            <button class="btn btn-secondary" disabled><span class="step-number">3</span> Deploy Apps</button>
+          </div>
+          <div class="actions-row"><button class="btn btn-secondary" disabled><span class="step-number">4</span> Seed Redis</button></div>
+          <div class="actions-group-label">Backup &amp; Restore</div>
+          <div class="actions-row" style="gap:10px;"><button class="btn btn-secondary" disabled>Create Backup</button><button class="btn btn-success" disabled>Restore from Backup</button></div>
+        </div>
+      </div>
+    </div>
+    <!-- Empty panels -->
+    <div class="card span-2"><div class="card-header"><span class="card-title">Nodes</span></div><div class="empty-state">No infrastructure deployed</div></div>
+    <div class="card"><div class="card-header"><span class="card-title">Pods</span><select class="ns-select" disabled><option>application</option></select></div><div class="empty-state">No cluster running</div></div>
+    <div class="card"><div class="card-header"><span class="card-title">Backups</span></div><div class="empty-state">No backups found</div></div>
+    <!-- Log -->
+    <div class="card span-all">
+      <div class="card-header"><span class="card-title">Operation Log</span><div class="btn-group"><button class="btn btn-secondary btn-sm" disabled>Clear</button></div></div>
+      <div class="log-content">
+<div class="log-line"><span class="time">18:32:01</span>  <span class="info">[INFO]</span>  k8s-lab ui started on http://localhost:3000</div>
+<div class="log-line"><span class="time">18:32:01</span>  <span class="info">[INFO]</span>  Cloud: GCP | Project: my-k8s-lab-project | Region: europe-west4</div>
+<div class="log-line"><span class="time">18:32:01</span>  <span class="info">[INFO]</span>  Auth: berkay@example.com</div>
+<div class="log-line"><span class="time">18:32:02</span>  <span class="warn">[WARN]</span>  Terraform state is empty (no infrastructure)</div>
+<div class="log-line"><span class="time">18:32:02</span>  <span class="info">[INFO]</span>  Ready. Click "Deploy Infra" or "Deploy All" to begin.<span class="log-cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================== -->
+<!-- VIEW: DEPLOYING                                    -->
+<!-- ================================================== -->
+<div class="view" id="view-deploying">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">k8s<span>-lab</span></div>
+      <div class="cloud-badge">GCP</div>
+      <div class="header-op"><div class="spinner"></div> Deploying Infrastructure...</div>
+    </div>
+    <div class="header-right">
+      <div class="auth-badge"><span class="status-dot green"></span> Authenticated</div>
+      <div class="tunnel-status"><span class="status-dot yellow"></span> Tunnel: Starting...</div>
+      <button class="theme-toggle" onclick="toggleTheme()"><span class="t-icon">&#9790;</span></button>
+    </div>
+  </div>
+  <div class="main">
+    <!-- Cloud sidebar -->
+    <div class="card cloud-sidebar">
+      <div class="card-header"><span class="card-title">Cloud Environment</span></div>
+      <div class="cloud-item"><div class="cloud-label">Provider</div><div class="cloud-value">Google Cloud (GCP)</div></div>
+      <div class="cloud-item"><div class="cloud-label">Account</div><div class="cloud-value">berkay@example.com</div></div>
+      <div class="cloud-item"><div class="cloud-label">Project ID</div><div class="cloud-value">my-k8s-lab-project</div></div>
+      <div class="cloud-item"><div class="cloud-label">Region</div><div class="cloud-value">europe-west4</div></div>
+      <div class="cloud-item"><div class="cloud-label">Terraform State</div><div class="cloud-value" style="color:var(--warning);">Applying...</div></div>
+      <div class="cloud-item"><div class="cloud-label">State Backend</div><div class="cloud-value">GCS bucket</div></div>
+    </div>
+    <!-- Status -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Cluster Status</span></div>
+      <div class="card-body">
+        <div class="status-grid">
+          <div class="status-item" style="border-color:var(--accent);"><div class="status-icon infra">&#9729;</div><div><div class="status-label">Infrastructure</div><div class="status-value"><div class="spinner" style="width:12px;height:12px;border-width:1.5px;"></div> Deploying...</div></div></div>
+          <div class="status-item"><div class="status-icon k8s">&#9096;</div><div><div class="status-label">Kubernetes</div><div class="status-value"><span class="status-dot gray"></span> Waiting...</div></div></div>
+          <div class="status-item"><div class="status-icon tools">&#9881;</div><div><div class="status-label">Tools</div><div class="status-value"><span class="status-dot gray"></span> Waiting...</div></div></div>
+          <div class="status-item"><div class="status-icon apps">&#9654;</div><div><div class="status-label">Applications</div><div class="status-value"><span class="status-dot gray"></span> Waiting...</div></div></div>
+        </div>
+      </div>
+    </div>
+    <!-- Actions locked -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Actions</span></div>
+      <div class="card-body">
+        <div class="actions-section">
+          <div class="actions-row">
+            <button class="btn btn-primary" disabled><div class="spinner" style="width:12px;height:12px;border-width:1.5px;border-top-color:#fff;border-color:rgba(255,255,255,0.3);"></div> Deploying...</button>
+            <button class="btn btn-danger">Cancel</button>
+          </div>
+          <div class="actions-row">
+            <button class="btn btn-secondary" disabled><span class="step-number active">1</span> Deploy Infra</button>
+            <button class="btn btn-secondary" disabled><span class="step-number">2</span> Deploy Tools</button>
+            <button class="btn btn-secondary" disabled><span class="step-number">3</span> Deploy Apps</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Log with tabs -->
+    <div class="card span-all">
+      <div class="card-header"><span class="card-title">Operation Log</span><div class="btn-group"><button class="btn btn-secondary btn-sm">Clear</button></div></div>
+      <div class="tab-bar">
+        <button class="tab active">deploy-infra</button>
+        <button class="tab" style="opacity:0.4">deploy-tools</button>
+        <button class="tab" style="opacity:0.4">deploy-apps</button>
+      </div>
+      <div class="log-content">
+<div class="log-line"><span class="cmd">$ k8s-lab deploy-infra --cloud gcp</span></div>
+<div class="log-line"></div>
+<div class="log-line"><span class="time">18:33:15</span>  <span class="info">[INFO]</span>  Starting infrastructure deployment for GCP</div>
+<div class="log-line"><span class="time">18:33:15</span>  <span class="info">[INFO]</span>  Project: my-k8s-lab-project | Region: europe-west4</div>
+<div class="log-line"><span class="time">18:33:16</span>  <span class="info">[INFO]</span>  Running terraform init...</div>
+<div class="log-line"><span class="time">18:33:20</span>  <span class="info">[INFO]</span>  Running terraform apply...</div>
+<div class="log-line"><span class="time">18:33:22</span>  <span class="info">[INFO]</span>  Creating VPC: k8s-lab-vpc</div>
+<div class="log-line"><span class="time">18:33:28</span>  <span class="info">[INFO]</span>  Creating firewall rules: allow-internal, allow-iap</div>
+<div class="log-line"><span class="time">18:33:35</span>  <span class="info">[INFO]</span>  Creating VM: talos-cp-0 (europe-west4-a)</div>
+<div class="log-line"><span class="time">18:33:40</span>  <span class="info">[INFO]</span>  Creating VM: talos-worker-0 (europe-west4-b)</div>
+<div class="log-line"><span class="time">18:33:45</span>  <span class="info">[INFO]</span>  Creating VM: talos-worker-1 (europe-west4-c)</div>
+<div class="log-line"><span class="time">18:34:10</span>  <span class="success">[OK]</span>    Terraform apply complete (3 VMs created)</div>
+<div class="log-line"></div>
+<div class="log-line"><span class="time">18:34:10</span>  <span class="info">[INFO]</span>  Starting IAP tunnel to talos-cp-0:50000</div>
+<div class="log-line"><span class="time">18:34:20</span>  <span class="info">[INFO]</span>  Generating Talos machine configs...</div>
+<div class="log-line"><span class="time">18:34:22</span>  <span class="info">[INFO]</span>  Applying config to talos-cp-0...</div>
+<div class="log-line"><span class="time">18:34:45</span>  <span class="info">[INFO]</span>  Bootstrapping etcd on talos-cp-0...</div>
+<div class="log-line"><span class="time">18:35:00</span>  <span class="info">[INFO]</span>  Waiting for Kubernetes API to be ready...<span class="log-cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================== -->
+<!-- VIEW: CLUSTER RUNNING (full dashboard)             -->
+<!-- ================================================== -->
+<div class="view" id="view-running">
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">k8s<span>-lab</span></div>
+      <div class="cloud-badge">GCP</div>
+    </div>
+    <div class="header-right">
+      <div class="auth-badge"><span class="status-dot green"></span> Authenticated</div>
+      <div class="tunnel-status"><span class="status-dot green"></span> Tunnel: Connected</div>
+      <button class="theme-toggle" onclick="toggleTheme()"><span class="t-icon">&#9790;</span></button>
+    </div>
+  </div>
+  <div class="main">
+    <!-- Cloud Environment (left sidebar) -->
+    <div class="card cloud-sidebar">
+      <div class="card-header"><span class="card-title">Cloud Environment</span></div>
+      <div class="cloud-item"><div class="cloud-label">Provider</div><div class="cloud-value">Google Cloud (GCP)</div></div>
+      <div class="cloud-item"><div class="cloud-label">Account</div><div class="cloud-value">berkay@example.com</div></div>
+      <div class="cloud-item"><div class="cloud-label">Project ID</div><div class="cloud-value">my-k8s-lab-project</div></div>
+      <div class="cloud-item"><div class="cloud-label">Region</div><div class="cloud-value">europe-west4</div></div>
+      <div class="cloud-item">
+        <div class="cloud-label">Terraform State</div>
+        <div class="cloud-value clickable" onclick="switchView('terraform')" style="color:var(--success);">12 resources &#8599;</div>
+      </div>
+      <div class="cloud-item"><div class="cloud-label">State Backend</div><div class="cloud-value">GCS bucket</div></div>
+    </div>
+
+    <!-- Status -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Cluster Status</span></div>
+      <div class="card-body">
+        <div class="status-grid">
+          <div class="status-item"><div class="status-icon infra">&#9729;</div><div><div class="status-label">Infrastructure</div><div class="status-value"><span class="status-dot green"></span> Running (3 VMs)</div></div></div>
+          <div class="status-item"><div class="status-icon k8s">&#9096;</div><div><div class="status-label">Kubernetes</div><div class="status-value"><span class="status-dot green"></span> Healthy (3 nodes)</div></div></div>
+          <div class="status-item"><div class="status-icon tools">&#9881;</div><div><div class="status-label">Tools</div><div class="status-value"><span class="status-dot green"></span> CSI + Velero</div></div></div>
+          <div class="status-item"><div class="status-icon apps">&#9654;</div><div><div class="status-label">Applications</div><div class="status-value"><span class="status-dot green"></span> 2/2 Running</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Actions</span></div>
+      <div class="card-body">
+        <div class="actions-section">
+          <div class="actions-group-label">Quick</div>
+          <div class="actions-row"><button class="btn btn-primary" disabled>Deploy All</button><button class="btn btn-danger">Destroy All</button></div>
+          <div class="actions-group-label">Step by Step</div>
+          <div class="actions-row">
+            <button class="btn btn-secondary" disabled><span class="step-number done">&#10003;</span> Infra</button>
+            <button class="btn btn-secondary" disabled><span class="step-number done">&#10003;</span> Tools</button>
+            <button class="btn btn-secondary" disabled><span class="step-number done">&#10003;</span> Apps</button>
+            <button class="btn btn-secondary"><span class="step-number">4</span> Seed Redis</button>
+          </div>
+          <div class="actions-group-label">Backup &amp; Restore</div>
+          <div class="actions-row" style="gap:10px;"><button class="btn btn-secondary">Create Backup</button><button class="btn btn-success" onclick="document.getElementById('restore-dialog').classList.add('show')">Restore from Backup</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nodes -->
+    <div class="card span-2">
+      <div class="card-header"><span class="card-title">Nodes</span><span style="font-size:11px;color:var(--text-muted);">3 nodes</span></div>
+      <div class="card-body">
+        <div class="node-cards">
+          <div class="node-card">
+            <div class="node-name"><span class="status-dot green"></span> talos-cp-0</div>
+            <div class="node-meta">Role: <strong>control-plane</strong><br>Zone: europe-west4-a<br>Type: e2-medium<br>IP: 10.0.1.2</div>
+          </div>
+          <div class="node-card">
+            <div class="node-name"><span class="status-dot green"></span> talos-worker-0</div>
+            <div class="node-meta">Role: <strong>worker</strong><br>Zone: europe-west4-b<br>Type: e2-medium<br>IP: 10.0.2.3</div>
+          </div>
+          <div class="node-card">
+            <div class="node-name"><span class="status-dot green"></span> talos-worker-1</div>
+            <div class="node-meta">Role: <strong>worker</strong><br>Zone: europe-west4-c<br>Type: e2-medium<br>IP: 10.0.3.4</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pods with namespace dropdown -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Pods</span>
+        <select class="ns-select"><option selected>application</option><option>velero</option><option>kube-system</option><option>gce-pd-csi-driver</option></select>
+      </div>
+      <div class="card-body card-body-np">
+        <table class="table">
+          <thead><tr><th>Name</th><th>Ready</th><th>Status</th><th>Restarts</th><th>Age</th></tr></thead>
+          <tbody>
+            <tr class="clickable" onclick="switchView('pod-detail')">
+              <td style="color:var(--text-primary);font-weight:500;">nginx-7d9b5c84f-x4k2m <span style="font-size:10px;color:var(--text-muted);">&#8599;</span></td>
+              <td>1/1</td><td><span class="badge badge-success">Running</span></td><td>0</td><td>24m</td>
+            </tr>
+            <tr class="clickable">
+              <td style="color:var(--text-primary);font-weight:500;">redis-5f8b7c4d6-p9n3w <span style="font-size:10px;color:var(--text-muted);">&#8599;</span></td>
+              <td>1/1</td><td><span class="badge badge-success">Running</span></td><td>0</td><td>24m</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Persistent Disks + Backups side by side -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Persistent Disks</span></div>
+      <div class="card-body card-body-np">
+        <table class="table">
+          <thead><tr><th>PVC</th><th>App</th><th>Size</th><th>Used</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr>
+              <td style="font-family:'SF Mono',monospace;font-size:12px;color:var(--text-primary);">redis-data</td>
+              <td>Redis</td><td>10Gi</td>
+              <td><div style="display:flex;align-items:center;gap:6px;"><span>1.2Gi</span><div class="disk-bar-bg" style="width:50px;"><div class="disk-bar-fill" style="width:12%;"></div></div><span style="font-size:11px;color:var(--text-muted);">12%</span></div></td>
+              <td><span class="badge badge-success">Bound</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Backups -->
+    <div class="card span-2">
+      <div class="card-header"><span class="card-title">Backups</span><span style="font-size:11px;color:var(--text-muted);">2 backups</span></div>
+      <div class="card-body card-body-np">
+        <table class="table">
+          <thead><tr><th>Name</th><th>Status</th><th>Items</th><th>Volumes</th><th>Size</th><th>Created</th><th style="text-align:right;">Actions</th></tr></thead>
+          <tbody>
+            <tr>
+              <td style="color:var(--text-primary);font-weight:500;">app-backup-20260208-183500</td>
+              <td><span class="badge badge-success">Completed</span></td><td>8</td><td>1 (redis-data)</td><td>1.2Gi</td><td>32m ago</td>
+              <td style="text-align:right;"><div style="display:flex;gap:6px;justify-content:flex-end;"><button class="btn btn-success btn-sm" onclick="document.getElementById('restore-dialog').classList.add('show')">Restore</button><button class="btn btn-danger btn-sm">Delete</button></div></td>
+            </tr>
+            <tr>
+              <td style="color:var(--text-primary);font-weight:500;">app-backup-20260207-180200</td>
+              <td><span class="badge badge-success">Completed</span></td><td>8</td><td>1 (redis-data)</td><td>0.8Gi</td><td>1d ago</td>
+              <td style="text-align:right;"><div style="display:flex;gap:6px;justify-content:flex-end;"><button class="btn btn-success btn-sm" onclick="document.getElementById('restore-dialog').classList.add('show')">Restore</button><button class="btn btn-danger btn-sm">Delete</button></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Redis Data Explorer -->
+    <div class="card span-all">
+      <div class="card-header">
+        <span class="card-title">Redis Data Explorer</span>
+        <span style="font-size:11px;color:var(--text-muted);">102 keys</span>
+      </div>
+      <div class="card-body">
+        <div class="redis-toolbar">
+          <input class="redis-input" placeholder="Key" style="max-width:160px;">
+          <input class="redis-input" placeholder="Value">
+          <button class="btn btn-primary btn-sm">SET</button>
+          <span class="separator">|</span>
+          <input class="redis-input" placeholder="Search keys... (e.g. user:*)" style="max-width:200px;">
+          <button class="btn btn-secondary btn-sm">Search</button>
+          <button class="btn btn-secondary btn-sm">Refresh</button>
+          <span class="separator">|</span>
+          <button class="btn btn-danger btn-sm">Flush DB</button>
+        </div>
+        <div class="redis-kv-grid">
+          <div class="redis-kv-header">Key</div><div class="redis-kv-header">Value</div><div class="redis-kv-header" style="text-align:center;">Del</div>
+          <div class="redis-kv-cell key">user:1</div><div class="redis-kv-cell">{"name":"Alice","email":"alice@example.com","age":30}</div><div class="redis-kv-cell actions"><button class="btn btn-danger btn-xs">DEL</button></div>
+          <div class="redis-kv-cell key">user:2</div><div class="redis-kv-cell">{"name":"Bob","email":"bob@example.com","age":25}</div><div class="redis-kv-cell actions"><button class="btn btn-danger btn-xs">DEL</button></div>
+          <div class="redis-kv-cell key">user:3</div><div class="redis-kv-cell">{"name":"Charlie","email":"charlie@test.com","age":35}</div><div class="redis-kv-cell actions"><button class="btn btn-danger btn-xs">DEL</button></div>
+          <div class="redis-kv-cell key">session:abc123</div><div class="redis-kv-cell">{"userId":1,"expires":"2026-02-08T20:00:00Z"}</div><div class="redis-kv-cell actions"><button class="btn btn-danger btn-xs">DEL</button></div>
+          <div class="redis-kv-cell key">config:app</div><div class="redis-kv-cell">{"version":"1.0","debug":false}</div><div class="redis-kv-cell actions"><button class="btn btn-danger btn-xs">DEL</button></div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-muted);">Showing 5 of 102 keys. Use search to filter.</div>
+      </div>
+    </div>
+
+    <!-- Log with tabs -->
+    <div class="card span-all">
+      <div class="card-header"><span class="card-title">Operation Log</span><div class="btn-group"><button class="btn btn-secondary btn-sm">Clear</button></div></div>
+      <div class="tab-bar">
+        <button class="tab">deploy-infra</button><button class="tab">deploy-tools</button><button class="tab">deploy-apps</button><button class="tab active">seed-redis</button>
+      </div>
+      <div class="log-content">
+<div class="log-line"><span class="cmd">$ k8s-lab seed-redis --cloud gcp</span></div>
+<div class="log-line"></div>
+<div class="log-line"><span class="time">18:40:02</span>  <span class="info">[INFO]</span>  Seeding Redis with test data...</div>
+<div class="log-line"><span class="time">18:40:02</span>  <span class="info">[INFO]</span>  Using K8s tunnel (externally managed)</div>
+<div class="log-line"><span class="time">18:40:03</span>  <span class="info">[INFO]</span>  Inserting 100 user keys...</div>
+<div class="log-line"><span class="time">18:40:04</span>  <span class="info">[INFO]</span>  Inserting session keys...</div>
+<div class="log-line"><span class="time">18:40:04</span>  <span class="info">[INFO]</span>  Inserting config keys...</div>
+<div class="log-line"><span class="time">18:40:05</span>  <span class="success">[OK]</span>    Redis seeded with 102 keys<span class="log-cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================== -->
+<!-- VIEW: TUNNEL LOST                                  -->
+<!-- ================================================== -->
+<div class="view" id="view-tunnel-lost">
+  <div class="header">
+    <div class="header-left"><div class="logo">k8s<span>-lab</span></div><div class="cloud-badge">GCP</div></div>
+    <div class="header-right">
+      <div class="auth-badge"><span class="status-dot green"></span> Authenticated</div>
+      <div class="tunnel-status" style="border-color:var(--danger);"><span class="status-dot red"></span> Tunnel: Disconnected</div>
+      <button class="theme-toggle" onclick="toggleTheme()"><span class="t-icon">&#9790;</span></button>
+    </div>
+  </div>
+  <div class="banner banner-warning">Tunnel lost. Reconnecting in 5s... Cluster data may be stale.</div>
+  <div class="main">
+    <div class="card cloud-sidebar">
+      <div class="card-header"><span class="card-title">Cloud Environment</span></div>
+      <div class="cloud-item"><div class="cloud-label">Provider</div><div class="cloud-value">Google Cloud (GCP)</div></div>
+      <div class="cloud-item"><div class="cloud-label">Account</div><div class="cloud-value">berkay@example.com</div></div>
+      <div class="cloud-item"><div class="cloud-label">Project ID</div><div class="cloud-value">my-k8s-lab-project</div></div>
+      <div class="cloud-item"><div class="cloud-label">Region</div><div class="cloud-value">europe-west4</div></div>
+      <div class="cloud-item"><div class="cloud-label">Terraform State</div><div class="cloud-value" style="color:var(--success);">12 resources</div></div>
+      <div class="cloud-item"><div class="cloud-label">State Backend</div><div class="cloud-value">GCS bucket</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Cluster Status</span></div>
+      <div class="card-body">
+        <div class="status-grid">
+          <div class="status-item"><div class="status-icon infra">&#9729;</div><div><div class="status-label">Infrastructure</div><div class="status-value"><span class="status-dot green"></span> Running (3 VMs)</div></div></div>
+          <div class="status-item"><div class="status-icon k8s">&#9096;</div><div><div class="status-label">Kubernetes</div><div class="status-value"><span class="status-dot yellow"></span> Unreachable</div></div></div>
+          <div class="status-item"><div class="status-icon tools">&#9881;</div><div><div class="status-label">Tools</div><div class="status-value"><span class="status-dot yellow"></span> Unreachable</div></div></div>
+          <div class="status-item"><div class="status-icon apps">&#9654;</div><div><div class="status-label">Applications</div><div class="status-value"><span class="status-dot yellow"></span> Unreachable</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Actions</span></div>
+      <div class="card-body">
+        <div class="actions-section">
+          <div class="actions-row"><button class="btn btn-primary" disabled>Deploy All</button><button class="btn btn-danger">Destroy All</button></div>
+          <div class="actions-row"><button class="btn btn-secondary" disabled>Deploy Tools</button><button class="btn btn-secondary" disabled>Deploy Apps</button><button class="btn btn-secondary" disabled>Seed Redis</button></div>
+          <div class="actions-row" style="gap:10px;"><button class="btn btn-secondary" disabled>Create Backup</button><button class="btn btn-success" disabled>Restore from Backup</button></div>
+        </div>
+      </div>
+      <div class="card-warning">Tunnel disconnected. Only Destroy All works without tunnel.</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Pods</span><select class="ns-select" disabled><option>application</option></select></div>
+      <div class="card-body card-body-np">
+        <table class="table" style="opacity:0.5;"><thead><tr><th>Name</th><th>Ready</th><th>Status</th><th>Restarts</th><th>Age</th></tr></thead>
+          <tbody><tr><td>nginx-7d9b5c84f-x4k2m</td><td>1/1</td><td><span class="badge badge-success">Running</span></td><td>0</td><td>24m</td></tr><tr><td>redis-5f8b7c4d6-p9n3w</td><td>1/1</td><td><span class="badge badge-success">Running</span></td><td>0</td><td>24m</td></tr></tbody>
+        </table>
+      </div>
+      <div class="card-warning">Data may be stale. Last updated 2 minutes ago.</div>
+    </div>
+    <div class="card"><div class="card-header"><span class="card-title">Redis Data Explorer</span></div><div class="empty-state"><div style="color:var(--warning);margin-bottom:4px;">Tunnel disconnected</div><div>Cannot reach Redis. Waiting for reconnection...</div></div></div>
+    <div class="card span-all">
+      <div class="card-header"><span class="card-title">Operation Log</span><div class="btn-group"><button class="btn btn-secondary btn-sm">Clear</button></div></div>
+      <div class="log-content" style="max-height:200px;">
+<div class="log-line"><span class="time">18:45:30</span>  <span class="error">[ERROR]</span> K8s tunnel health check failed: connection refused</div>
+<div class="log-line"><span class="time">18:45:30</span>  <span class="warn">[WARN]</span>  Tunnel process (PID 12345) died</div>
+<div class="log-line"><span class="time">18:45:31</span>  <span class="info">[INFO]</span>  Attempting reconnection (1/5)...</div>
+<div class="log-line"><span class="time">18:45:31</span>  <span class="info">[INFO]</span>  Starting IAP tunnel to talos-cp-0:6443<span class="log-cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================== -->
+<!-- VIEW: POD DETAIL (expanded: service, disks, logs)  -->
+<!-- ================================================== -->
+<div class="view" id="view-pod-detail">
+  <div class="header">
+    <div class="header-left"><div class="logo">k8s<span>-lab</span></div><div class="cloud-badge">GCP</div></div>
+    <div class="header-right">
+      <div class="auth-badge"><span class="status-dot green"></span> Authenticated</div>
+      <div class="tunnel-status"><span class="status-dot green"></span> Tunnel: Connected</div>
+      <button class="theme-toggle" onclick="toggleTheme()"><span class="t-icon">&#9790;</span></button>
+    </div>
+  </div>
+  <div class="main main-2col">
+    <!-- Breadcrumb -->
+    <div class="card span-all">
+      <div class="card-header">
+        <span class="card-title" style="display:flex;align-items:center;gap:8px;">
+          <span style="cursor:pointer;color:var(--accent);" onclick="switchView('running')">&#8592; Pods</span>
+          <span style="color:var(--text-muted);">/</span> redis-5f8b7c4d6-p9n3w
+        </span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="badge badge-success">Running</span>
+          <span style="font-size:11px;color:var(--text-muted);">application</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pod info -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Pod Info</span></div>
+      <div class="card-body" style="font-size:13px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div><span style="color:var(--text-muted);">Name:</span> redis-5f8b7c4d6-p9n3w</div>
+          <div><span style="color:var(--text-muted);">Namespace:</span> application</div>
+          <div><span style="color:var(--text-muted);">Node:</span> talos-worker-1</div>
+          <div><span style="color:var(--text-muted);">Pod IP:</span> 10.244.2.8</div>
+          <div><span style="color:var(--text-muted);">Image:</span> redis:7-alpine</div>
+          <div><span style="color:var(--text-muted);">Age:</span> 24 minutes</div>
+          <div><span style="color:var(--text-muted);">Restarts:</span> 0</div>
+          <div><span style="color:var(--text-muted);">Service IP:</span> 10.96.45.12</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Volumes / Disks -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Volumes</span></div>
+      <div class="card-body card-body-np">
+        <table class="table">
+          <thead><tr><th>Mount Path</th><th>PVC</th><th>Size</th><th>Used</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr>
+              <td style="font-family:'SF Mono',monospace;font-size:12px;">/data</td>
+              <td style="color:var(--text-primary);font-weight:500;">redis-data</td>
+              <td>10Gi</td>
+              <td><div style="display:flex;align-items:center;gap:6px;"><span>1.2Gi</span><div class="disk-bar-bg" style="width:40px;"><div class="disk-bar-fill" style="width:12%;"></div></div><span style="font-size:11px;color:var(--text-muted);">12%</span></div></td>
+              <td><span class="badge badge-success">Bound</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tabs: Deployment YAML / Service YAML / Pod Logs -->
+    <div class="card span-all">
+      <div class="tab-bar">
+        <button class="tab active" onclick="showPodTab('deploy',this)">deployment.yaml</button>
+        <button class="tab" onclick="showPodTab('service',this)">service.yaml</button>
+        <button class="tab" onclick="showPodTab('logs',this)">Pod Logs</button>
+      </div>
+      <div class="tab-content active" id="pod-tab-deploy">
+        <div class="pod-detail-yaml">apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: application
+  labels:
+    app: redis
+  annotations:
+    backup.velero.io/backup-volumes: redis-data
+    pre.hook.backup.velero.io/command: '["/bin/sh", "-c", "redis-cli BGSAVE"]'
+    pre.hook.backup.velero.io/timeout: 30s
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+      volumes:
+      - name: redis-data
+        persistentVolumeClaim:
+          claimName: redis-data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data
+  namespace: application
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: standard-rwo
+  resources:
+    requests:
+      storage: 10Gi</div>
+      </div>
+      <div class="tab-content" id="pod-tab-service">
+        <div class="pod-detail-yaml">apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: application
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+    protocol: TCP
+    name: redis</div>
+      </div>
+      <div class="tab-content" id="pod-tab-logs">
+        <div class="log-content" style="max-height:300px;">
+<div class="log-line"><span class="time">18:37:30</span>  1:C 08 Feb 2026 18:37:30.123 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo</div>
+<div class="log-line"><span class="time">18:37:30</span>  1:C 08 Feb 2026 18:37:30.123 * Redis version=7.2.4, bits=64, commit=00000000, modified=0, pid=1</div>
+<div class="log-line"><span class="time">18:37:30</span>  1:M 08 Feb 2026 18:37:30.124 * Running mode=standalone, port=6379.</div>
+<div class="log-line"><span class="time">18:37:30</span>  1:M 08 Feb 2026 18:37:30.124 * Server initialized</div>
+<div class="log-line"><span class="time">18:37:30</span>  1:M 08 Feb 2026 18:37:30.125 * Loading RDB produced by version 7.2.4</div>
+<div class="log-line"><span class="time">18:37:30</span>  1:M 08 Feb 2026 18:37:30.125 * RDB age 86400 seconds</div>
+<div class="log-line"><span class="time">18:37:30</span>  1:M 08 Feb 2026 18:37:30.125 * RDB memory usage when created 1.12 Mb</div>
+<div class="log-line"><span class="time">18:37:30</span>  1:M 08 Feb 2026 18:37:30.126 * Done loading RDB, keys loaded: 102, keys expired: 0.</div>
+<div class="log-line"><span class="time">18:37:30</span>  1:M 08 Feb 2026 18:37:30.126 * Ready to accept connections tcp</div>
+<div class="log-line"><span class="time">18:40:05</span>  1:M 08 Feb 2026 18:40:05.001 * Background saving started by pid 42</div>
+<div class="log-line"><span class="time">18:40:05</span>  42:C 08 Feb 2026 18:40:05.003 * DB saved on disk</div>
+<div class="log-line"><span class="time">18:40:05</span>  1:M 08 Feb 2026 18:40:05.102 * Background saving terminated with success</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================== -->
+<!-- VIEW: TERRAFORM DETAIL                             -->
+<!-- ================================================== -->
+<div class="view" id="view-terraform">
+  <div class="header">
+    <div class="header-left"><div class="logo">k8s<span>-lab</span></div><div class="cloud-badge">GCP</div></div>
+    <div class="header-right">
+      <div class="auth-badge"><span class="status-dot green"></span> Authenticated</div>
+      <div class="tunnel-status"><span class="status-dot green"></span> Tunnel: Connected</div>
+      <button class="theme-toggle" onclick="toggleTheme()"><span class="t-icon">&#9790;</span></button>
+    </div>
+  </div>
+  <div class="main main-2col">
+    <div class="card span-all">
+      <div class="card-header">
+        <span class="card-title" style="display:flex;align-items:center;gap:8px;">
+          <span style="cursor:pointer;color:var(--accent);" onclick="switchView('running')">&#8592; Dashboard</span>
+          <span style="color:var(--text-muted);">/</span> Terraform Resources
+        </span>
+        <span style="font-size:11px;color:var(--text-muted);">12 managed resources</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Network</span></div>
+      <div class="card-body">
+        <div class="tf-resource-list">
+          <div class="tf-resource"><span class="tf-resource-name">google_compute_network.vpc</span><span class="tf-resource-type">VPC</span></div>
+          <div class="tf-resource"><span class="tf-resource-name">google_compute_subnetwork.subnet</span><span class="tf-resource-type">Subnet</span></div>
+          <div class="tf-resource"><span class="tf-resource-name">google_compute_firewall.allow_internal</span><span class="tf-resource-type">Firewall</span></div>
+          <div class="tf-resource"><span class="tf-resource-name">google_compute_firewall.allow_iap</span><span class="tf-resource-type">Firewall</span></div>
+          <div class="tf-resource"><span class="tf-resource-name">google_compute_router.nat_router</span><span class="tf-resource-type">Router</span></div>
+          <div class="tf-resource"><span class="tf-resource-name">google_compute_router_nat.nat</span><span class="tf-resource-type">NAT</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Compute</span></div>
+      <div class="card-body">
+        <div class="tf-resource-list">
+          <div class="tf-resource"><span class="tf-resource-name">google_compute_instance.cp_0</span><span class="tf-resource-type">VM (control-plane)</span></div>
+          <div class="tf-resource"><span class="tf-resource-name">google_compute_instance.worker_0</span><span class="tf-resource-type">VM (worker)</span></div>
+          <div class="tf-resource"><span class="tf-resource-name">google_compute_instance.worker_1</span><span class="tf-resource-type">VM (worker)</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">IAM</span></div>
+      <div class="card-body">
+        <div class="tf-resource-list">
+          <div class="tf-resource"><span class="tf-resource-name">google_service_account.talos</span><span class="tf-resource-type">Service Account</span></div>
+          <div class="tf-resource"><span class="tf-resource-name">google_project_iam_member.storage_admin</span><span class="tf-resource-type">IAM Binding</span></div>
+          <div class="tf-resource"><span class="tf-resource-name">google_project_iam_member.compute_admin</span><span class="tf-resource-type">IAM Binding</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================== -->
+<!-- VIEW: DEPLOY FAILED                                -->
+<!-- ================================================== -->
+<div class="view" id="view-deploy-failed">
+  <div class="header">
+    <div class="header-left"><div class="logo">k8s<span>-lab</span></div><div class="cloud-badge">GCP</div></div>
+    <div class="header-right">
+      <div class="auth-badge"><span class="status-dot green"></span> Authenticated</div>
+      <div class="tunnel-status"><span class="status-dot gray"></span> Tunnel: Idle</div>
+      <button class="theme-toggle" onclick="toggleTheme()"><span class="t-icon">&#9790;</span></button>
+    </div>
+  </div>
+  <div class="banner banner-danger">deploy-infra failed. Check the operation log for details.</div>
+  <div class="main">
+    <div class="card cloud-sidebar">
+      <div class="card-header"><span class="card-title">Cloud Environment</span></div>
+      <div class="cloud-item"><div class="cloud-label">Provider</div><div class="cloud-value">Google Cloud (GCP)</div></div>
+      <div class="cloud-item"><div class="cloud-label">Account</div><div class="cloud-value">berkay@example.com</div></div>
+      <div class="cloud-item"><div class="cloud-label">Project ID</div><div class="cloud-value">my-k8s-lab-project</div></div>
+      <div class="cloud-item"><div class="cloud-label">Region</div><div class="cloud-value">europe-west4</div></div>
+      <div class="cloud-item">
+        <div class="cloud-label">Terraform State</div>
+        <div class="cloud-value clickable" onclick="switchView('terraform')" style="color:var(--danger);">Partial (error) &#8599;</div>
+      </div>
+      <div class="cloud-item"><div class="cloud-label">State Backend</div><div class="cloud-value">GCS bucket</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Cluster Status</span></div>
+      <div class="card-body">
+        <div class="status-grid">
+          <div class="status-item" style="border-color:var(--danger);"><div class="status-icon infra">&#9729;</div><div><div class="status-label">Infrastructure</div><div class="status-value"><span class="status-dot red"></span> Failed</div></div></div>
+          <div class="status-item"><div class="status-icon k8s">&#9096;</div><div><div class="status-label">Kubernetes</div><div class="status-value"><span class="status-dot gray"></span> Not Running</div></div></div>
+          <div class="status-item"><div class="status-icon tools">&#9881;</div><div><div class="status-label">Tools</div><div class="status-value"><span class="status-dot gray"></span> Not Installed</div></div></div>
+          <div class="status-item"><div class="status-icon apps">&#9654;</div><div><div class="status-label">Applications</div><div class="status-value"><span class="status-dot gray"></span> Not Deployed</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Actions</span></div>
+      <div class="card-body">
+        <div class="actions-section">
+          <div class="actions-group-label">Recovery</div>
+          <div class="actions-row"><button class="btn btn-primary">Retry Deploy Infra</button><button class="btn btn-danger">Destroy All</button></div>
+          <div class="actions-row">
+            <button class="btn btn-secondary"><span class="step-number" style="background:var(--danger);border-color:var(--danger);color:#fff;">!</span> Deploy Infra</button>
+            <button class="btn btn-secondary" disabled><span class="step-number">2</span> Deploy Tools</button>
+            <button class="btn btn-secondary" disabled><span class="step-number">3</span> Deploy Apps</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-error">Deployment failed. Retry or destroy to clean up partial resources.</div>
+    </div>
+    <div class="card span-all">
+      <div class="card-header"><span class="card-title">Operation Log</span><div class="btn-group"><button class="btn btn-secondary btn-sm">Clear</button></div></div>
+      <div class="tab-bar"><button class="tab active">deploy-infra (failed)</button></div>
+      <div class="log-content">
+<div class="log-line"><span class="cmd">$ k8s-lab deploy-infra --cloud gcp</span></div>
+<div class="log-line"></div>
+<div class="log-line"><span class="time">18:33:15</span>  <span class="info">[INFO]</span>  Starting infrastructure deployment for GCP</div>
+<div class="log-line"><span class="time">18:33:16</span>  <span class="info">[INFO]</span>  Running terraform init...</div>
+<div class="log-line"><span class="time">18:33:20</span>  <span class="info">[INFO]</span>  Running terraform apply...</div>
+<div class="log-line"><span class="time">18:33:22</span>  <span class="info">[INFO]</span>  Creating VPC: k8s-lab-vpc</div>
+<div class="log-line"><span class="time">18:33:28</span>  <span class="info">[INFO]</span>  Creating firewall rules...</div>
+<div class="log-line"><span class="time">18:33:35</span>  <span class="info">[INFO]</span>  Creating VM: talos-cp-0 (europe-west4-a)</div>
+<div class="log-line"></div>
+<div class="log-line"><span class="error">[ERROR]</span> google_compute_instance.cp_0: Error creating instance:</div>
+<div class="log-line"><span class="error">[ERROR]</span> googleapi: Error 403: Quota 'CPUS' exceeded. Limit: 8.0 in region europe-west4.</div>
+<div class="log-line"><span class="error">[ERROR]</span> Terraform apply failed with exit code 1</div>
+<div class="log-line"><span class="time">18:33:45</span>  <span class="warn">[WARN]</span>  Run "Destroy All" to clean up, or "Retry" after fixing the issue.<span class="log-cursor"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RESTORE DIALOG ===== -->
+<div class="dialog-overlay" id="restore-dialog" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="dialog">
+    <div class="dialog-header"><h3>Restore from Backup</h3></div>
+    <div class="dialog-body">
+      <div class="section-label">Select Backup</div>
+      <div class="radio-group">
+        <div class="radio-item selected"><div class="radio-dot"></div><div><div class="radio-label">app-backup-20260208-183500</div><div class="radio-meta">Completed &bull; 32m ago &bull; 1 volume (redis-data, 1.2Gi) &bull; latest</div></div></div>
+        <div class="radio-item"><div class="radio-dot"></div><div><div class="radio-label">app-backup-20260207-180200</div><div class="radio-meta">Completed &bull; 1d ago &bull; 1 volume (redis-data, 0.8Gi)</div></div></div>
+      </div>
+      <label class="checkbox-item"><input type="checkbox" checked> Clean restore (delete application namespace first)</label>
+      <div class="section-label">Prerequisites</div>
+      <div class="prereq-list">
+        <div class="prereq-item ok">&#10003; Infrastructure deployed</div>
+        <div class="prereq-item ok">&#10003; Tools installed (CSI + Velero)</div>
+        <div class="prereq-item ok">&#10003; Tunnel connected</div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('restore-dialog').classList.remove('show')">Cancel</button>
+      <button class="btn btn-success" onclick="document.getElementById('restore-dialog').classList.remove('show')">Restore</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchView(name) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-' + name).classList.add('active');
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+    if (event && event.target.classList.contains('view-btn')) event.target.classList.add('active');
+  }
+  let isDark = true;
+  function toggleTheme() {
+    isDark = !isDark;
+    document.body.classList.toggle('light-theme', !isDark);
+    document.querySelectorAll('.t-icon').forEach(el => el.innerHTML = isDark ? '\u263E' : '\u2600');
+  }
+  document.querySelectorAll('.radio-item').forEach(item => {
+    item.addEventListener('click', () => {
+      item.closest('.radio-group').querySelectorAll('.radio-item').forEach(i => i.classList.remove('selected'));
+      item.classList.add('selected');
+    });
+  });
+  function showPodTab(tab, btn) {
+    document.querySelectorAll('#view-pod-detail .tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('#view-pod-detail .tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('pod-tab-' + tab).classList.add('active');
+    btn.classList.add('active');
+  }
+</script>
+</body>
+</html>
