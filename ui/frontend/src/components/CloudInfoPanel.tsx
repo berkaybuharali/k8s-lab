@@ -1,7 +1,12 @@
 import { Cloud, User, Hash, MapPin, Database } from 'lucide-react'
 import type { AuthStatus } from '../types'
 
-export function CloudInfoPanel({ auth }: { auth: AuthStatus | null }) {
+interface CloudInfoPanelProps {
+  auth: AuthStatus | null
+  onTFClick: () => void
+}
+
+export function CloudInfoPanel({ auth, onTFClick }: CloudInfoPanelProps) {
   if (!auth) return null
 
   const infoItems = [
@@ -9,7 +14,6 @@ export function CloudInfoPanel({ auth }: { auth: AuthStatus | null }) {
     { icon: User, label: 'Account', value: auth.account || 'Not Authenticated' },
     { icon: Hash, label: 'Project ID', value: auth.project || 'None' },
     { icon: MapPin, label: 'Region', value: auth.region || 'None' },
-    { icon: Database, label: 'TF State', value: 'Local' },
   ]
 
   return (
@@ -31,6 +35,20 @@ export function CloudInfoPanel({ auth }: { auth: AuthStatus | null }) {
             </div>
           </div>
         ))}
+        
+        {/* Special case for TF State with click handler */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Database className="w-4 h-4" />
+            <span className="text-xs font-medium">TF State</span>
+          </div>
+          <button 
+            onClick={onTFClick}
+            className="text-sm font-medium truncate text-blue-500 hover:underline text-left"
+          >
+            View Resources
+          </button>
+        </div>
       </div>
     </div>
   )

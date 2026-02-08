@@ -3,7 +3,12 @@ import { AppWindow, RotateCw, WifiOff } from 'lucide-react'
 import type { K8sPod } from '../types'
 import { cn } from '@/lib/utils'
 
-export function PodTable({ isStale }: { isStale?: boolean }) {
+interface PodTableProps {
+  isStale?: boolean
+  onPodClick: (name: string, ns: string) => void
+}
+
+export function PodTable({ isStale, onPodClick }: PodTableProps) {
   const [pods, setPods] = useState<K8sPod[]>([])
   const [namespaces, setNamespaces] = useState<string[]>([])
   const [ns, setNs] = useState('application')
@@ -75,7 +80,11 @@ export function PodTable({ isStale }: { isStale?: boolean }) {
               const ageStr = age > 3600000 ? `${Math.floor(age/3600000)}h` : `${Math.floor(age/60000)}m`
 
               return (
-                <tr key={pod.metadata.name} className="hover:bg-muted/50 transition-colors cursor-pointer">
+                <tr 
+                  key={pod.metadata.name} 
+                  onClick={() => onPodClick(pod.metadata.name, ns)}
+                  className="hover:bg-muted/50 transition-colors cursor-pointer"
+                >
                   <td className="p-3 font-medium">{pod.metadata.name}</td>
                   <td className="p-3">
                     <span className={cn(

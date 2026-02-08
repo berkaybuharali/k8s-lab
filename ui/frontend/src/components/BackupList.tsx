@@ -3,23 +3,38 @@ import { Archive, Trash2, RotateCcw, WifiOff } from 'lucide-react'
 import type { VeleroBackup } from '../types'
 import { cn } from '@/lib/utils'
 
-export function BackupList({ isStale }: { isStale?: boolean }) {
+interface BackupListProps {
+  isStale?: boolean
+  onRestore: (name: string) => void
+}
+
+export function BackupList({ isStale, onRestore }: BackupListProps) {
   const [backups, setBackups] = useState<VeleroBackup[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const fetchData = () => {
-      fetch('/api/backups')
-        .then(res => res.json())
-        .then(data => setBackups(data.items || []))
-        .catch(console.error)
-        .finally(() => setLoading(false))
-    }
+  const fetchBackups = () => {
+    fetch('/api/backups')
+      .then(res => res.json())
+      .then(data => setBackups(data.items || []))
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }
 
-    fetchData()
-    const interval = setInterval(fetchData, 15000)
+  useEffect(() => {
+    fetchBackups()
+    const interval = setInterval(fetchBackups, 15000)
     return () => clearInterval(interval)
   }, [])
+
+  const handleDelete = (name: string) => {
+    if (!confirm(`Delete backup ${name}?`)) return
+    
+    // Optimistic UI update or loading state?
+    // Let's just call API
+    fetch(`/api/backups/${name}`, { method: 'DELETE' })
+      .then(() => fetchBackups())
+      .catch(console.error)
+  }
 
   if (loading) return null
 
@@ -60,10 +75,18 @@ export function BackupList({ isStale }: { isStale?: boolean }) {
                   {new Date(backup.status.expiration).toLocaleDateString()}
                 </td>
                 <td className="p-3 text-right">
-                  <button className="p-1 hover:bg-muted rounded text-blue-500 mr-1" title="Restore">
+                  <button 
+                    onClick={() => onRestore(backup.metadata.name)}
+                    className="p-1 hover:bg-muted rounded text-blue-500 mr-1" 
+                    title="Restore"
+                  >
                     <RotateCcw className="w-4 h-4" />
                   </button>
-                  <button className="p-1 hover:bg-muted rounded text-red-500" title="Delete">
+                  <button 
+                    onClick={() => handleDelete(backup.metadata.name)}
+                    className="p-1 hover:bg-muted rounded text-red-500" 
+                    title="Delete"
+                  >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </td>
