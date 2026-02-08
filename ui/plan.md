@@ -168,43 +168,48 @@ k8s-lab/
 |   \-- frontend/            # React app (Vite + TypeScript)
 |       |-- src/
 |       |   |-- App.tsx
+|       |   |-- main.tsx
+|       |   |-- index.css           # Tailwind + dark/light theme vars
 |       |   |-- components/
-|       |   |   |-- Header.tsx
 |       |   |   |-- CloudInfoPanel.tsx
 |       |   |   |-- StatusPanel.tsx
-|       |   |   |-- ActionsPanel.tsx
-|       |   |   |-- NodesPanel.tsx
-|       |   |   |-- PodTable.tsx
-|       |   |   |-- PodDetail.tsx
-|       |   |   |-- PersistentDisks.tsx
-|       |   |   |-- BackupList.tsx
-|       |   |   |-- RedisExplorer.tsx
-|       |   |   |-- TerraformResources.tsx
-|       |   |   |-- LogStream.tsx
-|       |   |   |-- RestoreDialog.tsx
-|       |   |   |-- Banner.tsx
-|       |   |   \-- ThemeToggle.tsx
-|       |   |-- hooks/
-|       |   |   |-- useWebSocket.ts
-|       |   |   \-- useApi.ts
-|       |   |-- types/
-|       |   |   \-- index.ts
-|       |   \-- theme/
-|       |       \-- index.ts
+|       |   |   |-- ActionsPanel.tsx      # Phase 3
+|       |   |   |-- LogStream.tsx         # Phase 3
+|       |   |   |-- NodesPanel.tsx        # Phase 4
+|       |   |   |-- PodTable.tsx          # Phase 4
+|       |   |   |-- PodDetail.tsx         # Phase 4
+|       |   |   |-- PersistentDisks.tsx   # Phase 4
+|       |   |   |-- BackupList.tsx        # Phase 4
+|       |   |   |-- RedisExplorer.tsx     # Phase 4
+|       |   |   |-- TerraformResources.tsx # Phase 4
+|       |   |   |-- RestoreDialog.tsx     # Phase 4
+|       |   |   |-- Banner.tsx            # Phase 5
+|       |   |   \-- ThemeToggle.tsx        # Phase 5
+|       |   |-- hooks/                    # Created when needed
+|       |   |   |-- useWebSocket.ts       # Phase 3
+|       |   |   \-- useApi.ts             # Phase 3
+|       |   |-- lib/
+|       |   |   \-- utils.ts              # cn() utility
+|       |   \-- types/
+|       |       \-- index.ts              # Shared TS interfaces
 |       |-- index.html
 |       |-- package.json
+|       |-- tailwind.config.js
+|       |-- postcss.config.js
 |       |-- tsconfig.json
+|       |-- tsconfig.app.json
+|       |-- tsconfig.node.json
 |       \-- vite.config.ts
 |
 \-- cli/
     |-- cmd/
-    |   \-- ui.go             # NEW: k8s-lab ui command
+    |   \-- ui.go             # k8s-lab ui command
     \-- pkg/
-        \-- ui/               # NEW: UI backend package
+        \-- ui/               # UI backend package
             |-- server.go     # HTTP server, static file serving, signal handler
             |-- handlers.go   # API endpoint handlers
             |-- tunnel.go     # Persistent tunnel manager with health checks
-            \-- websocket.go  # Log streaming via WebSocket
+            \-- websocket.go  # Log streaming via WebSocket (Phase 3)
 ```
 
 Go backend code lives inside `cli/` so it compiles into the same `k8s-lab` binary.
