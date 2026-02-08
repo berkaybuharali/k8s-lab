@@ -10,13 +10,13 @@ A local web dashboard for k8s-lab that provides a visual interface to all cluste
 
 ## Current Status
 
-**Phase:** Planning complete. Ready for implementation.
+**Phase:** Phase 1 Complete
 **Branch:** `feature/ui`
-**Next Step:** Phase 1, Step 1.1 (CLI tunnel gate)
+**Next Step:** Phase 2, Step 2.1 (Persistent tunnel manager)
 
 | Phase | Status |
 |-------|--------|
-| Phase 1: Foundation | Not started |
+| Phase 1: Foundation | Complete |
 | Phase 2: Tunnel Manager + Status | Not started |
 | Phase 3: Operations + Log Streaming | Not started |
 | Phase 4: Data Panels | Not started |
@@ -462,6 +462,11 @@ Each phase has verification steps. **Do not move to the next phase until verific
 
 **Step 5.5: Documentation**
 - `ui/README.md`: architecture, dev setup, build
+- Node.js (npm) as build-time only dependency
+- Fully self-contained binary explanation (go:embed)
+- One-time setup (`npm install`) and build (`make build-ui`) instructions
+- Tooling list update (node/npm)
+- Explanation of the `dist/` copy step for `go:embed` requirements
 
 > **Phase 5 Verification:**
 > 1. Theme toggle works, persists across page refresh

@@ -11,6 +11,7 @@ package gcp
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -136,6 +137,11 @@ func (p *Provider) CreateTalosEndpoint(ctx context.Context, instance, zone, proj
 // CreateK8sEndpoint creates IAP tunnel to Kubernetes API (port 6443).
 // Returns "localhost:6443", cleanup function, error.
 func (p *Provider) CreateK8sEndpoint(ctx context.Context, instance, zone, projectID string) (string, func(), error) {
+	if os.Getenv("K8SLAB_TUNNEL_MANAGED") == "true" {
+		p.log.Info("K8s tunnel externally managed, skipping creation")
+		return "localhost:6443", func() {}, nil
+	}
+
 	p.log.Info("Creating Kubernetes API endpoint for %s...", instance)
 
 	tunnel, err := p.StartTunnel(ctx, instance, zone, projectID, 6443, 6443)
