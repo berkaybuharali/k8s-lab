@@ -34,7 +34,8 @@ cli/
 │   ├── deploy_applications.go # Application deployment
 │   ├── seed_redis.go       # Redis data seeding
 │   ├── backup.go           # Velero backup
-│   └── restore.go          # Velero restore
+│   ├── restore.go          # Velero restore
+│   └── ui.go               # Web dashboard server
 ├── pkg/
 │   ├── cloud/              # Cloud provider abstraction
 │   │   ├── interface.go    # Provider interface
@@ -44,6 +45,13 @@ cli/
 │   ├── logger/            # Colored output
 │   ├── prerequisites/     # Tool checking (kubectl, terraform, etc.)
 │   ├── terraform/         # Terraform operations (init, apply, output)
+│   ├── ui/                # Web dashboard backend
+│   │   ├── server.go      # HTTP server, embedded SPA, route registration
+│   │   ├── handlers.go    # Auth, status, operation execution
+│   │   ├── handlers_data.go # kubectl/velero/redis data endpoints
+│   │   ├── tunnel.go      # IAP tunnel lifecycle + health checks
+│   │   ├── websocket.go   # WebSocket hub for log broadcasting
+│   │   └── dist/          # Embedded React build (copied from ui/frontend/dist)
 │   └── velero/            # Velero operations (install, backup, restore)
 └── main.go                # Entry point
 ```
@@ -77,8 +85,9 @@ This follows the same pattern as terraform-exec and other infrastructure tools.
 | `seed-redis` | Populate Redis with test data | `make seed-redis gcp` |
 | `backup` | Create Velero backup | `make backup gcp` |
 | `restore` | Restore from Velero backup | `make restore gcp` |
+| `ui` | Start web dashboard | N/A (CLI only) |
 
-All commands require `--cloud <provider>` flag (currently only `gcp` supported). See [root README Quick Start](../README.md#quick-start-go-cli) for usage examples.
+All commands require `--cloud <provider>` flag (currently only `gcp` supported). The `ui` command also accepts `--port` (default: 3000). See [root README Quick Start](../README.md#quick-start-go-cli) for usage examples.
 
 ## Cloud Provider Interface
 

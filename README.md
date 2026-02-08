@@ -16,7 +16,8 @@ A hands-on lab for running self-managed Kubernetes clusters on cloud VMs. Not ma
 | Foundation (Terraform, automation) | Complete |
 | Cluster (Talos Linux, Kubernetes) | Complete |
 | Backup (Velero) | Complete |
-| Applications (Stateful workloads) | In Progress |
+| Applications (Stateful workloads) | Complete |
+| Web Dashboard | Complete |
 | Multi-cloud expansion | Planned |
 
 ### Supported Platforms
@@ -279,14 +280,56 @@ kubectl get backup -n velero
 
 **Note:** Centralized Velero hooks (via config files) are currently only supported in Makefile interface. Go CLI uses pod annotations for backup hooks.
 
+---
+
+## Quick Start: Web Dashboard
+
+A browser-based alternative to the terminal. All CLI operations available visually with real-time log streaming, resource inspection, and Velero backup management.
+
+**Additional prerequisites:** Node.js 18+ and npm 9+ (build-time only, not needed at runtime).
+
+```bash
+# macOS
+brew install node
+
+# Or via nvm (any platform)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash
+nvm install 18
+```
+
+### Build and Run
+
+```bash
+# 1. Install frontend dependencies (one-time)
+cd ui/frontend && npm install && cd ../..
+
+# 2. Build frontend + Go binary
+make build-ui
+
+# 3. Start the dashboard
+./bin/k8s-lab ui --cloud gcp
+# Opens http://localhost:3000 in your browser automatically
+
+# Custom port
+./bin/k8s-lab ui --cloud gcp --port 8080
+```
+
+From the dashboard you can deploy/destroy infrastructure, watch real-time operation logs, inspect nodes/pods/PVCs, manage Velero backups (create, restore, delete), browse Redis keys, and view Terraform resources.
+
+`Ctrl+C` to stop. Tunnel and server shut down gracefully.
+
+See [ui/README.md](ui/README.md) for development workflow (hot-reload) and API reference.
+
 ## Repository Structure
 
 ```
 k8s-lab/
 ├── cli/                      # Go CLI (alternative to Makefile)
-│   ├── cmd/                  # Cobra commands (deploy-infra, backup, restore, etc.)
-│   ├── pkg/                  # Packages (cloud, k8s, terraform, velero, logger)
+│   ├── cmd/                  # Cobra commands (deploy-infra, backup, restore, ui, etc.)
+│   ├── pkg/                  # Packages (cloud, k8s, terraform, velero, logger, ui)
 │   └── main.go               # Entry point
+├── ui/                       # Web dashboard
+│   └── frontend/             # React app (built and embedded into Go binary)
 ├── apps/                     # Kubernetes manifests
 │   ├── gcp/                  # GCP-specific (StorageClass)
 │   ├── nginx.yaml            # NGINX deployment
@@ -363,6 +406,7 @@ k8s-lab/
 |----------|-------------|
 | [CLAUDE.md](CLAUDE.md) | Project policies, roadmap, architecture decisions |
 | [cli/README.md](cli/README.md) | Go CLI architecture and package structure |
+| [ui/README.md](ui/README.md) | Web dashboard setup, API reference |
 | [apps/README.md](apps/README.md) | Application manifests and deployment |
 | [infra/README.md](infra/README.md) | Infrastructure overview and platform links |
 | [scripts/README.md](scripts/README.md) | Script details and Talos debugging guide |
