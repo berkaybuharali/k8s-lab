@@ -40,10 +40,11 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 ## Development Rules
 
 **Dual-Agent Workflow:**
-- ALWAYS read `status_dev_guideline.md` FIRST before starting work
-- ALWAYS update `status_dev_guideline.md` BEFORE exiting (Active Task, Recent Accomplishments, Next Steps)
+- ALWAYS read `ui/plan.md` FIRST before starting work (Current Status, Implementation Steps)
+- ALWAYS update `ui/plan.md` Current Status section BEFORE exiting
 - Claude = Lead Architect (complex logic, planning)
 - Gemini = Implementation Engineer (scaffolding, refactoring, docs, git ops)
+- After implementing a step: run its verification checks, wait for user code review before pushing
 
 **Public Repo Readiness:**
 - No hardcoded project IDs, buckets, or user-specific values
@@ -64,7 +65,7 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 - Do not explain obvious methods - user should not be afraid of READMEs
 - Clear pointers to examples without hand-holding
 - **Exception:** Quick Start section in root README.md - only place where handholding is permitted
-- After changes, update all READMEs + CLAUDE.md + LOCAL.md
+- After changes, update all READMEs + CLAUDE.md + LOCAL.md + ui/plan.md (status)
 
 **K8s Manifests:**
 - Cloud-specific: `apps/<cloud>/` (e.g., `apps/gcp/storageclass.yaml`)
