@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -33,6 +34,10 @@ type Server struct {
 	wsHub      *WebSocketHub
 	opMu       sync.Mutex
 	infraReady bool // true when terraform outputs show infra exists
+
+	// Cached status for instant responses
+	cachedStatus   *GlobalStatus
+	cachedStatusMu sync.RWMutex
 }
 
 // NewServer creates a new UI server instance.
@@ -63,6 +68,9 @@ func (s *Server) Start(ctx context.Context) error {
 	} else {
 		s.logger.Debug("Could not get project ID (normal if terraform.tfvars not set): %v", err)
 	}
+
+	// Start background status poller (refreshes every 10s, handler returns cached result instantly)
+	go s.statusPoller(ctx)
 
 	// Setup router
 	mux := http.NewServeMux()
@@ -226,4 +234,67 @@ func (s *Server) getControlPlaneInfo() (string, string, error) {
 	}
 
 	return cpName, cpZone, nil
+}
+
+// statusPoller refreshes the cached status every 10 seconds in the background.
+// This way /api/status returns instantly with the latest cached result.
+func (s *Server) statusPoller(ctx context.Context) {
+	// Initial poll immediately
+	s.refreshStatus()
+
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.refreshStatus()
+		}
+	}
+}
+
+// refreshStatus computes the current status and caches it.
+func (s *Server) refreshStatus() {
+	status := GlobalStatus{
+		Infra:   "Not Created",
+		K8s:     "Not Ready",
+		Tools:   "Not Installed",
+		Apps:    "Not Deployed",
+		Tunnel:  string(TunnelStatusIdle),
+		Version: "0.1.0",
+	}
+
+	if s.infraReady {
+		status.Infra = "Running"
+	}
+
+	if s.tunnel != nil {
+		status.Tunnel = string(s.tunnel.GetStatus())
+	}
+
+	if status.Tunnel == string(TunnelStatusConnected) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		cmd := exec.CommandContext(ctx, "kubectl", "get", "nodes", "--kubeconfig", s.config.GetKubeconfigPath())
+		if err := cmd.Run(); err == nil {
+			status.K8s = "Ready"
+
+			cmd = exec.CommandContext(ctx, "kubectl", "get", "ns", "velero", "--kubeconfig", s.config.GetKubeconfigPath())
+			if err := cmd.Run(); err == nil {
+				status.Tools = "Installed"
+			}
+
+			cmd = exec.CommandContext(ctx, "kubectl", "get", "ns", "application", "--kubeconfig", s.config.GetKubeconfigPath())
+			if err := cmd.Run(); err == nil {
+				status.Apps = "Deployed"
+			}
+		}
+	}
+
+	s.cachedStatusMu.Lock()
+	s.cachedStatus = &status
+	s.cachedStatusMu.Unlock()
 }

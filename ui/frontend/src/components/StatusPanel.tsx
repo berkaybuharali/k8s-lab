@@ -1,6 +1,7 @@
-import { Package, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GlobalStatus } from '../types'
+import terraformLogo from '@/assets/terraform_logo.svg'
 import gceLogo from '@/assets/gce_logo.svg'
 import gcpVpcLogo from '@/assets/gcp_vpc_logo.svg'
 import gcpFirewallLogo from '@/assets/gcp_firewal_logo.svg'
@@ -38,7 +39,7 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
         ? [{ label: 'GCE VMs', logo: gceLogo }, { label: 'VPC', logo: gcpVpcLogo }, { label: 'Firewall', logo: gcpFirewallLogo }] as SubItem[]
         : [{ label: 'VMs' }, { label: 'Network' }] as SubItem[],
       value: deployingLayer === 'infra' ? 'Deploying...' : (status?.infra || 'Unknown'),
-      logo: provider === 'gcp' ? gceLogo : undefined,
+      logo: provider === 'gcp' ? gceLogo : terraformLogo,
       iconBg: 'bg-blue-500/15',
       ok: status?.infra === 'Running',
       deploying: deployingLayer === 'infra',
@@ -90,10 +91,8 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
               <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center gap-1 flex-shrink-0", card.iconBg)}>
                 {'logos' in card && card.logos ? (
                   card.logos.map((l, i) => <img key={i} src={l} alt="" className="w-4 h-4" />)
-                ) : card.logo ? (
-                  <img src={card.logo} alt={card.label} className="w-5 h-5" />
                 ) : (
-                  <Package className="w-5 h-5 text-blue-500" />
+                  <img src={card.logo} alt={card.label} className="w-5 h-5" />
                 )}
               </div>
               <div className="min-w-0">

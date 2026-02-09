@@ -23,7 +23,7 @@ export function CloudInfoPanel({ auth, onTFClick }: CloudInfoPanelProps) {
   const bucketLogo = bucketLogos[auth.provider]
 
   return (
-    <div className="w-64 border-r bg-card flex flex-col">
+    <div className="w-64 border-r bg-card flex flex-col shrink-0">
       <div className="p-4 border-b">
         <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
           Cloud Environment

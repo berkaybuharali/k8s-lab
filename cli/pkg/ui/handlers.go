@@ -40,45 +40,19 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status := GlobalStatus{
-		Infra:   "Not Created",
-		K8s:     "Not Ready",
-		Tools:   "Not Installed",
-		Apps:    "Not Deployed",
-		Tunnel:  string(TunnelStatusIdle),
-		Version: "0.1.0", // TODO: Get from cmd.Version
-	}
+	s.cachedStatusMu.RLock()
+	status := s.cachedStatus
+	s.cachedStatusMu.RUnlock()
 
-	if s.infraReady {
-		status.Infra = "Running"
-	}
-
-	if s.tunnel != nil {
-		status.Tunnel = string(s.tunnel.GetStatus())
-	}
-
-	// 2. Check K8s + Tools + Apps (requires tunnel)
-	if status.Tunnel == string(TunnelStatusConnected) {
-		// Use a short timeout for status checks
-		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-		defer cancel()
-
-		// K8s Check: Try to get nodes
-		cmd := exec.CommandContext(ctx, "kubectl", "get", "nodes", "--kubeconfig", s.config.GetKubeconfigPath())
-		if err := cmd.Run(); err == nil {
-			status.K8s = "Ready"
-
-			// Tools Check: check for velero namespace
-			cmd = exec.CommandContext(ctx, "kubectl", "get", "ns", "velero", "--kubeconfig", s.config.GetKubeconfigPath())
-			if err := cmd.Run(); err == nil {
-				status.Tools = "Installed"
-			}
-
-			// Apps Check: check for application namespace
-			cmd = exec.CommandContext(ctx, "kubectl", "get", "ns", "application", "--kubeconfig", s.config.GetKubeconfigPath())
-			if err := cmd.Run(); err == nil {
-				status.Apps = "Deployed"
-			}
+	if status == nil {
+		// Not yet polled, return defaults
+		status = &GlobalStatus{
+			Infra:   "Not Created",
+			K8s:     "Not Ready",
+			Tools:   "Not Installed",
+			Apps:    "Not Deployed",
+			Tunnel:  string(TunnelStatusIdle),
+			Version: "0.1.0",
 		}
 	}
 

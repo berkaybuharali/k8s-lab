@@ -95,7 +95,7 @@ function App() {
   const isStale = status?.infra === 'Running' && status?.tunnel !== 'Connected'
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
       <header className="h-14 border-b px-4 flex items-center justify-between bg-card shrink-0 sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
