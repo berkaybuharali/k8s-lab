@@ -126,8 +126,8 @@ var (
 	}
 
 	// Future cloud-specific tools will be added here:
-	// StackitCLI for STACKIT cloud
 	// AzureCLI for Azure
+	// AWSCLI for AWS
 	// etc.
 )
 
@@ -155,8 +155,8 @@ var CommandPrereqs = map[string][]Prerequisite{
 var CloudPrereqs = map[string][]Prerequisite{
 	"gcp": {Gcloud},
 	// Future:
-	// "stackit": {StackitCLI},
-	// "azure":   {AzureCLI},
+	// "aws":   {AWSCLI},
+	// "azure": {AzureCLI},
 }
 
 // GetCommandPrereqs returns prerequisites for the given command name.

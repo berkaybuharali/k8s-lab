@@ -1,12 +1,12 @@
 // cli/pkg/cloud/provider.go
 // Package cloud defines the interface for cloud provider implementations.
-// Each cloud (GCP, STACKIT, etc.) implements this interface to provide
+// Each cloud (GCP, AWS, Azure, etc.) implements this interface to provide
 // cloud-specific operations like authentication validation, bucket management,
 // and configuration reading.
 //
 // The Provider interface enables the CLI to work with different clouds without
 // changing command logic. This is similar to how bash scripts source different
-// cloud-specific modules (scripts/lib/gcp/*.sh, scripts/lib/stackit/*.sh).
+// cloud-specific modules (scripts/lib/gcp/*.sh, scripts/lib/<cloud>/*.sh).
 package cloud
 
 import (
@@ -23,7 +23,7 @@ import (
 // make sense for any cloud. Cloud-specific details are hidden in the
 // implementation, not exposed in the interface.
 type Provider interface {
-	// Name returns the cloud provider identifier (e.g., "gcp", "stackit").
+	// Name returns the cloud provider identifier (e.g., "gcp", "aws").
 	// This matches the value passed to the --cloud flag.
 	//
 	// Example: "gcp" for Google Cloud Platform
@@ -66,7 +66,7 @@ type Provider interface {
 	// Different clouds call this different things:
 	// - GCP: project_id
 	// - AWS: account_id
-	// - STACKIT: project_id
+	// - Other clouds: May use different naming (project_id, account_id, etc.)
 	//
 	// Parameters:
 	//   - terraformDir: Absolute path to Terraform directory containing terraform.tfvars
@@ -121,7 +121,7 @@ type Provider interface {
 // Example:
 //
 //	gcp.Provider registers as "gcp"
-//	stackit.Provider registers as "stackit"
+//	aws.Provider registers as "aws"
 //
 // Usage:
 //
@@ -162,7 +162,7 @@ func Get(name string) Provider {
 // List returns all registered provider names.
 // Useful for validation and help messages.
 //
-// Example output: ["gcp", "stackit"]
+// Example output: ["gcp", "aws"]
 func List() []string {
 	names := make([]string, 0, len(Registry))
 	for name := range Registry {

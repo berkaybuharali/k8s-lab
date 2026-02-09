@@ -16,7 +16,7 @@
 
 ## Why Velero?
 - Industry-standard K8s backup/restore solution
-- Cloud-agnostic (works across GCP, STACKIT, etc.)
+- Cloud-agnostic (works across GCP, AWS, Azure, etc.)
 - Supports backup hooks for data consistency (Redis BGSAVE)
 - Enables cluster migration and disaster recovery
 
@@ -82,9 +82,9 @@
    - Test both Makefile and Go CLI paths
 
 **Phase 9 - Multi-Cloud Preparation:**
-2. STACKIT provider scaffolding
-   - Define STACKIT config structure
-   - Create `cli/pkg/cloud/stackit/` package
+2. Additional cloud provider scaffolding (e.g., AWS, Azure)
+   - Define cloud-specific config structure
+   - Create `cli/pkg/cloud/<provider>/` package
    - Update provider interface for multi-cloud
 
 ---

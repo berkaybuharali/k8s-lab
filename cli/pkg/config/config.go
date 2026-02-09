@@ -45,7 +45,7 @@ func New() (*Config, error) {
 	return &Config{
 		RepoRoot:        repoRoot,
 		ClusterName:     "k8s-lab",
-		SupportedClouds: []string{"gcp"}, // Will expand to include STACKIT
+		SupportedClouds: []string{"gcp"}, // Extensible to other clouds (AWS, Azure, etc.)
 		Cloud:           "",
 		Verbose:         false,
 	}, nil

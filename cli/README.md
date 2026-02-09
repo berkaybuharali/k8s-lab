@@ -109,7 +109,7 @@ type Provider interface {
 Current implementations:
 - **GCP:** IAP tunneling, GCE PD CSI driver, Velero with GCS backend
 
-Future providers (STACKIT, AWS, Azure) will implement this interface.
+Future providers (AWS, Azure, etc.) will implement this interface.
 
 ## Error Handling
 

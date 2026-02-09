@@ -77,7 +77,7 @@ func Execute() {
 func init() {
 	// Global flags available to all subcommands
 	// --cloud: Specify cloud provider (required for most commands)
-	rootCmd.PersistentFlags().StringP("cloud", "c", "", "Cloud provider (gcp, stackit)")
+	rootCmd.PersistentFlags().StringP("cloud", "c", "", "Cloud provider (currently: gcp)")
 
 	// --verbose: Enable detailed logging
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Verbose output")

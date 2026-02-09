@@ -15,7 +15,7 @@
 # PVC deletion triggers persistent disk deletion due to reclaimPolicy: Delete.
 #
 # Arguments:
-#   $1 - Cloud provider (gcp, stackit, etc.)
+#   $1 - Cloud provider (gcp, aws, etc.)
 # -----------------------------------------------------------------------------
 apps_remove() {
     local cloud=$1
