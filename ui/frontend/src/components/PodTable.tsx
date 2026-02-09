@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { AppWindow, RotateCw, WifiOff } from 'lucide-react'
+import { RotateCw, WifiOff } from 'lucide-react'
+import kubernetesLogo from '@/assets/kubernetes_logo.svg'
+import nginxLogo from '@/assets/nginx_logo.svg'
+import redisLogo from '@/assets/redis_logo.svg'
+
+function getPodLogo(name: string): string | null {
+  if (name.includes('nginx')) return nginxLogo
+  if (name.includes('redis')) return redisLogo
+  return null
+}
 import type { K8sPod } from '../types'
 import { cn } from '@/lib/utils'
 
@@ -41,10 +50,10 @@ export function PodTable({ isStale, onPodClick }: PodTableProps) {
   }, [ns])
 
   return (
-    <div className="border rounded-lg bg-card shadow-sm flex flex-col h-[400px]">
+    <div className="border rounded-xl bg-card shadow-sm flex flex-col h-[400px]">
       <div className="p-4 border-b flex items-center justify-between">
         <h2 className="font-semibold flex items-center gap-2">
-          <AppWindow className="w-4 h-4" /> Pods
+          <img src={kubernetesLogo} alt="K8s" className="w-4 h-4" /> Pods
         </h2>
         <select 
           value={ns} 
@@ -85,7 +94,10 @@ export function PodTable({ isStale, onPodClick }: PodTableProps) {
                   onClick={() => onPodClick(pod.metadata.name, ns)}
                   className="hover:bg-muted/50 transition-colors cursor-pointer"
                 >
-                  <td className="p-3 font-medium">{pod.metadata.name}</td>
+                  <td className="p-3 font-medium flex items-center gap-2">
+                    {getPodLogo(pod.metadata.name) && <img src={getPodLogo(pod.metadata.name)!} alt="" className="w-4 h-4 flex-shrink-0" />}
+                    {pod.metadata.name}
+                  </td>
                   <td className="p-3">
                     <span className={cn(
                       "px-2 py-0.5 rounded text-xs font-bold",

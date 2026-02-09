@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Archive, Trash2, RotateCcw, WifiOff } from 'lucide-react'
+import { Trash2, RotateCcw, WifiOff } from 'lucide-react'
+import veleroLogo from '@/assets/velero_logo.svg'
 import type { VeleroBackup } from '../types'
 import { cn } from '@/lib/utils'
 
@@ -39,10 +40,10 @@ export function BackupList({ isStale, onRestore }: BackupListProps) {
   if (loading) return null
 
   return (
-    <div className="border rounded-lg bg-card shadow-sm overflow-hidden">
+    <div className="border rounded-xl bg-card shadow-sm overflow-hidden">
       <div className="p-4 border-b flex items-center justify-between">
         <h2 className="font-semibold flex items-center gap-2">
-          <Archive className="w-4 h-4" /> Backups
+          <img src={veleroLogo} alt="Velero" className="w-4 h-4" /> Backups
         </h2>
         <div className="text-xs text-muted-foreground">{backups.length} items</div>
       </div>

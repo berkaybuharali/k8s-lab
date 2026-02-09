@@ -54,7 +54,7 @@ export function TerraformResources({ onBack }: { onBack: () => void }) {
         <ArrowLeft className="w-4 h-4" /> Back to Dashboard
       </button>
 
-      <div className="border rounded-lg bg-card shadow-sm overflow-hidden">
+      <div className="border rounded-xl bg-card shadow-sm overflow-hidden">
         <div className="p-6 border-b flex justify-between items-center">
           <h1 className="text-2xl font-bold flex items-center gap-3">
             <Box className="w-6 h-6 text-primary" /> Terraform Resources

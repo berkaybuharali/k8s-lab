@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Database, Search, RefreshCw, Trash2, Plus, Save, WifiOff } from 'lucide-react'
+import { Search, RefreshCw, Trash2, Plus, Save, WifiOff } from 'lucide-react'
+import redisLogo from '@/assets/redis_logo.svg'
 import { cn } from '@/lib/utils'
 
-export function RedisExplorer({ isStale }: { isStale?: boolean }) {
+export function RedisExplorer({ isStale, refreshTrigger }: { isStale?: boolean; refreshTrigger?: number }) {
   const [keys, setKeys] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [pattern, setPattern] = useState('*')
@@ -59,17 +60,17 @@ export function RedisExplorer({ isStale }: { isStale?: boolean }) {
 
   useEffect(() => {
     fetchKeys()
-  }, [])
+  }, [refreshTrigger])
 
   useEffect(() => {
     if (selectedKey) fetchValue(selectedKey)
   }, [selectedKey])
 
   return (
-    <div className="border rounded-lg bg-card shadow-sm overflow-hidden flex flex-col h-[500px]">
+    <div className="border rounded-xl bg-card shadow-sm overflow-hidden flex flex-col h-[500px]">
       <div className="p-4 border-b flex justify-between items-center bg-muted/30">
         <h2 className="font-semibold flex items-center gap-2">
-          <Database className="w-4 h-4" /> Redis Explorer
+          <img src={redisLogo} alt="Redis" className="w-4 h-4" /> Redis Explorer
         </h2>
         <div className="flex gap-2">
           <button onClick={fetchKeys} className="p-1 hover:bg-muted rounded" title="Refresh">

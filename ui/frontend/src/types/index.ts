@@ -4,6 +4,7 @@ export interface AuthStatus {
   project?: string
   region?: string
   provider: string
+  stateBucket?: string
   error?: string
 }
 

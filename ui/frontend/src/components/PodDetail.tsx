@@ -40,7 +40,7 @@ export function PodDetail({ podName, namespace, onBack }: PodDetailProps) {
         <ArrowLeft className="w-4 h-4" /> Back to Dashboard
       </button>
 
-      <div className="border rounded-lg bg-card shadow-sm overflow-hidden">
+      <div className="border rounded-xl bg-card shadow-sm overflow-hidden">
         <div className="p-6 border-b">
           <div className="flex justify-between items-start">
             <div>

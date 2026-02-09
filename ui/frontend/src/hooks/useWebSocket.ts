@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import type { LogMessage } from '../types'
 
 export function useWebSocket() {
@@ -12,13 +12,16 @@ export function useWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
     const wsUrl = `${protocol}//${host}/ws/logs`
-    
+
     function connect() {
       ws.current = new WebSocket(wsUrl)
 
       ws.current.onopen = () => {
         setConnected(true)
         reconnectAttempts.current = 0
+        // Clear logs — server will replay full history
+        setLogs([])
+        setIsRunning(false)
         console.log('WS connected')
       }
 
@@ -37,7 +40,7 @@ export function useWebSocket() {
         try {
           const msg: LogMessage = JSON.parse(event.data)
           setLogs(prev => [...prev, msg])
-          
+
           if (msg.type === 'start') setIsRunning(true)
           if (msg.type === 'done' || msg.type === 'error') setIsRunning(false)
         } catch (e) {
@@ -50,12 +53,12 @@ export function useWebSocket() {
 
     return () => {
       // Prevent reconnect on unmount
-      reconnectAttempts.current = 100 
+      reconnectAttempts.current = 100
       ws.current?.close()
     }
   }, [])
 
-  const clearLogs = () => setLogs([])
+  const clearLogs = useCallback(() => setLogs([]), [])
 
   return { logs, connected, isRunning, clearLogs }
 }

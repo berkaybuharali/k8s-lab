@@ -26,9 +26,32 @@ function App() {
   const [selectedPod, setSelectedPod] = useState<{name: string, ns: string} | null>(null)
   const [restoreOpen, setRestoreOpen] = useState(false)
   const [restoreBackup, setRestoreBackup] = useState('')
-  
+  const [opDoneCounter, setOpDoneCounter] = useState(0)
+  const [completedOps, setCompletedOps] = useState<string[]>([])
+
   const { logs, connected, isRunning, clearLogs } = useWebSocket()
   const { trigger } = useApi()
+
+  // Refresh status when an operation completes (done/error)
+  useEffect(() => {
+    if (logs.length > 0) {
+      const last = logs[logs.length - 1]
+      if (last.type === 'done' || last.type === 'error') {
+        setOpDoneCounter(c => c + 1)
+        if (last.type === 'done') {
+          const startLog = [...logs].reverse().find(l => l.type === 'start')
+          const opName = startLog?.data.match(/operation: (.+)/)?.[1]?.trim()
+          if (opName && !completedOps.includes(opName)) {
+            setCompletedOps(prev => [...prev, opName])
+          }
+        }
+        fetchStatus()
+        const t1 = setTimeout(fetchStatus, 5000)
+        const t2 = setTimeout(fetchStatus, 15000)
+        return () => { clearTimeout(t1); clearTimeout(t2) }
+      }
+    }
+  }, [logs.length])
 
   useEffect(() => {
     fetch('/api/auth')
@@ -37,7 +60,7 @@ function App() {
       .catch(err => console.error("Failed to fetch auth:", err))
 
     fetchStatus()
-    const interval = setInterval(fetchStatus, 15000)
+    const interval = setInterval(fetchStatus, 10000)
     return () => clearInterval(interval)
   }, [])
 
@@ -74,10 +97,7 @@ function App() {
       <header className="h-14 border-b px-4 flex items-center justify-between bg-card shrink-0 sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-primary-foreground font-bold">
-              K
-            </div>
-            <h1 className="font-semibold text-lg">Kubernetes Lab</h1>
+            <h1 className="font-bold text-lg tracking-tight">k8s<span className="text-primary">-lab</span></h1>
           </div>
 
           {isRunning && (
@@ -94,11 +114,15 @@ function App() {
               "flex items-center gap-2 text-xs px-3 py-1 rounded-full border font-medium",
               status.tunnel === 'Connected' ? "bg-green-500/10 border-green-500/20 text-green-600" :
               status.tunnel === 'Reconnecting' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-600 animate-pulse" :
+              status.tunnel === 'Starting' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-600" :
+              (status.tunnel === 'Idle' || status.tunnel === 'N/A') ? "border-border text-muted-foreground" :
               "bg-red-500/10 border-red-500/20 text-red-600"
             )}>
-              <div className={cn("w-2 h-2 rounded-full", 
+              <div className={cn("w-2 h-2 rounded-full",
                 status.tunnel === 'Connected' ? "bg-green-500" :
-                status.tunnel === 'Reconnecting' ? "bg-yellow-500" : "bg-red-500"
+                status.tunnel === 'Reconnecting' || status.tunnel === 'Starting' ? "bg-yellow-500" :
+                (status.tunnel === 'Idle' || status.tunnel === 'N/A') ? "bg-muted-foreground" :
+                "bg-red-500"
               )} />
               <span>Tunnel: {status.tunnel}</span>
             </div>
@@ -107,10 +131,10 @@ function App() {
           {auth && (
             <div className={cn(
               "flex items-center gap-2 text-xs px-3 py-1 rounded-full border",
-              auth.authenticated ? "bg-blue-500/10 border-blue-500/20 text-blue-600" : "bg-red-500/10 border-red-500/20 text-red-600"
+              auth.authenticated ? "bg-green-500/10 border-green-500/20 text-green-600" : "bg-red-500/10 border-red-500/20 text-red-600"
             )}>
-              <div className={cn("w-2 h-2 rounded-full", auth.authenticated ? "bg-blue-500" : "bg-red-500")} />
-              <span>{auth.authenticated ? (auth.account || "Authenticated") : "Not Authenticated"}</span>
+              <div className={cn("w-2 h-2 rounded-full", auth.authenticated ? "bg-green-500" : "bg-red-500")} />
+              <span>{auth.authenticated ? "Authenticated" : "Not Authenticated"}</span>
             </div>
           )}
 
@@ -126,7 +150,9 @@ function App() {
         <main className="flex-1 overflow-auto p-6 space-y-6">
           {view === 'dashboard' && (
             <>
-              <StatusPanel status={status} />
+              <StatusPanel status={status} isRunning={isRunning} provider={auth?.provider} runningOp={
+                [...logs].reverse().find((l: { type: string }) => l.type === 'start')?.data.match(/operation: (.+)/)?.[1] || ''
+              } />
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <LogStream 
@@ -134,21 +160,22 @@ function App() {
                   connected={connected} 
                   onClear={clearLogs} 
                 />
-                <ActionsPanel 
+                <ActionsPanel
                   auth={auth}
-                  status={status} 
-                  onTrigger={(op) => op === 'restore' ? handleActionsRestore() : trigger(op)} 
+                  status={status}
+                  onTrigger={(op) => op === 'restore' ? handleActionsRestore() : trigger(op)}
                   loading={isRunning}
+                  completedOps={completedOps}
                 />
               </div>
 
               {status?.k8s === 'Ready' && (
                 <div className={cn("space-y-6 transition-opacity", isStale && "opacity-60")}>
-                  <NodesPanel isStale={isStale} />
+                  <NodesPanel isStale={isStale} provider={auth?.provider} />
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="space-y-6">
                       <PodTable isStale={isStale} onPodClick={handlePodClick} />
-                      <RedisExplorer />
+                      <RedisExplorer refreshTrigger={opDoneCounter} />
                     </div>
                     <div className="space-y-6">
                       <PersistentDisks isStale={isStale} />

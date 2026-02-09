@@ -1,20 +1,26 @@
-import { Cloud, User, Hash, MapPin, Database } from 'lucide-react'
+import { User, Hash, MapPin } from 'lucide-react'
 import type { AuthStatus } from '../types'
+import gcpLogo from '@/assets/gcp_logo.svg'
+import terraformLogo from '@/assets/terraform_logo.svg'
+import gcsLogo from '@/assets/gcs_logo.svg'
 
 interface CloudInfoPanelProps {
   auth: AuthStatus | null
   onTFClick: () => void
 }
 
+const providerLogos: Record<string, string> = { gcp: gcpLogo }
+const providerNames: Record<string, string> = { gcp: 'Google Cloud (GCP)', aws: 'AWS', azure: 'Azure' }
+const projectLabels: Record<string, string> = { gcp: 'GCP Project ID' }
+const bucketLogos: Record<string, string> = { gcp: gcsLogo }
+
 export function CloudInfoPanel({ auth, onTFClick }: CloudInfoPanelProps) {
   if (!auth) return null
 
-  const infoItems = [
-    { icon: Cloud, label: 'Provider', value: auth.provider.toUpperCase() },
-    { icon: User, label: 'Account', value: auth.account || 'Not Authenticated' },
-    { icon: Hash, label: 'Project ID', value: auth.project || 'None' },
-    { icon: MapPin, label: 'Region', value: auth.region || 'None' },
-  ]
+  const logo = providerLogos[auth.provider]
+  const displayName = providerNames[auth.provider] || auth.provider.toUpperCase()
+  const projectLabel = projectLabels[auth.provider] || 'Project ID'
+  const bucketLogo = bucketLogos[auth.provider]
 
   return (
     <div className="w-64 border-r bg-card flex flex-col">
@@ -24,25 +30,74 @@ export function CloudInfoPanel({ auth, onTFClick }: CloudInfoPanelProps) {
         </h2>
       </div>
       <div className="flex-1 overflow-auto p-4 space-y-6">
-        {infoItems.map((item) => (
-          <div key={item.label} className="space-y-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <item.icon className="w-4 h-4" />
-              <span className="text-xs font-medium">{item.label}</span>
-            </div>
-            <div className="text-sm font-medium truncate" title={item.value}>
-              {item.value}
-            </div>
-          </div>
-        ))}
-        
-        {/* Special case for TF State with click handler */}
+        {/* Provider */}
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <Database className="w-4 h-4" />
-            <span className="text-xs font-medium">TF State</span>
+            <span className="text-xs font-medium">Provider</span>
           </div>
-          <button 
+          <div className="text-sm font-medium truncate flex items-center gap-2" title={displayName}>
+            {logo && <img src={logo} alt={auth.provider} className="w-4 h-4" />}
+            {displayName}
+          </div>
+        </div>
+
+        {/* Account */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <User className="w-4 h-4" />
+            <span className="text-xs font-medium">Account</span>
+          </div>
+          <div className="text-sm font-medium truncate" title={auth.account || 'Not Authenticated'}>
+            {auth.account || 'Not Authenticated'}
+          </div>
+        </div>
+
+        {/* Project ID */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Hash className="w-4 h-4" />
+            <span className="text-xs font-medium">{projectLabel}</span>
+          </div>
+          <div className="text-sm font-medium truncate" title={auth.project || 'None'}>
+            {auth.project || 'None'}
+          </div>
+        </div>
+
+        {/* Region */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <MapPin className="w-4 h-4" />
+            <span className="text-xs font-medium">Region</span>
+          </div>
+          <div className="text-sm font-medium truncate" title={auth.region || 'None'}>
+            {auth.region || 'None'}
+          </div>
+        </div>
+
+        {/* State Bucket */}
+        {auth.stateBucket && (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              {bucketLogo ? (
+                <img src={bucketLogo} alt="Storage" className="w-4 h-4" />
+              ) : (
+                <Hash className="w-4 h-4" />
+              )}
+              <span className="text-xs font-medium">State Bucket</span>
+            </div>
+            <div className="text-sm font-medium truncate" title={auth.stateBucket}>
+              {auth.stateBucket}
+            </div>
+          </div>
+        )}
+
+        {/* Terraform State */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <img src={terraformLogo} alt="Terraform" className="w-4 h-4" />
+            <span className="text-xs font-medium">Terraform State</span>
+          </div>
+          <button
             onClick={onTFClick}
             className="text-sm font-medium truncate text-blue-500 hover:underline text-left"
           >

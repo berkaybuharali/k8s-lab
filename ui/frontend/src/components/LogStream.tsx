@@ -10,15 +10,17 @@ interface LogStreamProps {
 }
 
 export function LogStream({ logs, connected, onClear }: LogStreamProps) {
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll
+  // Auto-scroll only the log container, not the page
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
   }, [logs])
 
   return (
-    <div className="border rounded-lg shadow-sm bg-card text-card-foreground flex flex-col h-[400px]">
+    <div className="border rounded-xl shadow-sm bg-card text-card-foreground flex flex-col h-[400px]">
       <div className="p-4 border-b flex items-center justify-between bg-muted/30">
         <div className="flex items-center gap-2">
           <h2 className="font-semibold">Operations Log</h2>
@@ -28,7 +30,7 @@ export function LogStream({ logs, connected, onClear }: LogStreamProps) {
             <WifiOff className="w-4 h-4 text-red-500" />
           )}
         </div>
-        <button 
+        <button
           onClick={onClear}
           className="text-muted-foreground hover:text-destructive transition-colors"
           title="Clear Logs"
@@ -36,8 +38,8 @@ export function LogStream({ logs, connected, onClear }: LogStreamProps) {
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
-      
-      <div className="flex-1 bg-black p-4 font-mono text-xs overflow-auto">
+
+      <div ref={scrollRef} className="flex-1 bg-black p-4 font-mono text-xs overflow-auto">
         {logs.length === 0 ? (
           <p className="text-gray-500">&gt; Ready for operations...</p>
         ) : (
@@ -53,7 +55,6 @@ export function LogStream({ logs, connected, onClear }: LogStreamProps) {
             </div>
           ))
         )}
-        <div ref={bottomRef} />
       </div>
     </div>
   )
