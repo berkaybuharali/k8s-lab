@@ -1,16 +1,19 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 
+interface PanelEntry {
+  id: string
+  label: string
+  done: boolean
+}
+
 interface LoadingTrackerContextType {
-  /** Call when a panel starts loading */
-  trackLoading: (id: string) => void
-  /** Call when a panel finishes loading */
+  trackLoading: (id: string, label: string) => void
   trackLoaded: (id: string) => void
-  /** True while any tracked panel is still loading */
   isLoading: boolean
-  /** Number of panels still loading */
   pendingCount: number
-  /** Total panels tracked */
   totalCount: number
+  /** Labels of panels still loading */
+  pendingLabels: string[]
 }
 
 const LoadingTrackerContext = createContext<LoadingTrackerContextType>({
@@ -19,38 +22,45 @@ const LoadingTrackerContext = createContext<LoadingTrackerContextType>({
   isLoading: false,
   pendingCount: 0,
   totalCount: 0,
+  pendingLabels: [],
 })
 
 export function LoadingTrackerProvider({ children }: { children: React.ReactNode }) {
-  const [pending, setPending] = useState<Set<string>>(new Set())
-  const [total, setTotal] = useState<Set<string>>(new Set())
-  // Track which panels have already completed their first load
+  const [panels, setPanels] = useState<Map<string, PanelEntry>>(new Map())
   const completedRef = useRef<Set<string>>(new Set())
 
-  const trackLoading = useCallback((id: string) => {
-    // Only track the first load per panel
+  const trackLoading = useCallback((id: string, label: string) => {
     if (completedRef.current.has(id)) return
-    setPending(prev => new Set(prev).add(id))
-    setTotal(prev => new Set(prev).add(id))
+    setPanels(prev => {
+      const next = new Map(prev)
+      next.set(id, { id, label, done: false })
+      return next
+    })
   }, [])
 
   const trackLoaded = useCallback((id: string) => {
     if (completedRef.current.has(id)) return
     completedRef.current.add(id)
-    setPending(prev => {
-      const next = new Set(prev)
-      next.delete(id)
+    setPanels(prev => {
+      const next = new Map(prev)
+      const entry = next.get(id)
+      if (entry) next.set(id, { ...entry, done: true })
       return next
     })
   }, [])
 
-  const value = useMemo(() => ({
-    trackLoading,
-    trackLoaded,
-    isLoading: pending.size > 0,
-    pendingCount: pending.size,
-    totalCount: total.size,
-  }), [trackLoading, trackLoaded, pending, total])
+  const value = useMemo(() => {
+    const entries = Array.from(panels.values())
+    const pending = entries.filter(e => !e.done)
+    return {
+      trackLoading,
+      trackLoaded,
+      isLoading: pending.length > 0,
+      pendingCount: pending.length,
+      totalCount: entries.length,
+      pendingLabels: pending.map(e => e.label),
+    }
+  }, [trackLoading, trackLoaded, panels])
 
   return (
     <LoadingTrackerContext.Provider value={value}>
@@ -64,19 +74,18 @@ export function useLoadingTracker() {
 }
 
 /**
- * Hook for panels to register their loading state.
- * Call returned `setLoaded` when data arrives.
+ * Hook for panels to register their loading state with a human-readable label.
  */
-export function usePanelLoading(id: string) {
+export function usePanelLoading(id: string, label: string = id) {
   const { trackLoading, trackLoaded } = useLoadingTracker()
   const registeredRef = useRef(false)
 
   const setLoading = useCallback(() => {
     if (!registeredRef.current) {
       registeredRef.current = true
-      trackLoading(id)
+      trackLoading(id, label)
     }
-  }, [id, trackLoading])
+  }, [id, label, trackLoading])
 
   const setLoaded = useCallback(() => {
     trackLoaded(id)

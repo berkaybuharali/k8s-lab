@@ -31,7 +31,7 @@ function formatBytes(bytes: string): string {
 export function DiskSnapshots({ isStale, provider, refreshTrigger }: DiskSnapshotsProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [loading, setLoading] = useState(true)
-  const { setLoading: trackStart, setLoaded } = usePanelLoading('snapshots')
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('snapshots', 'Fetching disk snapshots...')
 
   useEffect(() => {
     if (provider !== 'gcp') {

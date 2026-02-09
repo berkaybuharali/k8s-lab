@@ -7,7 +7,7 @@ import { usePanelLoading } from '../hooks/useLoadingTracker'
 export function RedisExplorer({ isStale, refreshTrigger }: { isStale?: boolean; refreshTrigger?: number }) {
   const [keys, setKeys] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  const { setLoading: trackStart, setLoaded } = usePanelLoading('redis')
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('redis', 'Fetching Redis data...')
   const [pattern, setPattern] = useState('*')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [value, setValue] = useState('')

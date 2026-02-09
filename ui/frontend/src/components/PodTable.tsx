@@ -23,7 +23,7 @@ export function PodTable({ isStale, onPodClick }: PodTableProps) {
   const [namespaces, setNamespaces] = useState<string[]>([])
   const [ns, setNs] = useState('application')
   const [loading, setLoading] = useState(true)
-  const { setLoading: trackStart, setLoaded } = usePanelLoading('pods')
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('pods', 'Fetching pods...')
 
   useEffect(() => {
     trackStart()

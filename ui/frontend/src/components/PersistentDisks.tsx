@@ -24,7 +24,7 @@ function formatStorage(gb: number): string {
 export function PersistentDisks({ isStale }: { isStale?: boolean }) {
   const [pvcs, setPvcs] = useState<K8sPVC[]>([])
   const [loading, setLoading] = useState(true)
-  const { setLoading: trackStart, setLoaded } = usePanelLoading('pvcs')
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('pvcs', 'Fetching persistent disks...')
 
   useEffect(() => {
     trackStart()

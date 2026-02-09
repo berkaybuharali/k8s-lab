@@ -10,7 +10,7 @@ import gceLogo from '@/assets/gce_logo.svg'
 export function NodesPanel({ isStale, provider }: { isStale?: boolean; provider?: string }) {
   const [nodes, setNodes] = useState<K8sNode[]>([])
   const [loading, setLoading] = useState(true)
-  const { setLoading: trackStart, setLoaded } = usePanelLoading('nodes')
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('nodes', 'Fetching cluster nodes...')
 
   useEffect(() => {
     trackStart()

@@ -14,7 +14,7 @@ interface BackupListProps {
 export function BackupList({ isStale, onRestore, refreshTrigger }: BackupListProps) {
   const [backups, setBackups] = useState<VeleroBackup[]>([])
   const [loading, setLoading] = useState(true)
-  const { setLoading: trackStart, setLoaded } = usePanelLoading('backups')
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('backups', 'Fetching Velero backups...')
 
   const fetchBackups = () => {
     fetch('/api/backups')
