@@ -330,6 +330,34 @@ func (s *Server) handlePodService(w http.ResponseWriter, r *http.Request) {
 	w.Write(output)
 }
 
+// handleRedisDBSize returns the number of keys in Redis (DBSIZE).
+func (s *Server) handleRedisDBSize(w http.ResponseWriter, r *http.Request) {
+	if !ensureGet(w, r) {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	output, err := s.execRedis(ctx, "DBSIZE")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Output looks like "(integer) 42" — parse the number
+	raw := strings.TrimSpace(string(output))
+	count := 0
+	if parts := strings.Fields(raw); len(parts) >= 2 {
+		fmt.Sscanf(parts[1], "%d", &count)
+	} else {
+		fmt.Sscanf(raw, "%d", &count)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{"count": count})
+}
+
 // --- Redis Handlers ---
 
 // execRedis runs a redis-cli command in the redis pod.

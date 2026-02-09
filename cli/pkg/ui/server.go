@@ -118,6 +118,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/redis/set", s.handleRedisSet)
 	mux.HandleFunc("/api/redis/del/", s.handleRedisDel)
 	mux.HandleFunc("/api/redis/flush", s.handleRedisFlush)
+	mux.HandleFunc("/api/redis/dbsize", s.handleRedisDBSize)
 
 	// Static files
 	// dist folder is embedded as "dist", but we want to serve the content of "dist" at root

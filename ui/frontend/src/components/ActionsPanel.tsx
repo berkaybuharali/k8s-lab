@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Trash, Database, Server, AppWindow, Rocket, Archive, RotateCcw, Check, Layers } from 'lucide-react'
 import type { AuthStatus, GlobalStatus } from '../types'
 import { cn } from '@/lib/utils'
@@ -7,21 +8,30 @@ interface ActionsPanelProps {
   status: GlobalStatus | null
   onTrigger: (op: string) => void
   loading: boolean
-  completedOps?: string[]
+  refreshTrigger?: number
 }
 
-export function ActionsPanel({ auth, status, onTrigger, loading, completedOps = [] }: ActionsPanelProps) {
+export function ActionsPanel({ auth, status, onTrigger, loading, refreshTrigger }: ActionsPanelProps) {
+  const [redisHasData, setRedisHasData] = useState(false)
   const notAuth = !!(auth && !auth.authenticated)
   const infraReady = status?.infra === 'Running'
   const k8sReady = status?.k8s === 'Ready'
   const toolsReady = status?.tools === 'Installed'
   const appsReady = status?.apps === 'Deployed'
 
-  const getStepStatus = (step: number, id: string) => {
+  useEffect(() => {
+    if (!appsReady) return
+    fetch('/api/redis/dbsize')
+      .then(res => res.json())
+      .then(data => setRedisHasData(data.count > 0))
+      .catch(() => setRedisHasData(false))
+  }, [appsReady, refreshTrigger])
+
+  const getStepStatus = (step: number, _id: string) => {
     if (step === 1 && infraReady) return 'done'
     if (step === 2 && toolsReady) return 'done'
     if (step === 3 && appsReady) return 'done'
-    if (completedOps.includes(id)) return 'done'
+    if (step === 4 && redisHasData) return 'done'
     return 'pending'
   }
 

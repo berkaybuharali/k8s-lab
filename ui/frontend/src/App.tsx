@@ -29,7 +29,7 @@ function App() {
   const [restoreOpen, setRestoreOpen] = useState(false)
   const [restoreBackup, setRestoreBackup] = useState('')
   const [opDoneCounter, setOpDoneCounter] = useState(0)
-  const [completedOps, setCompletedOps] = useState<string[]>([])
+  const [initialLoading, setInitialLoading] = useState(true)
 
   const { logs, connected, isRunning, clearLogs } = useWebSocket()
   const { trigger } = useApi()
@@ -40,13 +40,6 @@ function App() {
       const last = logs[logs.length - 1]
       if (last.type === 'done' || last.type === 'error') {
         setOpDoneCounter(c => c + 1)
-        if (last.type === 'done') {
-          const startLog = [...logs].reverse().find(l => l.type === 'start')
-          const opName = startLog?.data.match(/operation: (.+)/)?.[1]?.trim()
-          if (opName && !completedOps.includes(opName)) {
-            setCompletedOps(prev => [...prev, opName])
-          }
-        }
         fetchStatus()
         const t1 = setTimeout(fetchStatus, 5000)
         const t2 = setTimeout(fetchStatus, 15000)
@@ -56,12 +49,12 @@ function App() {
   }, [logs.length])
 
   useEffect(() => {
-    fetch('/api/auth')
-      .then(res => res.json())
-      .then(data => setAuth(data))
-      .catch(err => console.error("Failed to fetch auth:", err))
+    Promise.all([
+      fetch('/api/auth').then(res => res.json()).then(data => setAuth(data)),
+      fetch('/api/status').then(res => res.json()).then(data => setStatus(data)),
+    ]).catch(err => console.error("Failed to fetch initial data:", err))
+      .finally(() => setInitialLoading(false))
 
-    fetchStatus()
     const interval = setInterval(fetchStatus, 10000)
     return () => clearInterval(interval)
   }, [])
@@ -151,9 +144,17 @@ function App() {
 
       <Banner auth={auth} status={status} />
 
+      {initialLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <span className="text-sm text-muted-foreground">Loading dashboard...</span>
+          </div>
+        </div>
+      ) : (
       <div className="flex-1 flex overflow-hidden">
         <CloudInfoPanel auth={auth} onTFClick={() => setView('tf-detail')} />
-        
+
         <main className="flex-1 overflow-auto p-6 space-y-6">
           {view === 'dashboard' && (
             <>
@@ -172,7 +173,7 @@ function App() {
                   status={status}
                   onTrigger={(op) => op === 'restore' ? handleActionsRestore() : trigger(op)}
                   loading={isRunning}
-                  completedOps={completedOps}
+                  refreshTrigger={opDoneCounter}
                 />
               </div>
 
@@ -212,6 +213,7 @@ function App() {
           )}
         </main>
       </div>
+      )}
 
       <RestoreDialog 
         isOpen={restoreOpen} 
