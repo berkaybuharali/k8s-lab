@@ -78,8 +78,17 @@ function AppInner() {
     ]).catch(err => console.error("Failed to fetch initial data:", err))
       .finally(() => setInitialLoading(false))
 
-    const interval = setInterval(fetchStatus, 10000)
-    return () => clearInterval(interval)
+    // Poll every 2s at startup so data appears fast, then relax to 10s
+    let intervalId = setInterval(fetchStatus, 2000)
+    const switchTimer = setTimeout(() => {
+      clearInterval(intervalId)
+      intervalId = setInterval(fetchStatus, 10000)
+    }, 30000)
+
+    return () => {
+      clearInterval(intervalId)
+      clearTimeout(switchTimer)
+    }
   }, [])
 
   const fetchStatus = () => {
