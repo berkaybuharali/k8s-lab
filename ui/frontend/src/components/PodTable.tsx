@@ -79,7 +79,14 @@ export function PodTable({ isStale, onPodClick }: PodTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {loading && <tr><td colSpan={4} className="p-4 text-center">Loading...</td></tr>}
+            {loading && Array.from({ length: 4 }).map((_, i) => (
+              <tr key={i} className="animate-pulse">
+                <td className="p-3"><div className="h-4 bg-muted rounded w-3/4" /></td>
+                <td className="p-3"><div className="h-4 bg-muted rounded w-16" /></td>
+                <td className="p-3"><div className="h-4 bg-muted rounded w-8" /></td>
+                <td className="p-3"><div className="h-4 bg-muted rounded w-10" /></td>
+              </tr>
+            ))}
             {!loading && pods.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-muted-foreground">No pods found</td></tr>}
             
             {!loading && pods.map(pod => {

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 
 export function RedisExplorer({ isStale, refreshTrigger }: { isStale?: boolean; refreshTrigger?: number }) {
   const [keys, setKeys] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [pattern, setPattern] = useState('*')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [value, setValue] = useState('')

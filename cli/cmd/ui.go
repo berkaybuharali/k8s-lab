@@ -15,6 +15,7 @@ import (
 )
 
 var uiPort int
+var uiBrowser string
 
 // uiCmd represents the ui command
 var uiCmd = &cobra.Command{
@@ -33,6 +34,7 @@ Keep this terminal open while using the UI.`,
 func init() {
 	rootCmd.AddCommand(uiCmd)
 	uiCmd.Flags().IntVarP(&uiPort, "port", "p", 3000, "Port to run the UI on")
+	uiCmd.Flags().StringVarP(&uiBrowser, "browser", "b", "", "Browser to open (e.g. chrome, firefox). Uses system default if not set")
 }
 
 func runUI(cmd *cobra.Command, args []string) error {
@@ -60,26 +62,51 @@ func runUI(cmd *cobra.Command, args []string) error {
 		time.Sleep(500 * time.Millisecond) // Wait for server to start
 		url := fmt.Sprintf("http://localhost:%d", uiPort)
 		log.Info("Opening %s in browser...", url)
-		openBrowser(url)
+		openBrowser(url, uiBrowser)
 	}()
 
 	return server.Start(ctx)
 }
 
-func openBrowser(url string) {
+// browserApps maps short names to macOS application names.
+var browserApps = map[string]string{
+	"chrome":  "Google Chrome",
+	"firefox": "Firefox",
+	"safari":  "Safari",
+	"edge":    "Microsoft Edge",
+	"brave":   "Brave Browser",
+	"arc":     "Arc",
+}
+
+func openBrowser(url string, browser string) {
 	var err error
 	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 	case "darwin":
-		err = exec.Command("open", url).Start()
+		if browser != "" {
+			app := browser
+			if mapped, ok := browserApps[browser]; ok {
+				app = mapped
+			}
+			err = exec.Command("open", "-a", app, url).Start()
+		} else {
+			err = exec.Command("open", url).Start()
+		}
+	case "linux":
+		if browser != "" {
+			err = exec.Command(browser, url).Start()
+		} else {
+			err = exec.Command("xdg-open", url).Start()
+		}
+	case "windows":
+		if browser != "" {
+			err = exec.Command("cmd", "/c", "start", browser, url).Start()
+		} else {
+			err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+		}
 	default:
 		err = fmt.Errorf("unsupported platform")
 	}
 	if err != nil {
-		// Just log error, don't fail the server
 		fmt.Printf("Failed to open browser: %v\n", err)
 	}
 }

@@ -38,7 +38,23 @@ export function PersistentDisks({ isStale }: { isStale?: boolean }) {
     return () => clearInterval(interval)
   }, [])
 
-  if (loading) return null
+  if (loading) return (
+    <div className="border rounded-xl bg-card shadow-sm overflow-hidden">
+      <div className="p-4 border-b">
+        <h2 className="font-semibold flex items-center gap-2">
+          <HardDrive className="w-4 h-4" /> Persistent Disks
+        </h2>
+      </div>
+      <div className="p-4 space-y-3 animate-pulse">
+        {[1, 2].map(i => (
+          <div key={i} className="space-y-1.5">
+            <div className="flex justify-between"><div className="h-4 bg-muted rounded w-1/2" /><div className="h-4 bg-muted rounded w-16" /></div>
+            <div className="w-full h-2 bg-muted rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
   if (pvcs.length === 0) return (
     <div className="p-6 border rounded-xl bg-card shadow-sm text-center text-muted-foreground text-sm">
       No persistent disks found

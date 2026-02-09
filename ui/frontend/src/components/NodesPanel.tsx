@@ -24,7 +24,25 @@ export function NodesPanel({ isStale, provider }: { isStale?: boolean; provider?
     return () => clearInterval(interval)
   }, [])
 
-  if (loading) return <div className="p-4 text-sm text-muted-foreground">Loading nodes...</div>
+  if (loading) return (
+    <div className="space-y-4">
+      <h2 className="font-semibold flex items-center gap-2">
+        <img src={kubernetesLogo} alt="Kubernetes" className="w-4 h-4" /> Nodes
+      </h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="border rounded-xl p-4 bg-card shadow-sm animate-pulse">
+            <div className="h-4 bg-muted rounded w-3/4 mb-3" />
+            <div className="space-y-2">
+              <div className="h-3 bg-muted rounded w-1/2" />
+              <div className="h-3 bg-muted rounded w-2/3" />
+              <div className="h-3 bg-muted rounded w-1/3" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
   if (nodes.length === 0) return null
 
   return (

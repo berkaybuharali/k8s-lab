@@ -10,6 +10,8 @@ import talosLogo from '@/assets/talos_logo.svg'
 import veleroLogo from '@/assets/velero_logo.svg'
 import nginxLogo from '@/assets/nginx_logo.svg'
 import redisLogo from '@/assets/redis_logo.svg'
+import toolsLogo from '@/assets/tools_logo.svg'
+import appsLogo from '@/assets/apps_logo.svg'
 
 interface StatusPanelProps {
   status: GlobalStatus | null
@@ -59,7 +61,7 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
       label: 'Platform Tools',
       subItems: [{ label: 'Velero', logo: veleroLogo }, { label: 'CSI Driver' }] as SubItem[],
       value: deployingLayer === 'tools' ? 'Installing...' : (deployingLayer === 'infra' ? 'Waiting...' : (status?.tools || 'Unknown')),
-      logo: veleroLogo,
+      logo: toolsLogo,
       iconBg: 'bg-cyan-500/15',
       ok: status?.tools === 'Installed',
       deploying: deployingLayer === 'tools',
@@ -69,7 +71,7 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
       label: 'Applications',
       subItems: [{ label: 'NGINX', logo: nginxLogo }, { label: 'Redis', logo: redisLogo }] as SubItem[],
       value: deployingLayer === 'apps' ? 'Deploying...' : (deployingLayer ? 'Waiting...' : (status?.apps || 'Unknown')),
-      logo: nginxLogo,
+      logo: appsLogo,
       iconBg: 'bg-green-500/15',
       ok: status?.apps === 'Deployed',
       deploying: deployingLayer === 'apps',

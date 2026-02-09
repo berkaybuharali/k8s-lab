@@ -38,7 +38,24 @@ export function BackupList({ isStale, onRestore, refreshTrigger }: BackupListPro
       .catch(console.error)
   }
 
-  if (loading) return null
+  if (loading) return (
+    <div className="border rounded-xl bg-card shadow-sm overflow-hidden">
+      <div className="p-4 border-b">
+        <h2 className="font-semibold flex items-center gap-2">
+          <img src={veleroLogo} alt="Velero" className="w-4 h-4" /> Backups
+        </h2>
+      </div>
+      <div className="p-4 space-y-3 animate-pulse">
+        {[1, 2].map(i => (
+          <div key={i} className="flex items-center gap-3">
+            <div className="h-4 bg-muted rounded flex-1" />
+            <div className="h-4 bg-muted rounded w-16" />
+            <div className="h-4 bg-muted rounded w-20" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
   return (
     <div className="border rounded-xl bg-card shadow-sm overflow-hidden">

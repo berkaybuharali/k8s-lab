@@ -51,7 +51,24 @@ export function DiskSnapshots({ isStale, provider, refreshTrigger }: DiskSnapsho
   }, [provider, refreshTrigger])
 
   if (provider !== 'gcp') return null
-  if (loading) return null
+  if (loading) return (
+    <div className="border rounded-xl bg-card shadow-sm overflow-hidden">
+      <div className="p-4 border-b">
+        <h2 className="font-semibold flex items-center gap-2">
+          <img src={gcpDiskLogo} alt="Disk" className="w-4 h-4" /> Disk Snapshots
+        </h2>
+      </div>
+      <div className="p-4 space-y-3 animate-pulse">
+        {[1, 2].map(i => (
+          <div key={i} className="flex items-center gap-3">
+            <div className="h-4 bg-muted rounded flex-1" />
+            <div className="h-4 bg-muted rounded w-16" />
+            <div className="h-4 bg-muted rounded w-20" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
   if (snapshots.length === 0) return (
     <div className="p-6 border rounded-xl bg-card shadow-sm text-center text-muted-foreground text-sm">
       <div className="flex items-center justify-center gap-2 mb-1">
