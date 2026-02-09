@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { HardDrive, WifiOff } from 'lucide-react'
 import type { K8sPVC } from '../types'
 import { cn } from '@/lib/utils'
+import { usePanelLoading } from '../hooks/useLoadingTracker'
 
 function parseStorage(size: string): number {
   const match = size.match(/^(\d+)(Gi|Mi|Ti)?$/)
@@ -23,14 +24,16 @@ function formatStorage(gb: number): string {
 export function PersistentDisks({ isStale }: { isStale?: boolean }) {
   const [pvcs, setPvcs] = useState<K8sPVC[]>([])
   const [loading, setLoading] = useState(true)
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('pvcs')
 
   useEffect(() => {
+    trackStart()
     const fetchData = () => {
       fetch('/api/pvcs?ns=application')
         .then(res => res.json())
         .then(data => setPvcs(data.items || []))
         .catch(console.error)
-        .finally(() => setLoading(false))
+        .finally(() => { setLoading(false); setLoaded() })
     }
 
     fetchData()

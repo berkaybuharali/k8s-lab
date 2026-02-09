@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react'
 import { Search, RefreshCw, Trash2, Plus, Save, WifiOff } from 'lucide-react'
 import redisLogo from '@/assets/redis_logo.svg'
 import { cn } from '@/lib/utils'
+import { usePanelLoading } from '../hooks/useLoadingTracker'
 
 export function RedisExplorer({ isStale, refreshTrigger }: { isStale?: boolean; refreshTrigger?: number }) {
   const [keys, setKeys] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('redis')
   const [pattern, setPattern] = useState('*')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [value, setValue] = useState('')
@@ -18,7 +20,7 @@ export function RedisExplorer({ isStale, refreshTrigger }: { isStale?: boolean; 
       .then(res => res.json())
       .then(data => setKeys(data || []))
       .catch(console.error)
-      .finally(() => setLoading(false))
+      .finally(() => { setLoading(false); setLoaded() })
   }
 
   const fetchValue = (key: string) => {
@@ -59,6 +61,7 @@ export function RedisExplorer({ isStale, refreshTrigger }: { isStale?: boolean; 
   }
 
   useEffect(() => {
+    trackStart()
     fetchKeys()
   }, [refreshTrigger])
 

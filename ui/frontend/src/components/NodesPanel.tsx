@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Activity, WifiOff } from 'lucide-react'
 import type { K8sNode } from '../types'
 import { cn } from '@/lib/utils'
+import { usePanelLoading } from '../hooks/useLoadingTracker'
 import kubernetesLogo from '@/assets/kubernetes_logo.svg'
 import talosLogo from '@/assets/talos_logo.svg'
 import gceLogo from '@/assets/gce_logo.svg'
@@ -9,14 +10,16 @@ import gceLogo from '@/assets/gce_logo.svg'
 export function NodesPanel({ isStale, provider }: { isStale?: boolean; provider?: string }) {
   const [nodes, setNodes] = useState<K8sNode[]>([])
   const [loading, setLoading] = useState(true)
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('nodes')
 
   useEffect(() => {
+    trackStart()
     const fetchData = () => {
       fetch('/api/nodes')
         .then(res => res.json())
         .then(data => setNodes(data.items || []))
         .catch(console.error)
-        .finally(() => setLoading(false))
+        .finally(() => { setLoading(false); setLoaded() })
     }
 
     fetchData()

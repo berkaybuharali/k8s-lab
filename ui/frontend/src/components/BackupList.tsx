@@ -3,6 +3,7 @@ import { Trash2, RotateCcw, WifiOff } from 'lucide-react'
 import veleroLogo from '@/assets/velero_logo.svg'
 import type { VeleroBackup } from '../types'
 import { cn } from '@/lib/utils'
+import { usePanelLoading } from '../hooks/useLoadingTracker'
 
 interface BackupListProps {
   isStale?: boolean
@@ -13,16 +14,18 @@ interface BackupListProps {
 export function BackupList({ isStale, onRestore, refreshTrigger }: BackupListProps) {
   const [backups, setBackups] = useState<VeleroBackup[]>([])
   const [loading, setLoading] = useState(true)
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('backups')
 
   const fetchBackups = () => {
     fetch('/api/backups')
       .then(res => res.json())
       .then(data => setBackups(data.items || []))
       .catch(console.error)
-      .finally(() => setLoading(false))
+      .finally(() => { setLoading(false); setLoaded() })
   }
 
   useEffect(() => {
+    trackStart()
     fetchBackups()
     const interval = setInterval(fetchBackups, 15000)
     return () => clearInterval(interval)

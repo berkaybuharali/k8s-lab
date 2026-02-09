@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { cn } from "@/lib/utils"
 import { Loader2 } from 'lucide-react'
+import { LoadingTrackerProvider } from './hooks/useLoadingTracker'
 import { LoadingScreen } from './components/LoadingScreen'
+import { GlobalLoadingBar } from './components/GlobalLoadingBar'
 import { CloudInfoPanel } from './components/CloudInfoPanel'
 import { StatusPanel } from './components/StatusPanel'
 import { ActionsPanel } from './components/ActionsPanel'
@@ -89,133 +91,137 @@ function App() {
   const isStale = status?.infra === 'Running' && status?.tunnel !== 'Connected'
 
   return (
-    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
-      <header className="h-14 border-b px-4 flex items-center justify-between bg-card shrink-0 sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setView('dashboard')} className="font-bold text-lg tracking-tight hover:opacity-80 transition-opacity">
-              k8s<span className="text-primary">-lab</span>
-            </button>
-            <button onClick={() => setView('about')} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-2">
-              About
-            </button>
+    <LoadingTrackerProvider>
+      <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
+        <header className="h-14 border-b px-4 flex items-center justify-between bg-card shrink-0 sticky top-0 z-10">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <button onClick={() => setView('dashboard')} className="font-bold text-lg tracking-tight hover:opacity-80 transition-opacity">
+                k8s<span className="text-primary">-lab</span>
+              </button>
+              <button onClick={() => setView('about')} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-2">
+                About
+              </button>
+            </div>
+
+            {isRunning && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground border-l pl-4">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                <span>Operation in progress...</span>
+              </div>
+            )}
           </div>
 
-          {isRunning && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground border-l pl-4">
-              <Loader2 className="w-4 h-4 animate-spin text-primary" />
-              <span>Operation in progress...</span>
-            </div>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-4">
-          {status && (
-            <div className={cn(
-              "flex items-center gap-2 text-xs px-3 py-1 rounded-full border font-medium",
-              status.tunnel === 'Connected' ? "bg-green-500/10 border-green-500/20 text-green-600" :
-              status.tunnel === 'Reconnecting' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-600 animate-pulse" :
-              status.tunnel === 'Starting' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-600" :
-              (status.tunnel === 'Idle' || status.tunnel === 'N/A') ? "border-border text-muted-foreground" :
-              "bg-red-500/10 border-red-500/20 text-red-600"
-            )}>
-              <div className={cn("w-2 h-2 rounded-full",
-                status.tunnel === 'Connected' ? "bg-green-500" :
-                status.tunnel === 'Reconnecting' || status.tunnel === 'Starting' ? "bg-yellow-500" :
-                (status.tunnel === 'Idle' || status.tunnel === 'N/A') ? "bg-muted-foreground" :
-                "bg-red-500"
-              )} />
-              <span>Tunnel: {status.tunnel}</span>
-            </div>
-          )}
-
-          {auth && (
-            <div className={cn(
-              "flex items-center gap-2 text-xs px-3 py-1 rounded-full border",
-              auth.authenticated ? "bg-green-500/10 border-green-500/20 text-green-600" : "bg-red-500/10 border-red-500/20 text-red-600"
-            )}>
-              <div className={cn("w-2 h-2 rounded-full", auth.authenticated ? "bg-green-500" : "bg-red-500")} />
-              <span>{auth.authenticated ? "Authenticated" : "Not Authenticated"}</span>
-            </div>
-          )}
-
-          <ThemeToggle />
-        </div>
-      </header>
-
-      <Banner auth={auth} status={status} />
-
-      <LoadingScreen ready={!initialLoading} />
-
-      <div className="flex-1 flex overflow-hidden">
-        <CloudInfoPanel auth={auth} onTFClick={() => setView('tf-detail')} />
-
-        <main className="flex-1 overflow-auto p-6 space-y-6">
-          {view === 'dashboard' && (
-            <>
-              <StatusPanel status={status} isRunning={isRunning} provider={auth?.provider} runningOp={
-                [...logs].reverse().find((l: { type: string }) => l.type === 'start')?.data.match(/operation: (.+)/)?.[1] || ''
-              } />
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <LogStream 
-                  logs={logs} 
-                  connected={connected} 
-                  onClear={clearLogs} 
-                />
-                <ActionsPanel
-                  auth={auth}
-                  status={status}
-                  onTrigger={(op) => op === 'restore' ? handleActionsRestore() : trigger(op)}
-                  loading={isRunning}
-                  refreshTrigger={opDoneCounter}
-                />
+          <div className="flex items-center gap-4">
+            {status && (
+              <div className={cn(
+                "flex items-center gap-2 text-xs px-3 py-1 rounded-full border font-medium",
+                status.tunnel === 'Connected' ? "bg-green-500/10 border-green-500/20 text-green-600" :
+                status.tunnel === 'Reconnecting' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-600 animate-pulse" :
+                status.tunnel === 'Starting' ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-600" :
+                (status.tunnel === 'Idle' || status.tunnel === 'N/A') ? "border-border text-muted-foreground" :
+                "bg-red-500/10 border-red-500/20 text-red-600"
+              )}>
+                <div className={cn("w-2 h-2 rounded-full",
+                  status.tunnel === 'Connected' ? "bg-green-500" :
+                  status.tunnel === 'Reconnecting' || status.tunnel === 'Starting' ? "bg-yellow-500" :
+                  (status.tunnel === 'Idle' || status.tunnel === 'N/A') ? "bg-muted-foreground" :
+                  "bg-red-500"
+                )} />
+                <span>Tunnel: {status.tunnel}</span>
               </div>
+            )}
 
-              {status?.k8s === 'Ready' && (
-                <div className={cn("space-y-6 transition-opacity", isStale && "opacity-60")}>
-                  <NodesPanel isStale={isStale} provider={auth?.provider} />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="space-y-6">
-                      <PodTable isStale={isStale} onPodClick={handlePodClick} />
-                      <RedisExplorer refreshTrigger={opDoneCounter} />
-                    </div>
-                    <div className="space-y-6">
-                      <PersistentDisks isStale={isStale} />
-                      <BackupList isStale={isStale} onRestore={handleRestoreClick} refreshTrigger={opDoneCounter} />
-                      <DiskSnapshots isStale={isStale} provider={auth?.provider} refreshTrigger={opDoneCounter} />
+            {auth && (
+              <div className={cn(
+                "flex items-center gap-2 text-xs px-3 py-1 rounded-full border",
+                auth.authenticated ? "bg-green-500/10 border-green-500/20 text-green-600" : "bg-red-500/10 border-red-500/20 text-red-600"
+              )}>
+                <div className={cn("w-2 h-2 rounded-full", auth.authenticated ? "bg-green-500" : "bg-red-500")} />
+                <span>{auth.authenticated ? "Authenticated" : "Not Authenticated"}</span>
+              </div>
+            )}
+
+            <ThemeToggle />
+          </div>
+        </header>
+
+        <Banner auth={auth} status={status} />
+
+        <LoadingScreen ready={!initialLoading} />
+
+        <GlobalLoadingBar />
+
+        <div className="flex-1 flex overflow-hidden">
+          <CloudInfoPanel auth={auth} onTFClick={() => setView('tf-detail')} />
+
+          <main className="flex-1 overflow-auto p-6 space-y-6">
+            {view === 'dashboard' && (
+              <>
+                <StatusPanel status={status} isRunning={isRunning} provider={auth?.provider} runningOp={
+                  [...logs].reverse().find((l: { type: string }) => l.type === 'start')?.data.match(/operation: (.+)/)?.[1] || ''
+                } />
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <LogStream
+                    logs={logs}
+                    connected={connected}
+                    onClear={clearLogs}
+                  />
+                  <ActionsPanel
+                    auth={auth}
+                    status={status}
+                    onTrigger={(op) => op === 'restore' ? handleActionsRestore() : trigger(op)}
+                    loading={isRunning}
+                    refreshTrigger={opDoneCounter}
+                  />
+                </div>
+
+                {status?.k8s === 'Ready' && (
+                  <div className={cn("space-y-6 transition-opacity", isStale && "opacity-60")}>
+                    <NodesPanel isStale={isStale} provider={auth?.provider} />
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div className="space-y-6">
+                        <PodTable isStale={isStale} onPodClick={handlePodClick} />
+                        <RedisExplorer refreshTrigger={opDoneCounter} />
+                      </div>
+                      <div className="space-y-6">
+                        <PersistentDisks isStale={isStale} />
+                        <BackupList isStale={isStale} onRestore={handleRestoreClick} refreshTrigger={opDoneCounter} />
+                        <DiskSnapshots isStale={isStale} provider={auth?.provider} refreshTrigger={opDoneCounter} />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </>
-          )}
+                )}
+              </>
+            )}
 
-          {view === 'pod-detail' && selectedPod && (
-            <PodDetail 
-              podName={selectedPod.name} 
-              namespace={selectedPod.ns} 
-              onBack={() => setView('dashboard')} 
-            />
-          )}
+            {view === 'pod-detail' && selectedPod && (
+              <PodDetail
+                podName={selectedPod.name}
+                namespace={selectedPod.ns}
+                onBack={() => setView('dashboard')}
+              />
+            )}
 
-          {view === 'tf-detail' && (
-            <TerraformResources onBack={() => setView('dashboard')} />
-          )}
+            {view === 'tf-detail' && (
+              <TerraformResources onBack={() => setView('dashboard')} />
+            )}
 
-          {view === 'about' && (
-            <AboutPage onBack={() => setView('dashboard')} />
-          )}
-        </main>
+            {view === 'about' && (
+              <AboutPage onBack={() => setView('dashboard')} />
+            )}
+          </main>
+        </div>
+
+        <RestoreDialog
+          isOpen={restoreOpen}
+          onClose={() => setRestoreOpen(false)}
+          onRestore={handleRestoreAction}
+          preSelectedBackup={restoreBackup}
+        />
       </div>
-
-      <RestoreDialog 
-        isOpen={restoreOpen} 
-        onClose={() => setRestoreOpen(false)} 
-        onRestore={handleRestoreAction}
-        preSelectedBackup={restoreBackup}
-      />
-    </div>
+    </LoadingTrackerProvider>
   )
 }
 

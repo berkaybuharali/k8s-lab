@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { usePanelLoading } from '../hooks/useLoadingTracker'
 import gcpDiskLogo from '@/assets/gcp_persistent_disk.svg'
 
 interface Snapshot {
@@ -30,19 +31,22 @@ function formatBytes(bytes: string): string {
 export function DiskSnapshots({ isStale, provider, refreshTrigger }: DiskSnapshotsProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([])
   const [loading, setLoading] = useState(true)
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('snapshots')
 
   useEffect(() => {
     if (provider !== 'gcp') {
       setLoading(false)
+      setLoaded()
       return
     }
 
+    trackStart()
     const fetchData = () => {
       fetch('/api/snapshots')
         .then(res => res.json())
         .then(data => setSnapshots(Array.isArray(data) ? data : []))
         .catch(console.error)
-        .finally(() => setLoading(false))
+        .finally(() => { setLoading(false); setLoaded() })
     }
 
     fetchData()

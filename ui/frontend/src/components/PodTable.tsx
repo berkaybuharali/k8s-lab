@@ -3,6 +3,7 @@ import { RotateCw, WifiOff } from 'lucide-react'
 import kubernetesLogo from '@/assets/kubernetes_logo.svg'
 import nginxLogo from '@/assets/nginx_logo.svg'
 import redisLogo from '@/assets/redis_logo.svg'
+import { usePanelLoading } from '../hooks/useLoadingTracker'
 
 function getPodLogo(name: string): string | null {
   if (name.includes('nginx')) return nginxLogo
@@ -21,9 +22,11 @@ export function PodTable({ isStale, onPodClick }: PodTableProps) {
   const [pods, setPods] = useState<K8sPod[]>([])
   const [namespaces, setNamespaces] = useState<string[]>([])
   const [ns, setNs] = useState('application')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const { setLoading: trackStart, setLoaded } = usePanelLoading('pods')
 
   useEffect(() => {
+    trackStart()
     // Fetch namespaces
     fetch('/api/namespaces')
       .then(res => res.json())
@@ -41,7 +44,7 @@ export function PodTable({ isStale, onPodClick }: PodTableProps) {
         .then(res => res.json())
         .then(data => setPods(data.items || []))
         .catch(console.error)
-        .finally(() => setLoading(false))
+        .finally(() => { setLoading(false); setLoaded() })
     }
 
     fetchData()
