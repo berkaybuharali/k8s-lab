@@ -410,3 +410,7 @@ k8s-lab/
 | [apps/README.md](apps/README.md) | Application manifests and deployment |
 | [infra/README.md](infra/README.md) | Infrastructure overview and platform links |
 | [scripts/README.md](scripts/README.md) | Script details and Talos debugging guide |
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
