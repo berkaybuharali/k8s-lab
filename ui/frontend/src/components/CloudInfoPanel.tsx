@@ -78,14 +78,10 @@ export function CloudInfoPanel({ auth, onTFClick }: CloudInfoPanelProps) {
         {auth.stateBucket && (
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-muted-foreground">
-              {bucketLogo ? (
-                <img src={bucketLogo} alt="Storage" className="w-4 h-4" />
-              ) : (
-                <Hash className="w-4 h-4" />
-              )}
               <span className="text-xs font-medium">State Bucket</span>
             </div>
-            <div className="text-sm font-medium truncate" title={auth.stateBucket}>
+            <div className="text-sm font-medium truncate flex items-center gap-2" title={auth.stateBucket}>
+              {bucketLogo && <img src={bucketLogo} alt="Storage" className="w-4 h-4 flex-shrink-0" />}
               {auth.stateBucket}
             </div>
           </div>

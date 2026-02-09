@@ -2,6 +2,8 @@ import { Package, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GlobalStatus } from '../types'
 import gceLogo from '@/assets/gce_logo.svg'
+import gcpVpcLogo from '@/assets/gcp_vpc_logo.svg'
+import gcpFirewallLogo from '@/assets/gcp_firewal_logo.svg'
 import kubernetesLogo from '@/assets/kubernetes_logo.svg'
 import talosLogo from '@/assets/talos_logo.svg'
 import veleroLogo from '@/assets/velero_logo.svg'
@@ -13,6 +15,11 @@ interface StatusPanelProps {
   isRunning?: boolean
   runningOp?: string
   provider?: string
+}
+
+interface SubItem {
+  label: string
+  logo?: string
 }
 
 export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPanelProps) {
@@ -27,7 +34,9 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
     {
       key: 'infra',
       label: 'Infrastructure',
-      subtitle: provider === 'gcp' ? 'GCE VMs, VPC, Firewall' : 'VMs, Network',
+      subItems: provider === 'gcp'
+        ? [{ label: 'GCE VMs', logo: gceLogo }, { label: 'VPC', logo: gcpVpcLogo }, { label: 'Firewall', logo: gcpFirewallLogo }] as SubItem[]
+        : [{ label: 'VMs' }, { label: 'Network' }] as SubItem[],
       value: deployingLayer === 'infra' ? 'Deploying...' : (status?.infra || 'Unknown'),
       logo: provider === 'gcp' ? gceLogo : undefined,
       iconBg: 'bg-blue-500/15',
@@ -37,7 +46,7 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
     {
       key: 'k8s',
       label: 'Kubernetes',
-      subtitle: 'Talos Linux Cluster',
+      subItems: [{ label: 'Kubernetes', logo: kubernetesLogo }, { label: 'Talos Linux', logo: talosLogo }] as SubItem[],
       value: deployingLayer === 'infra' ? 'Waiting...' : (status?.k8s || 'Unknown'),
       logos: [kubernetesLogo, talosLogo],
       iconBg: 'bg-purple-500/15',
@@ -47,7 +56,7 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
     {
       key: 'tools',
       label: 'Platform Tools',
-      subtitle: 'Velero, CSI Driver',
+      subItems: [{ label: 'Velero', logo: veleroLogo }, { label: 'CSI Driver' }] as SubItem[],
       value: deployingLayer === 'tools' ? 'Installing...' : (deployingLayer === 'infra' ? 'Waiting...' : (status?.tools || 'Unknown')),
       logo: veleroLogo,
       iconBg: 'bg-cyan-500/15',
@@ -57,7 +66,7 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
     {
       key: 'apps',
       label: 'Applications',
-      subtitle: 'NGINX, Redis',
+      subItems: [{ label: 'NGINX', logo: nginxLogo }, { label: 'Redis', logo: redisLogo }] as SubItem[],
       value: deployingLayer === 'apps' ? 'Deploying...' : (deployingLayer ? 'Waiting...' : (status?.apps || 'Unknown')),
       logos: [nginxLogo, redisLogo],
       iconBg: 'bg-green-500/15',
@@ -87,9 +96,16 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
                   <Package className="w-5 h-5 text-blue-500" />
                 )}
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="text-sm font-semibold">{card.label}</div>
-                <div className="text-[10px] text-muted-foreground mb-1">{card.subtitle}</div>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mb-1">
+                  {card.subItems.map((item, i) => (
+                    <span key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      {item.logo && <img src={item.logo} alt="" className="w-3 h-3" />}
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
                 <div className="text-sm font-semibold flex items-center gap-1.5">
                   {card.deploying ? (
                     <Loader2 className="w-3 h-3 animate-spin text-primary" />

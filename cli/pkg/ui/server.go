@@ -89,11 +89,16 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/pods/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/logs") {
 			s.handlePodLogs(w, r)
+		} else if strings.HasSuffix(r.URL.Path, "/deployment") {
+			s.handlePodDeployment(w, r)
+		} else if strings.HasSuffix(r.URL.Path, "/service") {
+			s.handlePodService(w, r)
 		} else {
 			s.handlePodDetail(w, r)
 		}
 	})
 	mux.HandleFunc("/api/pvcs", s.handlePVCs)
+	mux.HandleFunc("/api/snapshots", s.handleSnapshots)
 	mux.HandleFunc("/api/backups", s.handleBackups)
 	mux.HandleFunc("/api/backups/", s.handleDeleteBackup)
 	mux.HandleFunc("/api/terraform/resources", s.handleTerraformResources)

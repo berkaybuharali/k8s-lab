@@ -15,6 +15,8 @@ import { PodDetail } from './components/PodDetail'
 import { TerraformResources } from './components/TerraformResources'
 import { RestoreDialog } from './components/RestoreDialog'
 import { RedisExplorer } from './components/RedisExplorer'
+import { DiskSnapshots } from './components/DiskSnapshots'
+import { AboutPage } from './components/AboutPage'
 import { useWebSocket } from './hooks/useWebSocket'
 import { useApi } from './hooks/useApi'
 import type { AuthStatus, GlobalStatus } from './types'
@@ -22,7 +24,7 @@ import type { AuthStatus, GlobalStatus } from './types'
 function App() {
   const [auth, setAuth] = useState<AuthStatus | null>(null)
   const [status, setStatus] = useState<GlobalStatus | null>(null)
-  const [view, setView] = useState<'dashboard' | 'pod-detail' | 'tf-detail'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'pod-detail' | 'tf-detail' | 'about'>('dashboard')
   const [selectedPod, setSelectedPod] = useState<{name: string, ns: string} | null>(null)
   const [restoreOpen, setRestoreOpen] = useState(false)
   const [restoreBackup, setRestoreBackup] = useState('')
@@ -97,7 +99,12 @@ function App() {
       <header className="h-14 border-b px-4 flex items-center justify-between bg-card shrink-0 sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <h1 className="font-bold text-lg tracking-tight">k8s<span className="text-primary">-lab</span></h1>
+            <button onClick={() => setView('dashboard')} className="font-bold text-lg tracking-tight hover:opacity-80 transition-opacity">
+              k8s<span className="text-primary">-lab</span>
+            </button>
+            <button onClick={() => setView('about')} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-2">
+              About
+            </button>
           </div>
 
           {isRunning && (
@@ -179,7 +186,8 @@ function App() {
                     </div>
                     <div className="space-y-6">
                       <PersistentDisks isStale={isStale} />
-                      <BackupList isStale={isStale} onRestore={handleRestoreClick} />
+                      <BackupList isStale={isStale} onRestore={handleRestoreClick} refreshTrigger={opDoneCounter} />
+                      <DiskSnapshots isStale={isStale} provider={auth?.provider} refreshTrigger={opDoneCounter} />
                     </div>
                   </div>
                 </div>
@@ -197,6 +205,10 @@ function App() {
 
           {view === 'tf-detail' && (
             <TerraformResources onBack={() => setView('dashboard')} />
+          )}
+
+          {view === 'about' && (
+            <AboutPage onBack={() => setView('dashboard')} />
           )}
         </main>
       </div>

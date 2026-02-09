@@ -7,9 +7,10 @@ import { cn } from '@/lib/utils'
 interface BackupListProps {
   isStale?: boolean
   onRestore: (name: string) => void
+  refreshTrigger?: number
 }
 
-export function BackupList({ isStale, onRestore }: BackupListProps) {
+export function BackupList({ isStale, onRestore, refreshTrigger }: BackupListProps) {
   const [backups, setBackups] = useState<VeleroBackup[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -25,7 +26,7 @@ export function BackupList({ isStale, onRestore }: BackupListProps) {
     fetchBackups()
     const interval = setInterval(fetchBackups, 15000)
     return () => clearInterval(interval)
-  }, [])
+  }, [refreshTrigger])
 
   const handleDelete = (name: string) => {
     if (!confirm(`Delete backup ${name}?`)) return

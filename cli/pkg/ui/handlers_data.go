@@ -218,6 +218,118 @@ func (s *Server) handlePodLogs(w http.ResponseWriter, r *http.Request) {
 	w.Write(output)
 }
 
+// handleSnapshots returns GCE disk snapshots.
+func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
+	if !ensureGet(w, r) {
+		return
+	}
+
+	if s.cloud != "gcp" {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte("[]"))
+		return
+	}
+
+	projectID, err := s.provider.GetProjectID(s.config.GetTerraformDir())
+	if err != nil {
+		http.Error(w, "Failed to get project ID", http.StatusInternalServerError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "gcloud", "compute", "snapshots", "list",
+		"--project", projectID, "--format=json")
+	output, err := cmd.Output()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get snapshots: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(output)
+}
+
+// handlePodDeployment returns the deployment YAML for a pod's owner.
+func (s *Server) handlePodDeployment(w http.ResponseWriter, r *http.Request) {
+	if !ensureGet(w, r) {
+		return
+	}
+
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 5 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	podName := pathParts[3]
+	namespace := r.URL.Query().Get("ns")
+	if namespace == "" {
+		namespace = "application"
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	// Get pod to find owner deployment name (strip pod hash suffix)
+	// Convention: deployment name is pod name without the replicaset hash
+	deployName := podName
+	parts := strings.Split(podName, "-")
+	if len(parts) > 2 {
+		deployName = strings.Join(parts[:len(parts)-2], "-")
+	}
+
+	cmd := exec.CommandContext(ctx, "kubectl", "get", "deployment", deployName, "-n", namespace,
+		"-o", "yaml", "--kubeconfig", s.config.GetKubeconfigPath())
+	output, err := cmd.Output()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Deployment not found: %v", err), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(output)
+}
+
+// handlePodService returns the service YAML for a pod's related service.
+func (s *Server) handlePodService(w http.ResponseWriter, r *http.Request) {
+	if !ensureGet(w, r) {
+		return
+	}
+
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 5 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	podName := pathParts[3]
+	namespace := r.URL.Query().Get("ns")
+	if namespace == "" {
+		namespace = "application"
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	// Derive service name from pod name (strip replicaset hash)
+	svcName := podName
+	parts := strings.Split(podName, "-")
+	if len(parts) > 2 {
+		svcName = strings.Join(parts[:len(parts)-2], "-")
+	}
+
+	cmd := exec.CommandContext(ctx, "kubectl", "get", "service", svcName, "-n", namespace,
+		"-o", "yaml", "--kubeconfig", s.config.GetKubeconfigPath())
+	output, err := cmd.Output()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Service not found: %v", err), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(output)
+}
+
 // --- Redis Handlers ---
 
 // execRedis runs a redis-cli command in the redis pod.
