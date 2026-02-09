@@ -6,17 +6,14 @@ export function GlobalLoadingBar() {
 
   if (!isLoading) return null
 
-  // Show the first pending label as the current activity
   const currentLabel = pendingLabels[0] || 'Loading...'
 
   return (
-    <div className="shrink-0 border-b bg-primary/5">
-      <div className="flex items-center gap-3 px-4 py-2">
-        <Loader2 className="w-4 h-4 animate-spin text-primary flex-shrink-0" />
-        <span className="text-xs font-medium text-muted-foreground">
-          {currentLabel}
-        </span>
-      </div>
+    <div className="fixed bottom-6 right-6 z-40 flex items-center gap-3 px-5 py-3 rounded-xl border bg-card shadow-lg">
+      <Loader2 className="w-5 h-5 animate-spin text-primary flex-shrink-0" />
+      <span className="text-sm font-medium text-foreground">
+        {currentLabel}
+      </span>
     </div>
   )
 }
