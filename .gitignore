@@ -44,6 +44,7 @@ GO_MIGRATION_PLAN.md
 GO_PLAN.md
 
 # Go
+/k8s-lab
 bin/
 *.test
 *.out

@@ -10,9 +10,9 @@ A local web dashboard for k8s-lab that provides a visual interface to all cluste
 
 ## Current Status
 
-**Phase:** Phase 5 Complete
+**Phase:** Phase 7 Complete
 **Branch:** `feature/ui`
-**Next Step:** Full end-to-end user verification
+**Next Step:** End-to-end user verification (backup/restore flow)
 
 | Phase | Status |
 |-------|--------|
@@ -21,8 +21,8 @@ A local web dashboard for k8s-lab that provides a visual interface to all cluste
 | Phase 3: Operations + Log Streaming | Complete |
 | Phase 4: Data Panels | Complete |
 | Phase 5: Polish & Missing Features | Complete |
-
-**Phase 4 deferred items** (moved to Phase 5): PodDetail view, RestoreDialog, RedisExplorer, TerraformResources view. These were in the Phase 4 plan but not implemented. Core data panels are working and reviewed.
+| Phase 6: UX Polish (User Testing Feedback) | Complete |
+| Phase 7: Logo Integration & Status Fixes | Complete |
 
 ---
 
@@ -553,6 +553,79 @@ Everything in `ui/mockup.html` is in scope. Gaps identified by comparing current
 > 11. BackupList: Restore button opens dialog, Delete button removes backup
 > 12. `make build-ui` produces working binary
 > 13. `./bin/k8s-lab ui --help` shows usage
+
+### Phase 6: UX Polish (User Testing Feedback)
+
+Feedback from first real end-to-end test. Issues found by comparing live UI with `ui/mockup.html`.
+
+**Already fixed by Claude:**
+- Auth badge blue -> green, "Authenticated" text (was showing email in blue)
+- Tunnel Idle badge gray instead of red
+- Status refresh timing after operations (deploy-tools stayed disabled after deploy-infra)
+
+**Step 6.1: Logo styling**
+- Current: "Kubernetes Lab" in plain font with a "K" blue square
+- Mockup: `k8s<span style="color:accent">-lab</span>` — "k8s" in white, "-lab" in accent blue, no square icon
+- File: `App.tsx` header section (lines 76-81)
+- Change to: `<span className="font-bold text-lg">k8s</span><span className="font-bold text-lg text-primary">-lab</span>`
+
+**Step 6.2: Visual warmth — rounded boxes, warmer palette, spacing**
+- Mockup uses `border-radius: 10px` on cards, current uses `rounded-lg` (8px). Change to `rounded-xl`.
+- Mockup cards have `box-shadow: 0 1px 3px var(--shadow)` — current cards have `shadow-sm` which is fine.
+- Status panel items in mockup have colored icon backgrounds (blue for infra, purple for k8s, cyan for tools, green for apps). Current just has a small icon. See mockup CSS: `.status-icon.infra { background: rgba(59,130,246,0.15); }` etc.
+- File: `StatusPanel.tsx` — wrap each icon in a colored background square (36x36px, rounded-lg). Each card gets its own accent color:
+  - Infrastructure: blue (`bg-blue-500/15 text-blue-500`)
+  - Kubernetes: purple (`bg-purple-500/15 text-purple-500`)
+  - Tools: cyan (`bg-cyan-500/15 text-cyan-500`)
+  - Applications: green (`bg-green-500/15 text-green-500`)
+- Status items in mockup are 2x2 grid inside a card with "Cluster Status" header. Current implementation renders 4 separate cards in a row. Change to: single card with "Cluster Status" header, 2x2 grid of status items inside, each item has colored icon box + label + value with status dot.
+- Increase `gap-6` between major sections to feel more spacious
+
+**Step 6.3: Cloud provider display with logo**
+- Current CloudInfoPanel shows "GCP" plain text for provider
+- Change to: "Google Cloud" with a small cloud icon or the Google Cloud SVG
+- Since we use lucide-react, use the `Cloud` icon already imported but make it more prominent
+- Provider value: `Google Cloud (GCP)` to match mockup
+- File: `CloudInfoPanel.tsx` line 13 — change `auth.provider.toUpperCase()` to a display name mapping: `{gcp: 'Google Cloud (GCP)', aws: 'AWS', azure: 'Azure'}[auth.provider] || auth.provider`
+
+**Step 6.4: Actions panel visual improvements**
+- Mockup actions are horizontal button rows (`flex-wrap`), current uses vertical stacked full-width buttons
+- Step buttons in mockup are compact inline buttons with small step-number circles, not full-width rows
+- Change step-by-step section: horizontal row of compact buttons like mockup (`.actions-row { display: flex; gap: 8px; flex-wrap: wrap; }`)
+- Each step button: `<button><span class="step-number">1</span> Deploy Infra</button>` — compact, not full-width
+- Quick actions (Deploy All, Destroy All): keep side-by-side but make them `flex: 1` within a row
+- Backup & Restore: same horizontal row, not stacked
+- File: `ActionsPanel.tsx`
+
+**Step 6.5: Log persistence across page refresh (CRITICAL)**
+- Current: logs stored in React state (`useState<LogMessage[]>`), lost on refresh and on Ctrl+C server restart
+- Problem: user refreshes page mid-deploy, loses all log output
+- Solution (backend-side):
+  1. In `websocket.go`: add a `logHistory []LogMessage` ring buffer (last 1000 messages) in `WebSocketHub`
+  2. When a new WebSocket client connects, send the full history first
+  3. When broadcasting, also append to the ring buffer
+  4. Add `isRunning bool` to the hub — set on "start" message, clear on "done"/"error"
+  5. When client connects, if `isRunning` is true, set their `isRunning` state immediately
+- This way:
+  - Page refresh: reconnects WebSocket, gets full log history + current running state
+  - Ctrl+C: logs are gone (acceptable — server is dead), but...
+  - New session after restart: clean slate (acceptable)
+- Files: `cli/pkg/ui/websocket.go` (add ring buffer + replay on connect), `useWebSocket.ts` (no change needed, messages are already appended)
+- No localStorage needed — backend is the source of truth
+
+**Step 6.6: Tunnel status — when does it turn green?**
+- Clarification for the user: Tunnel turns green after deploy-infra completes. The UI auto-starts the tunnel, which takes ~10-15s to connect. During this time it shows "Starting..." (yellow).
+- The status refresh improvements (6.5-related, already fixed by Claude) will make status update faster after the tunnel connects.
+- No code change needed, just documentation. But verify the tunnel Starting state shows yellow correctly (fixed in App.tsx).
+
+> **Phase 6 Verification:**
+> 1. Logo shows "k8s-lab" with accent color styling
+> 2. Cards have rounded-xl, Status panel is a single "Cluster Status" card with 2x2 grid and colored icon backgrounds
+> 3. CloudInfoPanel shows "Google Cloud (GCP)" instead of "GCP"
+> 4. Actions panel has compact horizontal button layout matching mockup
+> 5. Page refresh during an operation: reconnect gets full log history, spinner resumes
+> 6. After deploy-infra completes, tunnel shows "Starting..." (yellow) then "Connected" (green), and deploy-tools becomes enabled within 15s
+> 7. Auth badge shows green "Authenticated", tunnel Idle shows gray
 
 ---
 
