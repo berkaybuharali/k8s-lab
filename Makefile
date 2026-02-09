@@ -1,4 +1,4 @@
-.PHONY: deploy-infra deploy-tools deploy-applications deploy destroy connect seed-redis backup restore list-backups delete-backup delete-all-backups help
+.PHONY: deploy-infra deploy-tools deploy-applications deploy destroy connect seed-redis backup restore list-backups delete-backup delete-all-backups help build-ui
 
 # Extract cloud provider from command line (e.g., "make deploy-infra gcp" -> "gcp")
 CLOUD := $(filter-out deploy-infra deploy-tools deploy-applications deploy destroy connect seed-redis backup restore list-backups delete-backup delete-all-backups help,$(MAKECMDGOALS))
@@ -39,6 +39,12 @@ delete-backup:
 delete-all-backups:
 	@./scripts/backup/delete-all.sh $(CLOUD)
 
+build-ui:
+	@cd ui/frontend && npm run build
+	@rm -rf cli/pkg/ui/dist && mkdir -p cli/pkg/ui/dist
+	@cp -R ui/frontend/dist/* cli/pkg/ui/dist/
+	@cd cli && go build -o ../bin/k8s-lab .
+
 help:
 	@echo "Kubernetes Lab"
 	@echo ""
@@ -58,6 +64,7 @@ help:
 	@echo "  restore <cloud>             Restore from latest backup (includes tools setup)"
 	@echo "  connect <cloud>             Show tunnel command for local access"
 	@echo "  destroy <cloud>             Destroy all resources"
+	@echo "  build-ui                    Build frontend and Go binary"
 	@echo ""
 	@echo "Supported: gcp"
 	@echo ""
