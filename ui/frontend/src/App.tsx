@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { cn } from "@/lib/utils"
 import { Loader2 } from 'lucide-react'
+import { LoadingScreen } from './components/LoadingScreen'
 import { CloudInfoPanel } from './components/CloudInfoPanel'
 import { StatusPanel } from './components/StatusPanel'
 import { ActionsPanel } from './components/ActionsPanel'
@@ -144,14 +145,8 @@ function App() {
 
       <Banner auth={auth} status={status} />
 
-      {initialLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="text-sm text-muted-foreground">Loading dashboard...</span>
-          </div>
-        </div>
-      ) : (
+      <LoadingScreen ready={!initialLoading} />
+
       <div className="flex-1 flex overflow-hidden">
         <CloudInfoPanel auth={auth} onTFClick={() => setView('tf-detail')} />
 
@@ -213,7 +208,6 @@ function App() {
           )}
         </main>
       </div>
-      )}
 
       <RestoreDialog 
         isOpen={restoreOpen} 

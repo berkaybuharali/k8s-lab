@@ -39,7 +39,7 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
         ? [{ label: 'GCE VMs', logo: gceLogo }, { label: 'VPC', logo: gcpVpcLogo }, { label: 'Firewall', logo: gcpFirewallLogo }] as SubItem[]
         : [{ label: 'VMs' }, { label: 'Network' }] as SubItem[],
       value: deployingLayer === 'infra' ? 'Deploying...' : (status?.infra || 'Unknown'),
-      logo: provider === 'gcp' ? gceLogo : terraformLogo,
+      logo: terraformLogo,
       iconBg: 'bg-blue-500/15',
       ok: status?.infra === 'Running',
       deploying: deployingLayer === 'infra',
@@ -49,7 +49,7 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
       label: 'Kubernetes',
       subItems: [{ label: 'Kubernetes', logo: kubernetesLogo }, { label: 'Talos Linux', logo: talosLogo }] as SubItem[],
       value: deployingLayer === 'infra' ? 'Waiting...' : (status?.k8s || 'Unknown'),
-      logos: [kubernetesLogo, talosLogo],
+      logo: kubernetesLogo,
       iconBg: 'bg-purple-500/15',
       ok: status?.k8s === 'Ready',
       deploying: false,
@@ -69,7 +69,7 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
       label: 'Applications',
       subItems: [{ label: 'NGINX', logo: nginxLogo }, { label: 'Redis', logo: redisLogo }] as SubItem[],
       value: deployingLayer === 'apps' ? 'Deploying...' : (deployingLayer ? 'Waiting...' : (status?.apps || 'Unknown')),
-      logos: [nginxLogo, redisLogo],
+      logo: nginxLogo,
       iconBg: 'bg-green-500/15',
       ok: status?.apps === 'Deployed',
       deploying: deployingLayer === 'apps',
@@ -88,12 +88,8 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
               "flex items-center gap-3 p-4 rounded-lg bg-muted/40 border",
               card.deploying && "border-primary/40"
             )}>
-              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center gap-1 flex-shrink-0", card.iconBg)}>
-                {'logos' in card && card.logos ? (
-                  card.logos.map((l, i) => <img key={i} src={l} alt="" className="w-4 h-4" />)
-                ) : (
-                  <img src={card.logo} alt={card.label} className="w-5 h-5" />
-                )}
+              <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", card.iconBg)}>
+                <img src={card.logo} alt={card.label} className="w-5 h-5" />
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-semibold">{card.label}</div>

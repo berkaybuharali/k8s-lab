@@ -47,6 +47,16 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      keyframes: {
+        'loading-bar': {
+          '0%': { transform: 'translateX(-100%)', width: '40%' },
+          '50%': { transform: 'translateX(60%)', width: '60%' },
+          '100%': { transform: 'translateX(200%)', width: '40%' },
+        },
+      },
+      animation: {
+        'loading-bar': 'loading-bar 1.5s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
