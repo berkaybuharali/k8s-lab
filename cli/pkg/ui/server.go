@@ -24,14 +24,15 @@ var staticFiles embed.FS
 
 // Server represents the UI HTTP server.
 type Server struct {
-	port     int
-	cloud    string
-	logger   *logger.Logger
-	provider cloud.Provider
-	config   *config.Config
-	tunnel   *TunnelManager
-	wsHub    *WebSocketHub
-	opMu     sync.Mutex
+	port       int
+	cloud      string
+	logger     *logger.Logger
+	provider   cloud.Provider
+	config     *config.Config
+	tunnel     *TunnelManager
+	wsHub      *WebSocketHub
+	opMu       sync.Mutex
+	infraReady bool // true when terraform outputs show infra exists
 }
 
 // NewServer creates a new UI server instance.
@@ -52,9 +53,8 @@ func NewServer(port int, cloudName string, cfg *config.Config, log *logger.Logge
 func (s *Server) Start(ctx context.Context) error {
 	// Check if infra exists and setup tunnel
 	if projectID, err := s.provider.GetProjectID(s.config.GetTerraformDir()); err == nil {
-		// Try to find control plane name from state
-		// We'll use a simplified check: if we can get CP name, infra exists
 		if cpName, zone, err := s.getControlPlaneInfo(); err == nil && cpName != "" {
+			s.infraReady = true
 			s.tunnel = NewTunnelManager(projectID, cpName, zone, s.logger)
 			s.tunnel.Start(ctx)
 		} else {
@@ -187,19 +187,17 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // getControlPlaneInfo retrieves CP name and zone from Terraform state.
+// Works with both local and remote (GCS) state backends.
 func (s *Server) getControlPlaneInfo() (string, string, error) {
-	// This uses the same logic as deploy-infra to extract info
 	tfDir := s.config.GetTerraformDir()
-	
-	// Check if state file exists first to avoid unnecessary terraform calls
-	statePath := filepath.Join(tfDir, "terraform.tfstate")
-	if _, err := os.Stat(statePath); os.IsNotExist(err) {
-		return "", "", fmt.Errorf("state file not found")
+
+	// Check if terraform is initialized (has .terraform directory)
+	dotTF := filepath.Join(tfDir, ".terraform")
+	if _, err := os.Stat(dotTF); os.IsNotExist(err) {
+		return "", "", fmt.Errorf("terraform not initialized")
 	}
 
-	// We use context.Background because this is a one-off check on startup
-	// and we don't want to block server start indefinitely if terraform hangs
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	tfClient, err := terraform.NewClient(ctx, tfDir, s.logger)

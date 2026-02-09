@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,6 +21,7 @@ type AuthStatus struct {
 	Project       string `json:"project,omitempty"`
 	Region        string `json:"region,omitempty"`
 	Provider      string `json:"provider"`
+	StateBucket   string `json:"stateBucket,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
 
@@ -47,9 +49,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		Version: "0.1.0", // TODO: Get from cmd.Version
 	}
 
+	if s.infraReady {
+		status.Infra = "Running"
+	}
+
 	if s.tunnel != nil {
 		status.Tunnel = string(s.tunnel.GetStatus())
-		status.Infra = "Running"
 	}
 
 	// 2. Check K8s + Tools + Apps (requires tunnel)
@@ -101,6 +106,12 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 	region, err := readTerraformVariable(s.config.GetTerraformDir(), "region")
 	if err == nil {
 		status.Region = region
+	}
+
+	// Get State Bucket from terraform.tfvars
+	bucket, err := readTerraformVariable(s.config.GetTerraformDir(), "state_bucket")
+	if err == nil && bucket != "" {
+		status.StateBucket = bucket
 	}
 
 	// Check Authentication
@@ -236,11 +247,20 @@ func (s *Server) handleOperation(w http.ResponseWriter, r *http.Request) {
 
 		s.wsHub.Broadcast("start", fmt.Sprintf(">>> Starting operation: %s\n", operation))
 
-		// Stream stdout/stderr synchronously to ensure all logs are sent before Wait()
-		scanner := bufio.NewScanner(io.MultiReader(stdout, stderr))
-		for scanner.Scan() {
-			s.wsHub.Broadcast("log", scanner.Text())
+		// Stream stdout and stderr concurrently to avoid pipe deadlock.
+		// io.MultiReader would read stdout until EOF first, blocking if stderr buffer fills.
+		var wg sync.WaitGroup
+		scan := func(r io.Reader) {
+			defer wg.Done()
+			sc := bufio.NewScanner(r)
+			for sc.Scan() {
+				s.wsHub.Broadcast("log", sc.Text())
+			}
 		}
+		wg.Add(2)
+		go scan(stdout)
+		go scan(stderr)
+		wg.Wait()
 
 		err := cmd.Wait()
 		if err != nil {
@@ -250,6 +270,7 @@ func (s *Server) handleOperation(w http.ResponseWriter, r *http.Request) {
 			
 			// If deploy-infra (or deploy) succeeded, we should start the persistent tunnel
 			if operation == "deploy-infra" || operation == "deploy" {
+				s.infraReady = true
 				// Refresh infra info and start tunnel
 				if projectID, err := s.provider.GetProjectID(s.config.GetTerraformDir()); err == nil {
 					if cpName, zone, err := s.getControlPlaneInfo(); err == nil {
@@ -263,9 +284,13 @@ func (s *Server) handleOperation(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			
-			// If destroy succeeded, stop the tunnel
-			if operation == "destroy" && s.tunnel != nil {
-				s.tunnel.Stop()
+			// If destroy succeeded, stop the tunnel and reset infra state
+			if operation == "destroy" {
+				s.infraReady = false
+				if s.tunnel != nil {
+					s.tunnel.Stop()
+					s.tunnel = nil
+				}
 			}
 		}
 	}()
