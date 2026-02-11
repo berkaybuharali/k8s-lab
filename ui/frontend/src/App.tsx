@@ -27,7 +27,7 @@ import type { AuthStatus, GlobalStatus } from './types'
 function AppInner() {
   const [auth, setAuth] = useState<AuthStatus | null>(null)
   const [status, setStatus] = useState<GlobalStatus | null>(null)
-  const [view, setView] = useState<'dashboard' | 'pod-detail' | 'tf-detail' | 'about'>('dashboard')
+  const [view, setView] = useState<'dashboard' | 'pod-detail' | 'tf-detail' | 'about' | 'architecture'>('dashboard')
   const [selectedPod, setSelectedPod] = useState<{name: string, ns: string} | null>(null)
   const [restoreOpen, setRestoreOpen] = useState(false)
   const [restoreBackup, setRestoreBackup] = useState('')
@@ -127,7 +127,10 @@ function AppInner() {
             <button onClick={() => setView('dashboard')} className="font-bold text-lg tracking-tight hover:opacity-80 transition-opacity">
               k8s<span className="text-primary">-lab</span>
             </button>
-            <button onClick={() => setView('about')} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-2">
+            <button onClick={() => setView('architecture')} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-2">
+              Architecture
+            </button>
+            <button onClick={() => setView('about')} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
               About
             </button>
           </div>
@@ -234,6 +237,16 @@ function AppInner() {
 
           {view === 'tf-detail' && (
             <TerraformResources onBack={() => setView('dashboard')} />
+          )}
+
+          {view === 'architecture' && (
+            <div className="w-full h-full">
+              <iframe
+                src="/architecture.html"
+                className="w-full h-full border-0"
+                title="Architecture"
+              />
+            </div>
           )}
 
           {view === 'about' && (

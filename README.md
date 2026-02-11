@@ -28,24 +28,22 @@ A hands-on lab for running self-managed Kubernetes clusters on cloud VMs. Not ma
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Layer 4: Applications                     │
-│              (User workloads, PostgreSQL, etc.)              │
-├─────────────────────────────────────────────────────────────┤
-│                    Layer 3: Platform                         │
-│                   (Velero backup/restore)                    │
-├─────────────────────────────────────────────────────────────┤
-│                    Layer 2: Cluster                          │
-│                     (Talos Linux)                            │
-├─────────────────────────────────────────────────────────────┤
-│                  Layer 1: Infrastructure                     │
-│                 (VMs, VPC, Firewall, NAT)                    │
-└─────────────────────────────────────────────────────────────┘
+### System Deployment
 
-Layers 1-2: Cloud-specific
-Layers 3-4: Cloud-agnostic (portable across providers)
-```
+![System Deployment Diagram](architecture-deployment.png)
+
+*Interactive diagrams with detailed C4 context, container, and layered architecture views available in the [Web Dashboard Architecture page](ui/frontend/public/architecture.html).*
+
+### Layered Architecture
+
+| Layer | Components | Cloud-Specific |
+|-------|------------|----------------|
+| **4. Applications** | NGINX, Redis, User workloads | ✅ Cloud-agnostic |
+| **3. Platform Tools** | Velero, CSI Driver | ✅ Cloud-agnostic |
+| **2. Cluster** | Talos Linux, Kubernetes | ❌ Cloud-specific |
+| **1. Infrastructure** | VMs, VPC, Firewall, Storage | ❌ Cloud-specific |
+
+Layers 3-4 are portable across cloud providers. Layers 1-2 require cloud-specific configuration.
 
 ## Prerequisites
 

@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>k8s-lab Architecture</title>
+<style>
+  :root {
+    --bg: #f5f7fa;
+    --fg: #1e293b;
+    --card: #ffffff;
+    --card-fg: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --primary: #3b82f6;
+    --primary-light: rgba(59,130,246,0.1);
+    --layer1: #7c3aed;
+    --layer1-bg: rgba(124,58,237,0.08);
+    --layer2: #2563eb;
+    --layer2-bg: rgba(37,99,235,0.08);
+    --layer3: #0891b2;
+    --layer3-bg: rgba(8,145,178,0.08);
+    --layer4: #059669;
+    --layer4-bg: rgba(5,150,105,0.08);
+    --arrow: #94a3b8;
+    --arrow-text: #64748b;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+    --zone-bg: rgba(59,130,246,0.04);
+    --zone-border: rgba(59,130,246,0.15);
+  }
+  .dark {
+    --bg: #0c1220;
+    --fg: #e2e8f0;
+    --card: #1a2332;
+    --card-fg: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #2d3a4d;
+    --primary: #3b82f6;
+    --primary-light: rgba(59,130,246,0.15);
+    --layer1-bg: rgba(124,58,237,0.15);
+    --layer2-bg: rgba(37,99,235,0.15);
+    --layer3-bg: rgba(8,145,178,0.15);
+    --layer4-bg: rgba(5,150,105,0.15);
+    --arrow: #475569;
+    --arrow-text: #94a3b8;
+    --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.3);
+    --zone-bg: rgba(59,130,246,0.06);
+    --zone-border: rgba(59,130,246,0.2);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--fg); line-height: 1.6;
+    transition: background 0.3s, color 0.3s;
+  }
+  header {
+    height: 56px; border-bottom: 1px solid var(--border); padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--card); position: sticky; top: 0; z-index: 10;
+  }
+  .logo { font-weight: 700; font-size: 18px; letter-spacing: -0.5px; text-decoration: none; color: var(--fg); }
+  .logo span { color: var(--primary); }
+  .nav-links { display: flex; align-items: center; gap: 16px; }
+  .nav-links a { font-size: 13px; color: var(--muted); text-decoration: none; }
+  .nav-links a:hover { color: var(--fg); }
+  .nav-links a.active { color: var(--primary); font-weight: 600; }
+  .theme-btn {
+    width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); cursor: pointer; display: flex; align-items: center;
+    justify-content: center; color: var(--muted); font-size: 16px;
+  }
+  .theme-btn:hover { color: var(--fg); border-color: var(--muted); }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 40px; }
+  .section { margin-bottom: 56px; }
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--muted); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+
+  /* ── SVG Arrow helper ── */
+  .svg-arrow { display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  .svg-arrow.horizontal { flex-direction: row; }
+  .svg-arrow-label { font-size: 10px; color: var(--arrow-text); white-space: nowrap; }
+
+  /* ── C4 Context Diagram ── */
+  .c4-context { display: flex; align-items: center; justify-content: center; gap: 0; padding: 40px 0; flex-wrap: nowrap; }
+  .c4-box {
+    border: 2px solid var(--border); border-radius: 12px; padding: 20px 22px;
+    text-align: center; background: var(--card); box-shadow: var(--shadow); min-width: 160px; flex: 1;
+  }
+  .c4-box.system { border-color: var(--primary); background: var(--primary-light); min-width: 200px; }
+  .c4-box .c4-logo { width: 28px; height: 28px; margin: 0 auto 6px; display: block; }
+  .c4-box .c4-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+  .c4-box.system .c4-label { color: var(--primary); }
+  .c4-box .c4-name { font-size: 16px; font-weight: 700; }
+  .c4-box .c4-desc { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .c4-box .c4-tech { font-size: 11px; color: var(--muted); margin-top: 8px; font-style: italic; }
+  .c4-arrow-h { display: flex; flex-direction: column; align-items: center; padding: 0 8px; gap: 4px; }
+
+  /* ── Layered Architecture ── */
+  .layers { display: flex; flex-direction: column; gap: 0; }
+  .layer {
+    border: 1px solid var(--border); padding: 20px 24px;
+    display: flex; align-items: center; gap: 20px; background: var(--card);
+  }
+  .layer:first-child { border-radius: 12px 12px 0 0; }
+  .layer:last-child { border-radius: 0 0 12px 12px; }
+  .layer + .layer { border-top: none; }
+  .layer-badge {
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+    padding: 4px 10px; border-radius: 6px; white-space: nowrap; min-width: 110px; text-align: center;
+  }
+  .layer.l4 { background: var(--layer4-bg); }
+  .layer.l4 .layer-badge { background: var(--layer4); color: #fff; }
+  .layer.l3 { background: var(--layer3-bg); }
+  .layer.l3 .layer-badge { background: var(--layer3); color: #fff; }
+  .layer.l2 { background: var(--layer2-bg); }
+  .layer.l2 .layer-badge { background: var(--layer2); color: #fff; }
+  .layer.l1 { background: var(--layer1-bg); }
+  .layer.l1 .layer-badge { background: var(--layer1); color: #fff; }
+  .layer-content { flex: 1; }
+  .layer-title { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+  .layer-desc { font-size: 12px; color: var(--muted); }
+  .layer-tools { display: flex; gap: 12px; flex-wrap: wrap; }
+  .tool-chip {
+    display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--card);
+    font-size: 12px; font-weight: 600; box-shadow: var(--shadow);
+  }
+  .tool-chip img { width: 20px; height: 20px; }
+  .cloud-badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600;
+    margin-left: auto; white-space: nowrap;
+  }
+  .cloud-specific { background: rgba(234,69,53,0.1); color: #ea4535; border: 1px solid rgba(234,69,53,0.2); }
+  .cloud-agnostic { background: rgba(5,150,105,0.1); color: #059669; border: 1px solid rgba(5,150,105,0.2); }
+
+  /* ── C4 Container Diagram ── */
+  .container-diagram {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+    padding: 24px; border: 2px dashed var(--border); border-radius: 16px; position: relative;
+  }
+  .container-diagram::before {
+    content: 'k8s-lab System Boundary'; position: absolute; top: -12px; left: 20px;
+    background: var(--bg); padding: 0 8px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--primary);
+  }
+  .container-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 16px;
+    background: var(--card); box-shadow: var(--shadow); text-align: center;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .container-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .container-card .cc-icon { width: 36px; height: 36px; margin: 0 auto 8px; }
+  .container-card .cc-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .container-card .cc-desc { font-size: 11px; color: var(--muted); }
+  .container-card .cc-tech { font-size: 10px; color: var(--muted); font-style: italic; margin-top: 6px; }
+
+  .ext-systems { display: flex; justify-content: center; gap: 40px; margin-top: 16px; flex-wrap: wrap; }
+  .ext-card {
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px;
+    background: var(--card); box-shadow: var(--shadow); text-align: center;
+    display: flex; align-items: center; gap: 10px; opacity: 0.85;
+  }
+  .ext-card img { width: 24px; height: 24px; }
+  .ext-card .ext-name { font-size: 12px; font-weight: 600; }
+  .ext-card .ext-desc { font-size: 10px; color: var(--muted); }
+
+  .diagram-connector {
+    display: flex; justify-content: center; padding: 8px 0; gap: 60px; flex-wrap: wrap;
+  }
+
+  /* ── Daily Lifecycle Flow ── */
+  .lifecycle-flow { display: flex; align-items: flex-start; justify-content: center; gap: 0; flex-wrap: wrap; padding: 20px 0; }
+  .lc-step {
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; padding: 16px 6px; min-width: 110px; flex: 1;
+  }
+  .lc-arrow-h { display: flex; align-items: center; padding-top: 28px; }
+  .lc-icon {
+    width: 48px; height: 48px; border-radius: 12px; display: flex;
+    align-items: center; justify-content: center; margin-bottom: 10px; font-size: 22px;
+  }
+  .lc-icon.deploy { background: rgba(37,99,235,0.12); color: #2563eb; }
+  .lc-icon.work { background: rgba(5,150,105,0.12); color: #059669; }
+  .lc-icon.backup { background: rgba(8,145,178,0.12); color: #0891b2; }
+  .lc-icon.destroy { background: rgba(239,68,68,0.12); color: #ef4444; }
+  .lc-icon.restore { background: rgba(124,58,237,0.12); color: #7c3aed; }
+  .lc-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .lc-desc { font-size: 11px; color: var(--muted); max-width: 130px; }
+  .lc-cmd {
+    font-size: 10px; font-family: 'SF Mono', 'Fira Code', monospace; color: var(--primary);
+    margin-top: 6px; background: var(--primary-light); padding: 2px 8px; border-radius: 4px;
+  }
+  .lifecycle-wrapper {
+    border: 1px solid var(--border); border-radius: 12px; background: var(--card);
+    padding: 24px; box-shadow: var(--shadow); overflow-x: auto;
+  }
+  .lifecycle-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--muted); text-align: center; margin-bottom: 16px;
+  }
+  .lifecycle-note {
+    text-align: center; font-size: 12px; color: var(--muted); margin-top: 16px;
+    padding-top: 12px; border-top: 1px solid var(--border);
+  }
+
+  /* ── Infrastructure Detail ── */
+  .infra-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .infra-card { border: 1px solid var(--border); border-radius: 10px; padding: 20px; background: var(--card); box-shadow: var(--shadow); }
+  .infra-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .infra-card-header img { width: 28px; height: 28px; }
+  .infra-card-header .ic-title { font-size: 14px; font-weight: 700; }
+  .infra-card ul { list-style: none; padding: 0; }
+  .infra-card li {
+    font-size: 12px; color: var(--muted); padding: 4px 0;
+    border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+  }
+  .infra-card li:last-child { border-bottom: none; }
+  .infra-card li img { width: 16px; height: 16px; }
+  .infra-card li strong { color: var(--fg); font-weight: 600; }
+
+  /* ── System Deployment Diagram ── */
+  .deploy-diagram { position: relative; }
+  .deploy-grid { display: grid; grid-template-columns: 300px 1fr; gap: 36px; align-items: stretch; min-height: 560px; }
+
+  .deploy-zone {
+    border: 2px solid var(--zone-border); border-radius: 14px; padding: 20px;
+    background: var(--zone-bg); position: relative;
+  }
+  .deploy-zone-label {
+    position: absolute; top: -11px; left: 16px; background: var(--bg); padding: 0 8px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;
+  }
+  .deploy-zone-label.local { color: var(--layer2); }
+  .deploy-zone-label.gcp { color: #ea4535; }
+  .deploy-zone-label.vpc { color: var(--primary); }
+  .deploy-zone-label.k8s { color: #486bb3; }
+  .deploy-zone-label.ns { color: var(--layer4); }
+  .deploy-zone-label.storage { color: #0891b2; }
+
+  .local-zone { display: flex; flex-direction: column; gap: 14px; justify-content: center; }
+  .gcp-zone { display: flex; flex-direction: column; gap: 16px; }
+
+  .deploy-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+    box-shadow: var(--shadow); font-size: 12px; font-weight: 600;
+  }
+  .deploy-item img { width: 22px; height: 22px; flex-shrink: 0; }
+  .deploy-item-sub { font-size: 10px; color: var(--muted); font-weight: 400; }
+
+  .vpc-zone { flex: 1; }
+  .node-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .node-card {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    background: var(--card); box-shadow: var(--shadow); text-align: center;
+  }
+  .node-card .node-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
+  .node-card .node-name { font-size: 11px; font-weight: 600; margin-top: 2px; }
+  .node-card .node-os { font-size: 10px; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 4px; }
+  .node-card .node-os img { width: 14px; height: 14px; }
+
+  .k8s-zone { margin-top: 12px; }
+  .ns-zone { margin-top: 10px; padding: 10px 14px; }
+  .pod-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .pod-chip {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--card);
+    font-size: 12px; font-weight: 600; box-shadow: var(--shadow); flex: 1; min-width: 0;
+  }
+  .pod-chip img { width: 20px; height: 20px; flex-shrink: 0; }
+  .pod-chip .pod-kind { font-size: 10px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+
+  .storage-zone {
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+
+  .deploy-connector {
+    display: flex; align-items: center; justify-content: center;
+    position: relative; z-index: 2;
+  }
+
+  /* Connection lines using SVG overlay */
+  .connections-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 1;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .c4-context { flex-direction: column; gap: 12px; flex-wrap: wrap; }
+    .c4-arrow-h svg { transform: rotate(90deg); }
+    .container-diagram { grid-template-columns: 1fr; }
+    .deploy-grid { grid-template-columns: 1fr; }
+    .local-zone { margin-right: 0; margin-bottom: 16px; }
+    .node-row { grid-template-columns: 1fr; }
+    .lifecycle-flow { flex-direction: column; align-items: center; }
+    .lc-arrow-h svg { transform: rotate(90deg); }
+  }
+
+  .footer { text-align: center; padding: 24px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--border); }
+  .footer a { color: var(--primary); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <a href="#" class="logo">k8s<span>-lab</span></a>
+    <nav class="nav-links">
+      <a href="#" class="active">Architecture</a>
+    </nav>
+  </div>
+  <button class="theme-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">
+    <span id="themeIcon">&#9790;</span>
+  </button>
+</header>
+
+<main>
+  <h1>Architecture</h1>
+  <p class="subtitle">A reproducible Kubernetes lab environment running on cloud VMs with Talos Linux, featuring daily create/destroy cycles for cost optimization, automated backup/restore workflows via Velero, and multi-cloud portability through layered architecture separation.</p>
+
+  <!-- ═══════════════════════════════════════════════ -->
+  <!-- Section 1: System Deployment / Network Diagram  -->
+  <!-- ═══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">System Deployment Diagram</div>
+
+    <div class="deploy-diagram">
+      <div class="deploy-grid">
+
+        <!-- ── Left: Developer Laptop ── -->
+        <div class="deploy-zone local-zone">
+          <span class="deploy-zone-label local">Developer Laptop (localhost)</span>
+
+          <div class="deploy-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <div>Dashboard UI<div class="deploy-item-sub">React &middot; gcloud &middot; velero &middot; kubectl</div></div>
+          </div>
+          <div class="deploy-item">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            <div>CLI / Makefile<div class="deploy-item-sub">Go binary &middot; gcloud &middot; velero &middot; kubectl</div></div>
+          </div>
+          <div class="deploy-item">
+            <img src="assets/terraform_logo.svg" alt="Terraform">
+            <div>Terraform<div class="deploy-item-sub">terraform apply</div></div>
+          </div>
+          <div class="deploy-item">
+            <img src="assets/talos_logo.svg" alt="Talos">
+            <div>talosctl<div class="deploy-item-sub">bootstrap &middot; kubeconfig</div></div>
+          </div>
+          <div class="deploy-item">
+            <img src="assets/kubernetes_logo.svg" alt="kubectl">
+            <div>kubectl<div class="deploy-item-sub">apply manifests</div></div>
+          </div>
+        </div>
+
+        <!-- ── Right: GCP Cloud ── -->
+        <div class="deploy-zone gcp-zone">
+          <span class="deploy-zone-label gcp"><img src="assets/gcp_logo.svg" alt="GCP" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;">Google Cloud Platform</span>
+
+          <!-- IAP Tunnel (inside GCP) -->
+          <div class="deploy-item" style="border-color:var(--layer3);background:rgba(8,145,178,0.06);justify-content:center;">
+            <img src="assets/iap_logo.svg" alt="IAP" style="width:22px;height:22px;">
+            <div>IAP Tunnel<div class="deploy-item-sub">Identity-Aware Proxy &middot; secure access to VMs</div></div>
+          </div>
+
+          <!-- VPC -->
+          <div class="deploy-zone vpc-zone">
+            <span class="deploy-zone-label vpc"><img src="assets/gcp_vpc_logo.svg" alt="VPC" style="width:12px;height:12px;vertical-align:middle;margin-right:3px;">VPC Network &middot; <img src="assets/gcp_firewal_logo.svg" alt="FW" style="width:12px;height:12px;vertical-align:middle;margin-right:2px;">Firewall Rules</span>
+
+            <!-- Nodes -->
+            <div class="node-row">
+              <div class="node-card">
+                <div class="node-role">Control Plane</div>
+                <div class="node-name">cp-0</div>
+                <div class="node-os"><img src="assets/talos_logo.svg" alt="Talos"> Talos &middot; zone-a</div>
+              </div>
+              <div class="node-card">
+                <div class="node-role">Worker</div>
+                <div class="node-name">worker-0</div>
+                <div class="node-os"><img src="assets/talos_logo.svg" alt="Talos"> Talos &middot; zone-b</div>
+              </div>
+              <div class="node-card">
+                <div class="node-role">Worker</div>
+                <div class="node-name">worker-1</div>
+                <div class="node-os"><img src="assets/talos_logo.svg" alt="Talos"> Talos &middot; zone-c</div>
+              </div>
+            </div>
+
+            <!-- K8s Cluster (Talos OS on GCE) -->
+            <div class="deploy-zone k8s-zone">
+              <span class="deploy-zone-label k8s"><img src="assets/gce_logo.svg" alt="GCE" style="width:12px;height:12px;vertical-align:middle;margin-right:3px;">Talos OS on GCE (Kubernetes)</span>
+
+              <!-- k8s-lab namespace -->
+              <div class="deploy-zone ns-zone">
+                <span class="deploy-zone-label ns">namespace: application</span>
+                <div class="pod-row">
+                  <div class="pod-chip">
+                    <img src="assets/nginx_logo.svg" alt="NGINX">
+                    <div>nginx<div class="pod-kind">Deployment + PVC</div></div>
+                  </div>
+                  <div class="pod-chip">
+                    <img src="assets/redis_logo.svg" alt="Redis">
+                    <div>redis<div class="pod-kind">StatefulSet + PVC</div></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- velero namespace -->
+              <div class="deploy-zone ns-zone" style="margin-top:6px;">
+                <span class="deploy-zone-label" style="color:var(--layer3);">namespace: velero</span>
+                <div class="pod-row">
+                  <div class="pod-chip">
+                    <img src="assets/velero_logo.svg" alt="Velero">
+                    <div>velero-server<div class="pod-kind">Deployment</div></div>
+                  </div>
+                  <div class="pod-chip">
+                    <img src="assets/gcp_persistent_disk.svg" alt="CSI">
+                    <div>csi-driver<div class="pod-kind">DaemonSet</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- GCS Storage (outside VPC) -->
+          <div class="deploy-zone storage-zone">
+            <span class="deploy-zone-label storage"><img src="assets/gcs_logo.svg" alt="GCS" style="width:12px;height:12px;vertical-align:middle;margin-right:3px;">Cloud Storage (GCS)</span>
+            <div class="deploy-item" style="flex:1;">
+              <img src="assets/terraform_logo.svg" alt="Terraform">
+              <div>Terraform State<div class="deploy-item-sub">Remote backend for TF state</div></div>
+            </div>
+            <div class="deploy-item" style="flex:1;">
+              <img src="assets/velero_logo.svg" alt="Velero">
+              <div>Velero Backups<div class="deploy-item-sub">K8s resources + volume snapshots</div></div>
+            </div>
+            <div class="deploy-item" style="flex:1;">
+              <img src="assets/talos_logo.svg" alt="Talos">
+              <div>Talos Image<div class="deploy-item-sub">OS image for GCE instances</div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SVG arrows overlay -->
+      <svg class="connections-overlay" id="connSvg" preserveAspectRatio="none">
+        <defs>
+          <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6" fill="none" stroke="var(--arrow)" stroke-width="1.5"/>
+          </marker>
+          <marker id="ah-rev" markerWidth="8" markerHeight="6" refX="0" refY="3" orient="auto">
+            <path d="M8,0 L0,3 L8,6" fill="none" stroke="var(--arrow)" stroke-width="1.5"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+
+    <!-- Legend -->
+    <div style="display:flex; gap:24px; flex-wrap:wrap; margin-top:16px; justify-content:center;">
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);">
+        <svg width="30" height="12"><line x1="0" y1="6" x2="24" y2="6" stroke="var(--arrow)" stroke-width="1.5" stroke-dasharray="4,3"/><polygon points="24,3 30,6 24,9" fill="var(--arrow)"/></svg>
+        API / Network call
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);">
+        <div style="width:14px;height:14px;border:2px solid var(--zone-border);border-radius:4px;background:var(--zone-bg);"></div>
+        Boundary / Zone
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);">
+        <div style="width:14px;height:14px;border:1px solid var(--border);border-radius:4px;background:var(--card);box-shadow:var(--shadow);"></div>
+        Component / Service
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Section 2: C4 System Context            -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">C4 System Context</div>
+    <div class="c4-context">
+      <div class="c4-box">
+        <svg class="c4-logo" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg>
+        <div class="c4-label">Person</div>
+        <div class="c4-name">Developer</div>
+        <div class="c4-desc">Uses CLI or Dashboard to manage the lab cluster</div>
+      </div>
+      <div class="c4-arrow-h">
+        <span class="svg-arrow-label">CLI / Dashboard</span>
+        <svg width="70" height="20" viewBox="0 0 70 20">
+          <line x1="0" y1="10" x2="58" y2="10" stroke="var(--arrow)" stroke-width="1.5" stroke-dasharray="5,3"/>
+          <polygon points="58,6 68,10 58,14" fill="var(--arrow)"/>
+        </svg>
+      </div>
+      <div class="c4-box system">
+        <img class="c4-logo" src="assets/kubernetes_logo.svg" alt="k8s-lab">
+        <div class="c4-label">Software System</div>
+        <div class="c4-name">k8s-lab</div>
+        <div class="c4-desc">Reproducible K8s lab with daily create/destroy lifecycle</div>
+        <div class="c4-tech">Terraform, Talos Linux, Velero, Go, Bash</div>
+      </div>
+      <div class="c4-arrow-h">
+        <span class="svg-arrow-label">API calls (via IAP)</span>
+        <svg width="70" height="20" viewBox="0 0 70 20">
+          <line x1="0" y1="10" x2="58" y2="10" stroke="var(--arrow)" stroke-width="1.5" stroke-dasharray="5,3"/>
+          <polygon points="58,6 68,10 58,14" fill="var(--arrow)"/>
+        </svg>
+      </div>
+      <div class="c4-box">
+        <img class="c4-logo" src="assets/gcp_logo.svg" alt="GCP">
+        <div class="c4-label">External System</div>
+        <div class="c4-name">Google Cloud Platform</div>
+        <div class="c4-desc">VMs, networking, storage, IAM, IAP</div>
+        <div class="c4-tech">GCE, GCS, VPC, IAP</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Section 3: C4 Container Diagram         -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">C4 Container Diagram</div>
+    <div class="container-diagram">
+      <div class="container-card">
+        <img class="cc-icon" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2'%3E%3Crect x='2' y='3' width='20' height='14' rx='2'/%3E%3Cline x1='8' y1='21' x2='16' y2='21'/%3E%3Cline x1='12' y1='17' x2='12' y2='21'/%3E%3C/svg%3E" alt="">
+        <div class="cc-name">Dashboard UI</div>
+        <div class="cc-desc">Real-time cluster monitoring, actions, logs</div>
+        <div class="cc-tech">React, Vite, Tailwind, WebSocket</div>
+      </div>
+      <div class="container-card">
+        <img class="cc-icon" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2'%3E%3Cpolyline points='4 17 10 11 4 5'/%3E%3Cline x1='12' y1='19' x2='20' y2='19'/%3E%3C/svg%3E" alt="">
+        <div class="cc-name">CLI / Makefile</div>
+        <div class="cc-desc">Command-line interface for all operations</div>
+        <div class="cc-tech">Go binary, Make, Bash</div>
+      </div>
+      <div class="container-card">
+        <img class="cc-icon" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5z'/%3E%3Cpath d='M2 17l10 5 10-5'/%3E%3Cpath d='M2 12l10 5 10-5'/%3E%3C/svg%3E" alt="">
+        <div class="cc-name">API Server</div>
+        <div class="cc-desc">Backend serving status, auth, operations</div>
+        <div class="cc-tech">Go, net/http, goroutines</div>
+      </div>
+      <div class="container-card">
+        <img class="cc-icon" src="assets/terraform_logo.svg" alt="Terraform">
+        <div class="cc-name">Terraform</div>
+        <div class="cc-desc">Provisions and destroys cloud infrastructure</div>
+        <div class="cc-tech">HCL, GCS remote state</div>
+      </div>
+      <div class="container-card">
+        <img class="cc-icon" src="assets/talos_logo.svg" alt="Talos">
+        <div class="cc-name">Talos Linux</div>
+        <div class="cc-desc">Immutable OS, bootstraps K8s via talosctl</div>
+        <div class="cc-tech">API-driven, no SSH</div>
+      </div>
+      <div class="container-card">
+        <img class="cc-icon" src="assets/kubernetes_logo.svg" alt="Kubernetes">
+        <div class="cc-name">Kubernetes</div>
+        <div class="cc-desc">Container orchestration on Talos VMs</div>
+        <div class="cc-tech">1 CP + 2 Workers</div>
+      </div>
+      <div class="container-card">
+        <img class="cc-icon" src="assets/velero_logo.svg" alt="Velero">
+        <div class="cc-name">Velero</div>
+        <div class="cc-desc">Backup/restore K8s resources and volumes</div>
+        <div class="cc-tech">GCS backend, CSI snapshots</div>
+      </div>
+      <div class="container-card">
+        <img class="cc-icon" src="assets/nginx_logo.svg" alt="NGINX">
+        <div class="cc-name">NGINX</div>
+        <div class="cc-desc">Web server with persistent volume</div>
+        <div class="cc-tech">Deployment + PVC</div>
+      </div>
+      <div class="container-card">
+        <img class="cc-icon" src="assets/redis_logo.svg" alt="Redis">
+        <div class="cc-name">Redis</div>
+        <div class="cc-desc">In-memory store for backup/restore testing</div>
+        <div class="cc-tech">StatefulSet + PVC</div>
+      </div>
+    </div>
+
+    <div class="diagram-connector">
+      <svg width="200" height="36" viewBox="0 0 200 36">
+        <line x1="30" y1="0" x2="30" y2="24" stroke="var(--arrow)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="26,24 30,32 34,24" fill="var(--arrow)"/>
+        <text x="44" y="20" font-size="10" fill="var(--arrow-text)" font-family="system-ui">Provisions VMs</text>
+      </svg>
+      <svg width="200" height="36" viewBox="0 0 200 36">
+        <line x1="30" y1="0" x2="30" y2="24" stroke="var(--arrow)" stroke-width="1.5" stroke-dasharray="4,3"/>
+        <polygon points="26,24 30,32 34,24" fill="var(--arrow)"/>
+        <text x="44" y="20" font-size="10" fill="var(--arrow-text)" font-family="system-ui">Stores state &amp; backups</text>
+      </svg>
+    </div>
+
+    <div class="ext-systems">
+      <div class="ext-card">
+        <img src="assets/gce_logo.svg" alt="GCE">
+        <div>
+          <div class="ext-name">Compute Engine</div>
+          <div class="ext-desc">VMs (e2-medium)</div>
+        </div>
+      </div>
+      <div class="ext-card">
+        <img src="assets/gcs_logo.svg" alt="GCS">
+        <div>
+          <div class="ext-name">Cloud Storage</div>
+          <div class="ext-desc">TF state + Velero backups</div>
+        </div>
+      </div>
+      <div class="ext-card">
+        <img src="assets/gcp_vpc_logo.svg" alt="VPC">
+        <div>
+          <div class="ext-name">VPC Network</div>
+          <div class="ext-desc">Subnets + Firewall</div>
+        </div>
+      </div>
+      <div class="ext-card">
+        <img src="assets/gcp_persistent_disk.svg" alt="PD">
+        <div>
+          <div class="ext-name">Persistent Disk</div>
+          <div class="ext-desc">PVCs via CSI driver</div>
+        </div>
+      </div>
+      <div class="ext-card">
+        <img src="assets/iap_logo.svg" alt="IAP">
+        <div>
+          <div class="ext-name">Identity-Aware Proxy</div>
+          <div class="ext-desc">Secure tunnel to VMs</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Section 4: Layered Architecture         -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">Layered Architecture</div>
+    <div class="layers">
+      <div class="layer l4">
+        <div class="layer-badge">Layer 4</div>
+        <div class="layer-content">
+          <div class="layer-title">Applications</div>
+          <div class="layer-desc">User workloads deployed on the cluster</div>
+        </div>
+        <div class="layer-tools">
+          <div class="tool-chip"><img src="assets/nginx_logo.svg" alt="NGINX"> NGINX</div>
+          <div class="tool-chip"><img src="assets/redis_logo.svg" alt="Redis"> Redis</div>
+        </div>
+        <span class="cloud-badge cloud-agnostic">Cloud-agnostic</span>
+      </div>
+      <div class="layer l3">
+        <div class="layer-badge">Layer 3</div>
+        <div class="layer-content">
+          <div class="layer-title">Platform Tools</div>
+          <div class="layer-desc">Backup/restore, storage provisioning</div>
+        </div>
+        <div class="layer-tools">
+          <div class="tool-chip"><img src="assets/velero_logo.svg" alt="Velero"> Velero</div>
+          <div class="tool-chip"><img src="assets/gcp_persistent_disk.svg" alt="CSI"> CSI Driver</div>
+        </div>
+        <span class="cloud-badge cloud-agnostic">Cloud-agnostic</span>
+      </div>
+      <div class="layer l2">
+        <div class="layer-badge">Layer 2</div>
+        <div class="layer-content">
+          <div class="layer-title">Kubernetes Cluster</div>
+          <div class="layer-desc">1 control plane + 2 workers across availability zones</div>
+        </div>
+        <div class="layer-tools">
+          <div class="tool-chip"><img src="assets/talos_logo.svg" alt="Talos"> Talos Linux</div>
+          <div class="tool-chip"><img src="assets/kubernetes_logo.svg" alt="K8s"> Kubernetes</div>
+        </div>
+        <span class="cloud-badge cloud-specific">Cloud-specific</span>
+      </div>
+      <div class="layer l1">
+        <div class="layer-badge">Layer 1</div>
+        <div class="layer-content">
+          <div class="layer-title">Infrastructure</div>
+          <div class="layer-desc">VMs, networking, firewall, persistent disks</div>
+        </div>
+        <div class="layer-tools">
+          <div class="tool-chip"><img src="assets/terraform_logo.svg" alt="Terraform"> Terraform</div>
+          <div class="tool-chip"><img src="assets/gcp_logo.svg" alt="GCP"> GCP</div>
+        </div>
+        <span class="cloud-badge cloud-specific">Cloud-specific</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Section 5: Daily Lifecycle              -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title">Daily Lifecycle (Cost Optimization)</div>
+    <div class="lifecycle-wrapper">
+      <div class="lifecycle-label">Morning &rarr; Day &rarr; Evening &rarr; Next Day</div>
+      <div class="lifecycle-flow">
+        <div class="lc-step">
+          <div class="lc-icon deploy">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+          </div>
+          <div class="lc-name">Deploy</div>
+          <div class="lc-desc">Provision VMs, bootstrap K8s, install tools</div>
+          <div class="lc-cmd">k8s-lab deploy gcp</div>
+        </div>
+        <div class="lc-arrow-h">
+          <svg width="28" height="16" viewBox="0 0 28 16">
+            <line x1="0" y1="8" x2="18" y2="8" stroke="var(--arrow)" stroke-width="1.5"/>
+            <polygon points="18,4 26,8 18,12" fill="var(--arrow)"/>
+          </svg>
+        </div>
+        <div class="lc-step">
+          <div class="lc-icon work">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <div class="lc-name">Work</div>
+          <div class="lc-desc">Deploy apps, experiment, develop</div>
+          <div class="lc-cmd">kubectl apply ...</div>
+        </div>
+        <div class="lc-arrow-h">
+          <svg width="28" height="16" viewBox="0 0 28 16">
+            <line x1="0" y1="8" x2="18" y2="8" stroke="var(--arrow)" stroke-width="1.5"/>
+            <polygon points="18,4 26,8 18,12" fill="var(--arrow)"/>
+          </svg>
+        </div>
+        <div class="lc-step">
+          <div class="lc-icon backup">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          </div>
+          <div class="lc-name">Backup</div>
+          <div class="lc-desc">Snapshot K8s resources + volumes to GCS</div>
+          <div class="lc-cmd">k8s-lab backup gcp</div>
+        </div>
+        <div class="lc-arrow-h">
+          <svg width="28" height="16" viewBox="0 0 28 16">
+            <line x1="0" y1="8" x2="18" y2="8" stroke="var(--arrow)" stroke-width="1.5"/>
+            <polygon points="18,4 26,8 18,12" fill="var(--arrow)"/>
+          </svg>
+        </div>
+        <div class="lc-step">
+          <div class="lc-icon destroy">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </div>
+          <div class="lc-name">Destroy</div>
+          <div class="lc-desc">Tear down all VMs and networking</div>
+          <div class="lc-cmd">k8s-lab destroy gcp</div>
+        </div>
+        <div class="lc-arrow-h">
+          <svg width="28" height="16" viewBox="0 0 28 16">
+            <line x1="0" y1="8" x2="18" y2="8" stroke="var(--arrow)" stroke-width="1.5"/>
+            <polygon points="18,4 26,8 18,12" fill="var(--arrow)"/>
+          </svg>
+        </div>
+        <div class="lc-step">
+          <div class="lc-icon restore">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          </div>
+          <div class="lc-name">Restore</div>
+          <div class="lc-desc">Deploy fresh infra, restore from backup</div>
+          <div class="lc-cmd">k8s-lab restore gcp</div>
+        </div>
+      </div>
+      <div class="lifecycle-note">
+        Backups persist in GCS across destroy/create cycles. Only pay for compute during active hours.<br>
+        <span style="font-size:10px;color:var(--muted);margin-top:4px;display:inline-block;">k8s-lab is a Go CLI binary</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Section 6: GCP Infrastructure Resources -->
+  <!-- ═══════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-title"><img src="assets/gcp_logo.svg" alt="GCP" style="width:16px;height:16px;vertical-align:middle;margin-right:6px;">GCP Infrastructure Resources</div>
+    <div class="infra-grid">
+      <div class="infra-card">
+        <div class="infra-card-header">
+          <img src="assets/gcp_vpc_logo.svg" alt="VPC">
+          <div class="ic-title">Networking</div>
+        </div>
+        <ul>
+          <li><strong>VPC</strong> &mdash; Custom mode, single region</li>
+          <li><strong>Subnet</strong> &mdash; /24 CIDR for cluster nodes</li>
+          <li><img src="assets/gcp_firewal_logo.svg" alt="FW"> <strong>Firewall</strong> &mdash; Talos API, K8s API, inter-node</li>
+        </ul>
+      </div>
+      <div class="infra-card">
+        <div class="infra-card-header">
+          <img src="assets/gce_logo.svg" alt="GCE">
+          <div class="ic-title">Compute</div>
+        </div>
+        <ul>
+          <li><strong>Control Plane</strong> &mdash; 1x e2-medium (zone-a)</li>
+          <li><strong>Worker 1</strong> &mdash; 1x e2-medium (zone-b)</li>
+          <li><strong>Worker 2</strong> &mdash; 1x e2-medium (zone-c)</li>
+          <li><img src="assets/gcp_persistent_disk.svg" alt="PD"> <strong>Boot disks</strong> &mdash; Talos OS image</li>
+        </ul>
+      </div>
+      <div class="infra-card">
+        <div class="infra-card-header">
+          <img src="assets/gcs_logo.svg" alt="GCS">
+          <div class="ic-title">Storage</div>
+        </div>
+        <ul>
+          <li><strong>TF State Bucket</strong> &mdash; Remote backend for Terraform</li>
+          <li><strong>Velero Bucket</strong> &mdash; Backup storage location</li>
+          <li><img src="assets/gcp_persistent_disk.svg" alt="PD"> <strong>PVCs</strong> &mdash; CSI-provisioned persistent disks</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="footer">
+  <a href="https://github.com/berkaybuharali/k8s-lab" target="_blank" rel="noopener">github.com/berkaybuharali/k8s-lab</a>
+</div>
+
+<script>
+  function toggleTheme() {
+    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.contains('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    document.getElementById('themeIcon').textContent = isDark ? '\u2600' : '\u263E';
+  }
+  const saved = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (saved === 'dark' || (!saved && prefersDark)) {
+    document.documentElement.classList.add('dark');
+    document.getElementById('themeIcon').textContent = '\u2600';
+  }
+
+  // Draw clean, short connection arrows between local zone and GCP zone
+  function drawConnections() {
+    const svg = document.getElementById('connSvg');
+    const diagram = svg.parentElement;
+    const rect = diagram.getBoundingClientRect();
+
+    svg.setAttribute('width', rect.width);
+    svg.setAttribute('height', rect.height);
+    svg.setAttribute('viewBox', `0 0 ${rect.width} ${rect.height}`);
+
+    // Clear previous drawn elements (keep defs)
+    svg.querySelectorAll('line, text, polygon, path, rect').forEach(el => {
+      if (!el.closest('defs') && !el.closest('marker')) el.remove();
+    });
+
+    const localZone = diagram.querySelector('.local-zone');
+    const gcpZone = diagram.querySelector('.gcp-zone');
+    if (!localZone || !gcpZone) return;
+
+    const localItems = localZone.querySelectorAll('.deploy-item');
+    const gcpRect = gcpZone.getBoundingClientRect();
+    const localRect = localZone.getBoundingClientRect();
+
+    // Helpers
+    function rightCenter(el) {
+      const r = el.getBoundingClientRect();
+      return { x: r.right - rect.left, y: r.top + r.height / 2 - rect.top };
+    }
+    function leftCenter(el) {
+      const r = el.getBoundingClientRect();
+      return { x: r.left - rect.left, y: r.top + r.height / 2 - rect.top };
+    }
+
+    const gcpLeft = gcpRect.left - rect.left;
+    const localRight = localRect.right - rect.left;
+
+    // Draw clean, minimal arrows without labels (the component names are self-explanatory)
+    function drawArrow(from, to) {
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', from.x + 8);
+      line.setAttribute('y1', from.y);
+      line.setAttribute('x2', to.x - 8);
+      line.setAttribute('y2', to.y);
+      line.setAttribute('stroke', 'var(--arrow)');
+      line.setAttribute('stroke-width', '2');
+      line.setAttribute('stroke-dasharray', '');
+      line.setAttribute('marker-end', 'url(#ah)');
+      line.setAttribute('opacity', '0.6');
+      svg.appendChild(line);
+    }
+
+    // Draw clean arrows from each tool to GCP zone
+    if (localItems[0]) {
+      const from = rightCenter(localItems[0]);
+      drawArrow(from, { x: gcpLeft, y: from.y });
+    }
+
+    if (localItems[1]) {
+      const from = rightCenter(localItems[1]);
+      drawArrow(from, { x: gcpLeft, y: from.y });
+    }
+
+    if (localItems[2]) {
+      const from = rightCenter(localItems[2]);
+      drawArrow(from, { x: gcpLeft, y: from.y });
+    }
+
+    if (localItems[3]) {
+      const from = rightCenter(localItems[3]);
+      drawArrow(from, { x: gcpLeft, y: from.y });
+    }
+
+    if (localItems[4]) {
+      const from = rightCenter(localItems[4]);
+      drawArrow(from, { x: gcpLeft, y: from.y });
+    }
+  }
+
+  // Draw on load and resize
+  window.addEventListener('load', () => setTimeout(drawConnections, 100));
+  window.addEventListener('resize', drawConnections);
+</script>
+
+</body>
+</html>
