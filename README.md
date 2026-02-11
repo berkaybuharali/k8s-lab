@@ -32,7 +32,7 @@ A hands-on lab for running self-managed Kubernetes clusters on cloud VMs. Not ma
 
 ![System Deployment Diagram](architecture-deployment.png)
 
-*Interactive diagrams with detailed C4 context, container, and layered architecture views available in the [Web Dashboard Architecture page](ui/frontend/public/architecture.html).*
+*Interactive diagrams with detailed C4 context, container, and layered architecture views available in the [Web Dashboard Architecture page](https://raw.githack.com/berkaybuharali/k8s-lab/main/ui/frontend/public/architecture.html).*
 
 ### Layered Architecture
 
