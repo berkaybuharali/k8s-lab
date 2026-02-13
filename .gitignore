@@ -40,10 +40,14 @@ Thumbs.db
 LOCAL.md
 
 # Planning docs (local only)
-GO_MIGRATION_PLAN.md
-GO_PLAN.md
 agent_plan.md
-Next_Steps.md
+
+# Agent config files (contain project IDs, API keys)
+# Use *.example files as templates
+agents/shared/config.py
+apps/agents/configmap.yaml
+apps/agents/commerce.yaml
+apps/agents/supply-chain.yaml
 
 # Go
 /k8s-lab

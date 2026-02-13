@@ -1,0 +1,44 @@
+"""Shared configuration for Magic Cake agents.
+
+Copy this file to config.py and fill in your values from LOCAL.md:
+  cp config.py.example config.py
+
+Then update the values below with your GCP project details.
+"""
+import os
+
+
+class Config:
+    """Environment-based configuration for agent systems."""
+
+    # Redis connection (K8s service DNS)
+    REDIS_HOST = os.getenv("REDIS_HOST", "redis.application.svc.cluster.local")
+    REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+
+    # GCP configuration (TODO: Set these from LOCAL.md)
+    GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "YOUR_PROJECT_ID")  # From LOCAL.md
+    GCP_REGION = os.getenv("GCP_REGION", "YOUR_REGION")  # From LOCAL.md (e.g., europe-west4)
+    GCS_BUCKET = os.getenv("GCS_BUCKET", "YOUR_BUCKET")  # From LOCAL.md
+    CAKES_PREFIX = os.getenv("CAKES_PREFIX", "cakes/orders")
+
+    # Agent system URLs (K8s service DNS)
+    COMMERCE_URL = os.getenv("COMMERCE_URL", "http://commerce.agents.svc.cluster.local:8001")
+    SUPPLY_CHAIN_URL = os.getenv("SUPPLY_CHAIN_URL", "http://supply-chain.agents.svc.cluster.local:8002")
+
+    # Google Maps API key (for MCP integration)
+    # TODO: Generate from GCP Console or use: gcloud services api-keys create
+    GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "YOUR_GOOGLE_MAPS_API_KEY")
+
+    @classmethod
+    def validate(cls):
+        """Validate required configuration."""
+        required = {
+            "GCP_PROJECT_ID": cls.GCP_PROJECT_ID,
+            "GCS_BUCKET": cls.GCS_BUCKET,
+        }
+        missing = [k for k, v in required.items() if not v]
+        if missing:
+            raise ValueError(f"Missing required config: {', '.join(missing)}")
+
+
+config = Config()

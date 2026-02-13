@@ -8,7 +8,7 @@ You are the **Implementation Engineer**. Your job is to write Go/Python code, re
 ## Mandatory Workflow
 
 ### BEFORE Starting Any Work
-1. **Read `agent_plan.md`** for agent work, **`ui/plan.md`** for UI work - Check status sections
+1. **Read `agent_plan.md`** for work - Check status sections
 2. Check the Implementation Steps for the current phase
 3. Each step has verification commands - know what you need to verify
 
@@ -46,9 +46,16 @@ k8s-lab/
 │   ├── main.go            # Entry point
 │   ├── cmd/               # Commands (deploy-infra, deploy-tools, deploy-applications, etc.)
 │   └── pkg/               # Packages (cloud, k8s, talos, terraform, velero, logger, ui)
-├── agents/                # Python ADK agents
-│   ├── commerce/          # Commerce Concierge (System A, port 8001)
+├── agents/                # Python ADK agents (Magic Cake Shop)
+│   ├── commerce/          # Commerce Concierge (System A, port 8001) + UCP endpoints
+│   │   ├── agents/        # Translation, Cake Designer, Checkout
+│   │   ├── tools/         # image_gen, address validation, payment
+│   │   ├── ucp/           # UCP storefront (manifest, catalog, sessions)
+│   │   └── a2a/           # A2A client to Supply Chain
 │   ├── supply_chain/      # Supply Chain Intelligence (System B, port 8002)
+│   │   ├── agents/        # Inventory, Order Service, Fulfillment
+│   │   ├── tools/         # redis_stock, redis_orders, gcs_images, maps (MCP)
+│   │   └── a2a/           # A2A client to Commerce
 │   └── shared/            # Shared config + Redis client
 ├── infra/                 # Terraform configurations
 │   └── gcp/              # GCP-specific infrastructure
@@ -93,11 +100,17 @@ k8s-lab/
   - Use interfaces for testability (see `cloud.Provider`, `k8s.Client`)
   - Write tests for new packages (`*_test.go`)
   - Use Go SDK/client libraries where possible (avoid shelling out)
-- **Python Agents:**
+- **Python Agents (Magic Cake Shop):**
   - Follow ADK patterns: Agent with name, model, instruction, tools
   - Each system has its own pyproject.toml
   - Tools in `tools/` subdirectory
   - Config via environment variables
+  - Three protocols: A2A (inter-system), MCP (Google Maps for fulfillment), UCP (agentic storefront)
+  - A2A: HTTP POST to other system's /run endpoint via K8s service DNS
+  - UCP: REST endpoints on Commerce system (/.well-known/ucp, /ucp/catalog, /ucp/checkout-sessions)
+  - MCP: ADK MCPToolset for Google Maps (Fulfillment agent)
+  - Image storage: existing GCS bucket under `cakes/orders/{order-id}/cake.png`
+  - Inventory: 5 items (chocolate, ananas, banana, walnut, almond), max 5 per type
 - **Logging:**
   - Use Go logger package: `cli/pkg/logger`
   - Available methods: `Info()`, `Success()`, `Warning()`, `Error()`, `Debug()`
