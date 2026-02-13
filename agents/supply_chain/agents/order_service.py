@@ -1,5 +1,13 @@
 """Order Service agent for order management."""
 from google import adk
+from agents.supply_chain.tools.redis_orders import (
+    create_order,
+    get_order,
+    list_orders,
+    delete_order,
+    get_order_stats,
+)
+from agents.supply_chain.tools.gcs_images import get_cake_image_urls
 
 order_service_agent = adk.Agent(
     name="order_service",
@@ -20,6 +28,19 @@ Your responsibilities:
 - Delete orders (including images)
 - Provide order statistics (count, revenue, average)
 
-Tools will be added in Phase 2.""",
-    tools=[],  # Tools added in Phase 2
+Tools:
+- create_order: Create a new order
+- get_order: Get order details by ID
+- list_orders: List orders, optionally by date
+- delete_order: Delete an order and its images
+- get_order_stats: Get summary statistics
+- get_cake_image_urls: Get signed URLs for order images""",
+    tools=[
+        create_order,
+        get_order,
+        list_orders,
+        delete_order,
+        get_order_stats,
+        get_cake_image_urls,
+    ],
 )

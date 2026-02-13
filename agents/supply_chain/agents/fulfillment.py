@@ -1,5 +1,22 @@
 """Fulfillment agent for delivery route planning."""
+import os
 from google import adk
+from agents.supply_chain.tools.maps import get_orders_for_date
+
+# Define tools list
+tools = [get_orders_for_date]
+
+# Add MCP Toolset if configured
+if os.getenv("GOOGLE_MAPS_API_KEY"):
+    from google.adk.toolsets import MCPToolset
+    maps_mcp = MCPToolset(
+        server_config={
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-google-maps"],
+            "env": {"GOOGLE_MAPS_API_KEY": os.getenv("GOOGLE_MAPS_API_KEY")}
+        }
+    )
+    tools.append(maps_mcp)
 
 fulfillment_agent = adk.Agent(
     name="fulfillment",
@@ -16,6 +33,8 @@ Your responsibilities:
 
 You use Google Maps MCP for route calculation, distance matrix, and geocoding.
 
-Tools and MCP integration will be added in Phase 2.""",
-    tools=[],  # Tools and MCP added in Phase 2
+Tools:
+- get_orders_for_date: Get all orders for a specific delivery date (YYYY-MM-DD)
+- (MCP tools for Maps will be available)""",
+    tools=tools,
 )
