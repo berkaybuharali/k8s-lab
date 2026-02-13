@@ -49,6 +49,12 @@ apps/agents/configmap.yaml
 apps/agents/commerce.yaml
 apps/agents/supply-chain.yaml
 
+# Python package build artifacts
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+
 # Go
 /k8s-lab
 bin/
