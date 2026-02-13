@@ -1,7 +1,4 @@
-// cli/pkg/logger/logger.go
 // Package logger provides colored, leveled logging for CLI output.
-// It replicates the bash script logging functions (log_info, log_error, etc.)
-// with ANSI color codes for terminal output.
 package logger
 
 import (
@@ -11,7 +8,7 @@ import (
 )
 
 // ANSI color codes for terminal output.
-// These match the colors used in scripts/lib/common.sh.
+// ANSI color codes.
 const (
 	colorReset  = "\033[0m"
 	colorRed    = "\033[0;31m"

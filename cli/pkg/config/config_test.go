@@ -21,7 +21,7 @@ func setupTestDir(t *testing.T) func() {
 	dir := originalDir
 	for {
 		if fileExists(filepath.Join(dir, ".git")) &&
-			fileExists(filepath.Join(dir, "Makefile")) {
+			fileExists(filepath.Join(dir, "cli")) {
 			// Found repo root, change to it
 			if err := os.Chdir(dir); err != nil {
 				t.Fatalf("Failed to change to repo root: %v", err)

@@ -58,6 +58,7 @@ It handles:
 - Platform tools (Velero, CSI drivers)
 - Application deployments (NGINX, Redis, PostgreSQL)
 - Backup and restore operations
+- Web dashboard (k8s-lab ui)
 
 Supported clouds: GCP (more coming soon)`,
 	Version: Version,

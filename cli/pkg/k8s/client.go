@@ -203,7 +203,6 @@ func (c *Client) GetNodes(ctx context.Context) ([]string, error) {
 //	    return fmt.Errorf("nodes not ready: %w", err)
 //	}
 //
-// Equivalent to bash: talos_wait_for_all_nodes() in scripts/lib/talos.sh:310-336
 func (c *Client) WaitForNodesReady(ctx context.Context, expectedCount int, timeout time.Duration) error {
 	c.log.Info("Waiting for %d nodes to be Ready (timeout: %v)...", expectedCount, timeout)
 

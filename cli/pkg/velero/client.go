@@ -170,7 +170,6 @@ type InstallConfig struct {
 //	}
 //	err := veleroClient.Install(ctx, config)
 //
-// Equivalent to bash: gcp_velero_install() in scripts/lib/gcp/velero.sh
 func (c *Client) Install(ctx context.Context, config *InstallConfig) error {
 	c.log.Step("Installing Velero with %s plugin", config.Provider)
 
@@ -245,8 +244,6 @@ func (c *Client) Install(ctx context.Context, config *InstallConfig) error {
 // This helps with high-latency connections like IAP tunnels.
 // Uses kubectl patch to match bash implementation exactly.
 //
-// Equivalent to bash (scripts/lib/gcp/velero.sh:66-79):
-//
 //	kubectl patch deployment velero -n velero --type='json' -p='[
 //	  {"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--client-qps=100"},
 //	  {"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--client-burst=200"}
@@ -304,8 +301,6 @@ func (c *Client) isInstalled(ctx context.Context) (bool, error) {
 // Returns:
 //   - error: If timeout reached or context cancelled
 //
-// Equivalent to bash: velero_wait_ready() in scripts/lib/velero.sh:38-42
-//
 //	kubectl rollout status deployment/velero -n velero --timeout=120s
 func (c *Client) WaitForReady(ctx context.Context, timeout time.Duration) error {
 	c.log.Step("Waiting for Velero deployment to be ready")
@@ -348,7 +343,6 @@ func (c *Client) WaitForReady(ctx context.Context, timeout time.Duration) error 
 //	backupName, err := veleroClient.CreateBackup(ctx, "k8s-lab-backup", "application")
 //	// Creates: k8s-lab-backup-04022026-1430
 //
-// Equivalent to bash: velero_backup() in scripts/lib/velero.sh
 func (c *Client) CreateBackup(ctx context.Context, name string, namespaces string) (string, error) {
 	// Generate timestamp: ddmmyyyy-hhmm (UTC)
 	timestamp := time.Now().UTC().Format("02012006-1504")
@@ -516,7 +510,6 @@ func (c *Client) GetBackupStatus(ctx context.Context, name string) (string, erro
 //
 //	err := veleroClient.Restore(ctx, "k8s-lab-backup-04022026-1430")
 //
-// Equivalent to bash: velero_restore() in scripts/lib/velero.sh
 func (c *Client) Restore(ctx context.Context, backupName string) error {
 	// If no backup name provided, find latest
 	if backupName == "" {

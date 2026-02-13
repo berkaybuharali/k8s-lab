@@ -1,7 +1,5 @@
-// cli/pkg/config/config.go
 // Package config manages CLI configuration including paths, cluster settings,
-// and cloud provider options. It replicates the constants and path logic
-// from scripts/lib/common.sh.
+// and cloud provider options.
 package config
 
 import (
@@ -11,18 +9,14 @@ import (
 )
 
 // Config holds the CLI configuration.
-// This replaces environment variables and constants from common.sh.
 type Config struct {
 	// RepoRoot is the absolute path to the repository root directory.
-	// Equivalent to bash: REPO_ROOT
 	RepoRoot string
 
 	// ClusterName is the name of the Kubernetes cluster.
-	// Equivalent to bash: CLUSTER_NAME="k8s-lab"
 	ClusterName string
 
 	// SupportedClouds lists valid cloud provider names.
-	// Equivalent to bash: SUPPORTED_CLOUDS=("gcp")
 	SupportedClouds []string
 
 	// Cloud is the currently selected cloud provider (from --cloud flag).
@@ -52,7 +46,6 @@ func New() (*Config, error) {
 }
 
 // ValidateCloud checks if the specified cloud provider is supported.
-// Equivalent to bash: validate_cloud() function
 func (c *Config) ValidateCloud() error {
 	if c.Cloud == "" {
 		return fmt.Errorf("cloud provider required (use --cloud flag)")
@@ -68,19 +61,16 @@ func (c *Config) ValidateCloud() error {
 }
 
 // GetTerraformDir returns the Terraform directory for the selected cloud.
-// Equivalent to bash: TF_DIR="${REPO_ROOT}/infra/gcp/terraform"
 func (c *Config) GetTerraformDir() string {
 	return filepath.Join(c.RepoRoot, "infra", c.Cloud, "terraform")
 }
 
 // GetConfigsDir returns the configs directory.
-// Equivalent to bash: CONFIGS_DIR="${REPO_ROOT}/configs"
 func (c *Config) GetConfigsDir() string {
 	return filepath.Join(c.RepoRoot, "configs")
 }
 
 // GetTalosConfigsDir returns the Talos configs directory.
-// Equivalent to bash: TALOS_CONFIGS_DIR="${CONFIGS_DIR}/talos"
 func (c *Config) GetTalosConfigsDir() string {
 	return filepath.Join(c.GetConfigsDir(), "talos")
 }
@@ -109,8 +99,7 @@ func (c *Config) GetRepoRoot() string {
 }
 
 // findRepoRoot checks if the current directory is the repository root.
-// The k8s-lab CLI must be run from the repository root directory,
-// matching the behavior of Makefile commands.
+// The k8s-lab CLI must be run from the repository root directory.
 //
 // This is simpler than walking up the directory tree and matches user
 // expectations - both "make deploy gcp" and "k8s-lab infra deploy --cloud gcp"
@@ -123,11 +112,11 @@ func findRepoRoot() (string, error) {
 
 	// Check if current directory has repo markers
 	hasGit := fileExists(filepath.Join(dir, ".git"))
-	hasMakefile := fileExists(filepath.Join(dir, "Makefile"))
+	hasCLI := fileExists(filepath.Join(dir, "cli"))
 	hasInfra := fileExists(filepath.Join(dir, "infra"))
 
 	// Verify we're in the k8s-lab repository root
-	if hasGit && hasMakefile && hasInfra {
+	if hasGit && hasCLI && hasInfra {
 		return dir, nil
 	}
 
@@ -135,7 +124,7 @@ func findRepoRoot() (string, error) {
 	return "", fmt.Errorf(
 		"must run k8s-lab from repository root directory\n"+
 			"Current directory: %s\n"+
-			"Expected: directory containing .git, Makefile, and infra/\n"+
+			"Expected: directory containing .git, cli/, and infra/\n"+
 			"Hint: cd to your k8s-lab repository root",
 		dir,
 	)

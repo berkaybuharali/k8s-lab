@@ -5,8 +5,7 @@
 // and configuration reading.
 //
 // The Provider interface enables the CLI to work with different clouds without
-// changing command logic. This is similar to how bash scripts source different
-// cloud-specific modules (scripts/lib/gcp/*.sh, scripts/lib/<cloud>/*.sh).
+// changing command logic.
 package cloud
 
 import (
@@ -98,7 +97,6 @@ type Provider interface {
 	// Returns error if installation fails.
 	// Should be idempotent (safe to call if already installed).
 	//
-	// Equivalent to bash: gcp_csi_install() in scripts/lib/gcp/csi.sh
 	InstallCSIDriver(ctx context.Context, kubeconfigPath string) error
 
 	// GetVeleroInstallConfig returns cloud-specific Velero configuration.

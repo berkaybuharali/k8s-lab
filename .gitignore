@@ -39,9 +39,11 @@ Thumbs.db
 # Local notes and environment-specific docs (not for repo)
 LOCAL.md
 
-# Migration planning (work in progress)
+# Planning docs (local only)
 GO_MIGRATION_PLAN.md
 GO_PLAN.md
+agent_plan.md
+Next_Steps.md
 
 # Go
 /k8s-lab
