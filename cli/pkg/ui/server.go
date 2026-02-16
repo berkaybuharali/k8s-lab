@@ -84,6 +84,7 @@ func (s *Server) Start(ctx context.Context) error {
 	ops := []string{
 		"deploy-infra", "deploy-tools", "deploy-applications",
 		"deploy", "destroy", "seed-redis", "backup", "restore",
+		"deploy-agents", "seed-inventory", "cleanup-cakes",
 	}
 	for _, op := range ops {
 		mux.HandleFunc("/api/"+op, s.handleOperation)

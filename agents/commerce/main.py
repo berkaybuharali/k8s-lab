@@ -38,13 +38,13 @@ Multiple cakes per order are allowed.""",
 
 def main():
     """Start A2A server on port 8001 + UCP endpoints."""
-    # Phase 3 will add UCP endpoints here
-    adk.run_server(
-        app_name="commerce",
-        root_agent=commerce_root,
-        host="0.0.0.0",
-        port=8001,
-    )
+    # Create Flask app with ADK
+    app = adk.create_app(agent=commerce_root)
+
+    # Phase 3 will add UCP endpoints to app here
+
+    # Run the server
+    app.run(host="0.0.0.0", port=8001, debug=False)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,8 @@ spec:
       labels:
         app: commerce
     spec:
+      imagePullSecrets:
+      - name: artifact-registry
       containers:
       - name: commerce
         # TODO: Replace YOUR_REGION and YOUR_PROJECT_ID with values from LOCAL.md

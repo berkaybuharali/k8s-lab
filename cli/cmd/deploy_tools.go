@@ -139,6 +139,8 @@ type toolsInfraInfo struct {
 	ProjectID string // Cloud project/account ID
 	CPName    string // Control plane instance name
 	CPZone    string // Control plane zone
+	Region    string // Cloud region (derived from zone)
+	Bucket    string // State bucket name
 }
 
 // getInfrastructureInfo reads infrastructure info from Terraform outputs.
@@ -177,11 +179,26 @@ func getInfrastructureInfo(
 	if !ok {
 		return nil, fmt.Errorf("control_plane_zone output not found")
 	}
+	
+	bucket, ok := outputs["state_bucket"].(string)
+	if !ok {
+		// Fallback: try to read from tfvars directly? 
+		// For now fail, as outputs should have it.
+		return nil, fmt.Errorf("state_bucket output not found")
+	}
+
+	// Derive region from zone (e.g. europe-west4-a -> europe-west4)
+	region := cpZone
+	if len(region) > 2 {
+		region = region[:len(region)-2]
+	}
 
 	return &toolsInfraInfo{
 		ProjectID: projectID,
 		CPName:    cpName,
 		CPZone:    cpZone,
+		Region:    region,
+		Bucket:    bucket,
 	}, nil
 }
 

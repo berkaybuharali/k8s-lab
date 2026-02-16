@@ -38,6 +38,7 @@ Thumbs.db
 
 # Local notes and environment-specific docs (not for repo)
 LOCAL.md
+TESTING.md
 
 # Planning docs (local only)
 agent_plan.md

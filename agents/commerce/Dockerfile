@@ -2,15 +2,17 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy shared package
-COPY agents/shared /app/shared
+# Copy entire agents directory to preserve package structure
+COPY agents /app/agents
 
-# Copy commerce package
-COPY agents/commerce /app/commerce
+# Install packages
+RUN pip install --no-cache-dir /app/agents/shared /app/agents/commerce
 
-# Install both packages
-RUN pip install --no-cache-dir /app/shared /app/commerce
+# Add /app to PYTHONPATH so "from agents.shared" imports work
+ENV PYTHONPATH=/app
 
 EXPOSE 8001
 
+# Run from /app/agents so "commerce" package is found
+WORKDIR /app/agents
 CMD ["python", "-m", "commerce.main"]

@@ -1,22 +1,19 @@
 """Fulfillment agent for delivery route planning."""
 import os
 from google import adk
-from agents.supply_chain.tools.maps import get_orders_for_date
+from supply_chain.tools.maps import get_orders_for_date
 
 # Define tools list
 tools = [get_orders_for_date]
 
-# Add MCP Toolset if configured
+# TODO: MCP integration for Google Maps
+# MCPToolset doesn't exist in ADK 1.25.0
+# Phase 3 will implement proper MCP integration for route optimization
+# For now, the agent can fetch orders but won't have Maps API access
 if os.getenv("GOOGLE_MAPS_API_KEY"):
-    from google.adk.toolsets import MCPToolset
-    maps_mcp = MCPToolset(
-        server_config={
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-google-maps"],
-            "env": {"GOOGLE_MAPS_API_KEY": os.getenv("GOOGLE_MAPS_API_KEY")}
-        }
-    )
-    tools.append(maps_mcp)
+    # Placeholder for future MCP integration
+    # See: https://github.com/modelcontextprotocol/python-sdk
+    pass
 
 fulfillment_agent = adk.Agent(
     name="fulfillment",

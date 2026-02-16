@@ -1,13 +1,13 @@
 """Order Service agent for order management."""
 from google import adk
-from agents.supply_chain.tools.redis_orders import (
+from supply_chain.tools.redis_orders import (
     create_order,
     get_order,
     list_orders,
     delete_order,
     get_order_stats,
 )
-from agents.supply_chain.tools.gcs_images import get_cake_image_urls
+from supply_chain.tools.gcs_images import get_cake_image_urls
 
 order_service_agent = adk.Agent(
     name="order_service",

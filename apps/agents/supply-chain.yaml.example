@@ -16,6 +16,8 @@ spec:
       labels:
         app: supply-chain
     spec:
+      imagePullSecrets:
+      - name: artifact-registry
       containers:
       - name: supply-chain
         # TODO: Replace YOUR_REGION and YOUR_PROJECT_ID with values from LOCAL.md

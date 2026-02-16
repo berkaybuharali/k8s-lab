@@ -48,3 +48,8 @@ output "state_bucket" {
   description = "GCS bucket name for Terraform state and Velero backups"
   value       = var.state_bucket
 }
+
+output "artifact_registry" {
+  description = "Artifact Registry URL for agent container images"
+  value       = "${var.region}-docker.pkg.dev/${var.project_id}/${data.google_artifact_registry_repository.k8s_lab.repository_id}"
+}

@@ -15,6 +15,11 @@ dependencies = [
     "httpx>=0.26.0",
 ]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["*"]
+[tool.setuptools]
+packages = [
+    "supply_chain",
+    "supply_chain.agents",
+    "supply_chain.tools",
+    "supply_chain.a2a",
+]
+package-dir = {"supply_chain" = "."}

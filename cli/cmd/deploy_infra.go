@@ -67,6 +67,23 @@ type InfrastructureInfo struct {
 
 // runDeployInfra orchestrates the full infrastructure deployment.
 // This is the main entry point that coordinates all deployment phases.
+// getConfigPatches returns cloud-specific Talos config patches.
+// These patches are applied during config generation to customize
+// the Talos configuration for specific cloud providers.
+func getConfigPatches(cfg *config.Config, provider cloud.Provider) []string {
+	repoRoot := cfg.GetRepoRoot()
+
+	switch provider.Name() {
+	case "gcp":
+		return []string{
+			filepath.Join(repoRoot, "infra/gcp/talos-patches/csi.yaml"),
+			// Artifact Registry auth handled by gcr-credential-sync DaemonSet
+		}
+	default:
+		return nil
+	}
+}
+
 func runDeployInfra(cmd *cobra.Command, args []string) error {
 	cfg := GetConfig(cmd)
 	log := GetLogger(cmd)
@@ -236,11 +253,17 @@ func configureTalosCluster(
 		return fmt.Errorf("failed to create talos client: %w", err)
 	}
 
-	// Generate configs
+	// Generate configs with cloud-specific patches
 	// IMPORTANT: Cluster endpoint uses INTERNAL IP (cpIP) - this is how nodes find each other
 	// Our access to Talos/K8s APIs uses tunnels from CreateTalosEndpoint/CreateK8sEndpoint
 	clusterEndpoint := fmt.Sprintf("https://%s:6443", infra.CPIP)
-	if err := talosClient.GenerateConfigs(ctx, cfg.ClusterName, clusterEndpoint); err != nil {
+
+	// Get cloud-specific patches
+	patches := getConfigPatches(cfg, provider)
+
+	if err := talosClient.GenerateConfigs(ctx, cfg.ClusterName, clusterEndpoint,
+		talos.WithConfigPatches(patches),
+	); err != nil {
 		return fmt.Errorf("failed to generate talos configs: %w", err)
 	}
 
@@ -256,6 +279,7 @@ func configureTalosCluster(
 	log.Info("All nodes configured")
 
 	// Wait for nodes to reboot after config apply
+	// Patches are already applied during config generation
 	waitForNodeReboot(log)
 
 	return nil

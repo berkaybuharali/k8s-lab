@@ -157,6 +157,7 @@ func (s *Server) handleOperation(w http.ResponseWriter, r *http.Request) {
 	allowed := map[string]bool{
 		"deploy-infra": true, "deploy-tools": true, "deploy-applications": true,
 		"deploy": true, "destroy": true, "seed-redis": true, "backup": true, "restore": true,
+		"deploy-agents": true, "seed-inventory": true, "cleanup-cakes": true,
 	}
 	if !allowed[operation] {
 		http.Error(w, "Invalid operation", http.StatusBadRequest)

@@ -67,6 +67,20 @@ pip install -e agents/commerce/
 **Option 2: Accept the red squiggles**
 The code will work fine in containers. The imports are only "red" because your local environment doesn't have the packages installed.
 
+## Artifact Registry Setup
+
+**Repository creation:** Managed by Terraform during `deploy-infra` (see `infra/gcp/terraform/artifact_registry.tf`).
+
+**Talos nodes authentication:** Automatically configured during `deploy-infra` via machine config patches (`infra/gcp/talos-patches/artifact-registry.yaml` + `csi.yaml`). The patches are merged into generated Talos machine configs for all nodes.
+
+**Docker authentication (one-time, for local development):**
+```bash
+# Configure Docker to authenticate with Artifact Registry
+gcloud auth configure-docker europe-west4-docker.pkg.dev
+```
+
+This only needs to be done once on your local machine. The repository stores built container images for both Commerce and Supply Chain agents.
+
 ## Running Agents
 
 Agents are deployed to Kubernetes via the Go CLI:

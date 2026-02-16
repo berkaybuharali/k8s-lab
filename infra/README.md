@@ -51,6 +51,7 @@ Your user account must have the following IAM roles:
 | `roles/iap.tunnelResourceAccessor` | IAP TCP tunnels to VMs |
 | `roles/iam.serviceAccountAdmin` | Create service account for Talos nodes |
 | `roles/resourcemanager.projectIamAdmin` | Grant roles to the Talos node service account |
+| `roles/artifactregistry.admin` | Create Artifact Registry repository for agent containers |
 
 ### Talos Linux Image
 
@@ -90,9 +91,36 @@ cp backend.tf.example backend.tf
 Key variables in `terraform.tfvars`: `project_id`, `name_prefix`, `boot_image`, `network_name`, `worker_count`.
 Set `bucket` in `backend.tf` (created automatically on first run).
 
+### One-Time Setup: Artifact Registry
+
+Before first `deploy-infra` run, create the Artifact Registry repository:
+
+```bash
+gcloud artifacts repositories create k8s-lab \
+  --repository-format=docker \
+  --location=europe-west4 \
+  --description="Container images for Magic Cake agents" \
+  --project=<your-project-id>
+```
+
+This persists across daily infrastructure destroy/create cycles (Terraform references it but doesn't manage it).
+
 ### Resources Created
 
-Service account, VPC, Cloud NAT, firewall rules (IAP + internal), 1 control plane + 2 workers (multi-AZ).
+**Terraform manages (created/destroyed daily):**
+- Service account for Talos nodes (with GCS and Artifact Registry permissions)
+- VPC network with Cloud NAT
+- Firewall rules (IAP tunneling + internal cluster communication)
+- Compute instances: 1 control plane + 2 workers (multi-AZ)
+- IAM bindings for Artifact Registry access
+
+**Persistent (not managed by Terraform):**
+- Artifact Registry repository `k8s-lab` (created once, referenced by Terraform)
+
+**Service Account Permissions:**
+- `roles/storage.objectAdmin` - Read/write GCS buckets (Velero backups)
+- `roles/compute.storageAdmin` - Create persistent disks (CSI driver)
+- `roles/artifactregistry.reader` - Pull agent container images
 
 ### Shared Projects
 

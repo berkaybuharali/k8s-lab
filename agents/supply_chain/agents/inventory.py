@@ -1,6 +1,6 @@
 """Inventory agent for ingredient stock management."""
 from google import adk
-from agents.supply_chain.tools.redis_stock import (
+from supply_chain.tools.redis_stock import (
     check_stock,
     update_stock,
     list_all_stock,

@@ -44,12 +44,10 @@ type configOptions struct {
 	// Example: "v1.29.0"
 	kubernetesVersion string
 
-	// TODO(step 4c - config patches): Add support for cloud-specific config patches
-	// GCP needs: infra/gcp/talos-patches/csi.yaml
-	//   - Binds /usr/lib/udev to /lib/udev for GCE PD CSI driver
-	//   - Required for CSI plugin installation (Phase 3)
-	// AWS may need similar patches for EBS CSI driver
-	// configPatches []string
+	// configPatches are machine config patches to apply
+	// These are YAML patch files applied to both control plane and worker configs
+	// Examples: CSI driver mounts, registry authentication
+	configPatches []string
 }
 
 // WithAdditionalSANs adds Subject Alternative Names to the API server certificate.
@@ -94,7 +92,27 @@ func WithKubernetesVersion(version string) ConfigOption {
 	}
 }
 
-// TODO(step 4c - config patches): Implement WithConfigPatches
+// WithConfigPatches specifies machine config patch files to apply.
+//
+// Patches are applied to both control plane and worker configs during generation.
+// Patch files must be valid Talos machine config YAML.
+//
+// Common use cases:
+//   - CSI driver compatibility (mount paths)
+//   - Registry authentication (Artifact Registry, ECR)
+//   - Kubelet extra mounts
+//
+// Example:
+//
+//	WithConfigPatches([]string{
+//	    "infra/gcp/talos-patches/csi.yaml",
+//	    "infra/gcp/talos-patches/artifact-registry.yaml",
+//	})
+func WithConfigPatches(patches []string) ConfigOption {
+	return func(opts *configOptions) {
+		opts.configPatches = patches
+	}
+}
 // This will allow cloud-specific patches to be applied during config generation.
 //
 // Example implementation:

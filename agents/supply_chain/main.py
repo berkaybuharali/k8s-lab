@@ -34,12 +34,11 @@ Route requests to the appropriate agent based on the task.""",
 
 def main():
     """Start A2A server on port 8002."""
-    adk.run_server(
-        app_name="supply_chain",
-        root_agent=supply_chain_root,
-        host="0.0.0.0",
-        port=8002,
-    )
+    # Create Flask app with ADK
+    app = adk.create_app(agent=supply_chain_root)
+
+    # Run the server
+    app.run(host="0.0.0.0", port=8002, debug=False)
 
 
 if __name__ == "__main__":
