@@ -5,15 +5,15 @@
 | Phase | Status | Notes |
 |-------|--------|-------|
 | Phase 0: Cleanup | Complete | scripts/, Makefile removed. Go CLI is sole interface. |
-| Phase 1: Foundation | Complete | Python ADK scaffolding, K8s manifests, Dockerfiles (32 files) |
-| Phase 2: Supply Chain | Complete (deployed & seeded) | Agents deployed with A2A + health checks. Data seeded. Ready for Phase 3. |
-| Phase 3: Commerce + UCP | Ready to Start | Commerce scaffolded. Need: image_gen, address, payment tools + UCP implementation |
-| Phase 4: A2A Integration | Scaffolded | Placeholder clients created. Implement after Phase 3. |
-| Phase 5: UI Elevation | Scaffolded | UI components created as placeholders. Implement after Phase 4. |
+| Phase 1: Foundation | Complete | Python ADK scaffolding, K8s manifests, Dockerfiles |
+| Phase 2: Supply Chain | Complete | Supply Chain agents deployed with A2A. Tools implemented. Data seeded. |
+| Phase 3: Commerce + UCP | Not Started | Translation, Cake Designer, Checkout agents + UCP storefront |
+| Phase 4: A2A Integration | Not Started | Cross-system communication, agent-chat CLI |
+| Phase 5: UI Elevation | Not Started | Magic Cake Shop + Backoffice pages |
 | Phase 6: Deployment | Not Started | Artifact Registry, backup scope, seed data, lifecycle |
 | Phase 7: Documentation | Not Started | Docs, project history, lessons learned |
 
-**Last Updated:** Phase 2 deployed (2024-02-16). Supply Chain agents running with A2A protocol. Seed-inventory clears old orders. Commerce tools scaffolded. Learnings added to README.md. Ready to implement Phase 3 (Commerce tools).
+**Last Updated:** Phase 2 complete. Supply Chain deployed (Inventory, Order Service, Fulfillment with tools). Commerce scaffolded (tools not implemented). A2A protocol integrated. Next: Phase 3.
 
 ---
 
@@ -271,16 +271,7 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 4 ──► Phase 5 
 
 **Status:** Complete
 
-**What was done:**
-- Removed `scripts/` directory (all bash scripts)
-- Removed `Makefile`
-- Made Go CLI (`k8s-lab` binary) the sole interface for all operations
-- Created `build-ui.sh` for UI build workflow
-- Fixed `findRepoRoot()` in Go CLI to properly locate repository root
-- Updated all documentation to reference Go CLI commands instead of make/scripts
-- Removed references to old bash interface from README.md and CLAUDE.md
-
-**Result:** Clean, single-interface project. All operations via `./k8s-lab <command>`
+Removed scripts/ and Makefile. Go CLI is sole interface. build-ui.sh created. findRepoRoot() fixed. Docs updated.
 
 ---
 
@@ -288,29 +279,7 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 4 ──► Phase 5 
 
 **Status:** Complete
 
-**What was done:**
-- Created directory structure for two agent systems:
-  - `agents/commerce/` - System A (Commerce Concierge)
-  - `agents/supply_chain/` - System B (Supply Chain Intelligence)
-  - `agents/shared/` - Shared configuration and Redis client
-- Implemented Python ADK scaffolding:
-  - Agent definitions: translation, cake_designer, checkout (Commerce); inventory, order_service, fulfillment (Supply Chain)
-  - Tool directories: `tools/`, `a2a/`, `ucp/` (Commerce only)
-  - Package configuration: `pyproject.toml` per system with setuptools
-  - Main entry points: `main.py` for A2A server setup
-- Created Dockerfiles for both systems
-- Created Kubernetes manifests in `apps/agents/`:
-  - `namespace.yaml` - agents namespace
-  - `configmap.yaml.example` - environment variables (project ID, region, bucket, API keys)
-  - `commerce.yaml.example` - Commerce deployment + service (port 8001)
-  - `supply-chain.yaml.example` - Supply Chain deployment + service (port 8002)
-  - `gcr-credential-sync.yaml` - DaemonSet for image pull secrets
-- All `.example` files are templates - actual configs gitignored for public repo
-- Created agents/README.md with local development guide
-
-**Total files:** 32 files across scaffolding, tools, agents, manifests
-
-**Result:** Full ADK project structure ready for implementation. Public repo safe (no secrets).
+Python ADK agent scaffolding for Commerce and Supply Chain. Dockerfiles, K8s manifests (.example pattern), agent definitions (stubs), tool directories. 32 files total. Public repo ready.
 
 ---
 
@@ -385,32 +354,15 @@ Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 4 ──► Phase 5 
 - Report: "Cleaned X orphan images, Y images retained"
 
 ### Verification
-**Status:** ✅ Phase 2 Complete - agents deployed and seeded
+```bash
+# Phase 2 complete - agents deployed and seeded
+kubectl get pods -n agents  # commerce + supply-chain running
+kubectl exec -n application redis-xxx -- redis-cli KEYS "inventory:*"  # 5 items
+kubectl exec -n application redis-xxx -- redis-cli KEYS "order:CAKE-*"  # 7 orders
+gsutil ls gs://{bucket}/cakes/orders/  # 7 cake images
 
-**Deployed:**
-- Supply Chain agents running in `agents` namespace
-- Commerce agents scaffolded (tools not implemented)
-- Health checks passing (`/health` endpoint via Starlette)
-- Data seeded (5 ingredients, 7 orders with GCS images)
-
-**A2A Testing Note:** A2A agents cannot be tested with curl `/run` endpoint. They use `RemoteA2aAgent` for inter-agent communication. Testing deferred to Phase 4 when Commerce calls Supply Chain.
-
-### TODOs / Known Issues
-
-**Phase 2 Improvements (defer to later phases):**
-- **Logging:** deploy-agents has too many DEBUG logs. Should promote 8 key milestones to INFO (namespace applied, deployment created, agents ready, etc.) and add deployment summary with access instructions.
-- **Redis Namespace:** Currently cross-namespace (Redis in `application`, agents in `agents`). Consider moving Redis to `agents` namespace for cleaner isolation. Decision needed before Phase 4 (A2A will intensify Redis usage).
-- **GCS Cleanup:** `destroy` command does not clean GCS bucket (intentional for backup/restore). Consider adding `--clean-gcs` flag as opt-in.
-
-**Phase 3 Requirements (next phase):**
-- Implement Commerce tools: `image_gen.py` (Imagen API), `address.py`, `payment.py`
-- Implement UCP endpoints: manifest, catalog, sessions
-- Add `google-cloud-aiplatform` and `fastapi` dependencies to commerce pyproject.toml
-
-### Critical Files
-- `cli/cmd/deploy_applications.go` -- Pattern for deploy_agents.go
-- `cli/cmd/seed_redis.go` -- Pattern for seed_inventory.go
-- `cli/pkg/ui/handlers.go` -- Add to allowed operations
+# A2A Testing Note: Cannot test with curl /run. A2A uses RemoteA2aAgent. Test in Phase 4.
+```
 
 ---
 

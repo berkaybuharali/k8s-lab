@@ -78,15 +78,6 @@ func runSeedInventory(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Clear existing orders (ensure fresh data for new run)
-	log.Step("Clearing existing orders...")
-	clearOrdersCmds := `
-EVAL "for _,k in ipairs(redis.call('keys', 'order:CAKE-*')) do redis.call('del', k) end" 0
-`
-	if err := execRedisCommands(ctx, k8sClient, podName, clearOrdersCmds, log); err != nil {
-		log.Debug("Warning: Failed to clear orders (may be empty): %v", err)
-	}
-
 	// Seed Inventory
 	log.Step("Seeding Inventory...")
 	inventoryCmds := generateInventoryCommands()
