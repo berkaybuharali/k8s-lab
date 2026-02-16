@@ -13,8 +13,13 @@ import (
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/k8s"
 )
 
+var (
+	skipBuild bool
+)
+
 func init() {
 	rootCmd.AddCommand(deployAgentsCmd)
+	deployAgentsCmd.Flags().BoolVar(&skipBuild, "skip-build", false, "Skip building and pushing Docker images")
 }
 
 var deployAgentsCmd = &cobra.Command{
@@ -23,12 +28,14 @@ var deployAgentsCmd = &cobra.Command{
 	Long: `Build and deploy the Commerce and Supply Chain agents.
 
 This command:
-1. Builds Docker images for both agent systems
+1. Builds Docker images for both agent systems (skip with --skip-build)
 2. Pushes images to Artifact Registry
 3. Patches manifests with your Project ID and API keys
 4. Deploys to Kubernetes (agents namespace)
 
-Requires GOOGLE_MAPS_API_KEY environment variable.`,
+Requires GOOGLE_MAPS_API_KEY environment variable.
+
+Use --skip-build to only deploy manifests without rebuilding images.`,
 	RunE: runDeployAgents,
 }
 
@@ -71,45 +78,49 @@ func runDeployAgents(cmd *cobra.Command, args []string) error {
 
 	repoRoot := cfg.GetRepoRoot()
 	artifactRegistry := fmt.Sprintf("%s-docker.pkg.dev/%s/k8s-lab", infra.Region, infra.ProjectID)
-	
-	// 1. Build and Push Images
-	images := []struct {
-		Name       string
-		DockerFile string
-		Context    string
-	}{
-		{
-			Name:       "commerce",
-			DockerFile: "agents/commerce/Dockerfile",
-			Context:    ".",
-		},
-		{
-			Name:       "supply-chain",
-			DockerFile: "agents/supply_chain/Dockerfile",
-			Context:    ".",
-		},
-	}
 
-	for _, img := range images {
-		fullImageName := fmt.Sprintf("%s/%s:latest", artifactRegistry, img.Name)
-		log.Step("Building and pushing %s...", img.Name)
-
-		// Docker Build and Push
-		// Use --push to push directly to registry (more reliable with buildkit than --load + push)
-		// Build for linux/amd64 since GCP VMs are amd64 (even on arm64 Mac)
-		buildPushCmd := exec.CommandContext(ctx, "docker", "build",
-			"--platform", "linux/amd64",
-			"--push",
-			"-t", fullImageName,
-			"-f", filepath.Join(repoRoot, img.DockerFile),
-			repoRoot,
-		)
-		buildPushCmd.Stdout = os.Stdout
-		buildPushCmd.Stderr = os.Stderr
-		if err := buildPushCmd.Run(); err != nil {
-			return fmt.Errorf("failed to build and push %s: %w", img.Name, err)
+	// 1. Build and Push Images (unless --skip-build)
+	if !skipBuild {
+		images := []struct {
+			Name       string
+			DockerFile string
+			Context    string
+		}{
+			{
+				Name:       "commerce",
+				DockerFile: "agents/commerce/Dockerfile",
+				Context:    ".",
+			},
+			{
+				Name:       "supply-chain",
+				DockerFile: "agents/supply_chain/Dockerfile",
+				Context:    ".",
+			},
 		}
-		log.Debug("Build and push complete for %s", img.Name)
+
+		for _, img := range images {
+			fullImageName := fmt.Sprintf("%s/%s:latest", artifactRegistry, img.Name)
+			log.Step("Building and pushing %s...", img.Name)
+
+			// Docker Build and Push
+			// Use --push to push directly to registry (more reliable with buildkit than --load + push)
+			// Build for linux/amd64 since GCP VMs are amd64 (even on arm64 Mac)
+			buildPushCmd := exec.CommandContext(ctx, "docker", "build",
+				"--platform", "linux/amd64",
+				"--push",
+				"-t", fullImageName,
+				"-f", filepath.Join(repoRoot, img.DockerFile),
+				repoRoot,
+			)
+			buildPushCmd.Stdout = os.Stdout
+			buildPushCmd.Stderr = os.Stderr
+			if err := buildPushCmd.Run(); err != nil {
+				return fmt.Errorf("failed to build and push %s: %w", img.Name, err)
+			}
+			log.Debug("Build and push complete for %s", img.Name)
+		}
+	} else {
+		log.Info("Skipping build (--skip-build flag set)")
 	}
 
 	// 2. Prepare Manifests

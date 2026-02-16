@@ -8,18 +8,13 @@ version = "0.1.0"
 description = "Magic Cake Supply Chain Intelligence (System B)"
 requires-python = ">=3.11"
 dependencies = [
-    "google-adk>=1.25.0",
+    "google-adk[a2a]>=1.25.0",
     "redis>=5.0.0",
     "google-cloud-storage>=2.14.0",
     "uvicorn>=0.27.0",
     "httpx>=0.26.0",
 ]
 
-[tool.setuptools]
-packages = [
-    "supply_chain",
-    "supply_chain.agents",
-    "supply_chain.tools",
-    "supply_chain.a2a",
-]
-package-dir = {"supply_chain" = "."}
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]

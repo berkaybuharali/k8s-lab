@@ -5,47 +5,27 @@ A2A server on port 8001 + UCP endpoints with three agents:
 - Cake Designer: Cake preferences + Imagen generation
 - Checkout: Address, delivery, payment, order creation
 """
-import sys
-from pathlib import Path
+import os
+from starlette.responses import JSONResponse
+from starlette.routing import Route
+from google.adk.a2a.utils.agent_to_a2a import to_a2a
+from commerce.agent import root_agent
 
-# Add shared package to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "shared"))
+# Expose agent via A2A protocol
+# Creates endpoints: /.well-known/agent-card.json and A2A RPC
+app = to_a2a(root_agent, port=8001)
 
-from google import adk
-from .agents.translation import translation_agent
-from .agents.cake_designer import cake_designer_agent
-from .agents.checkout import checkout_agent
+# Add health check endpoint for Kubernetes probes
+async def health(request):
+    return JSONResponse({"status": "healthy"})
 
+app.add_route("/health", health, methods=["GET"])
 
-# Root orchestrator agent
-commerce_root = adk.Agent(
-    name="commerce",
-    model="gemini-2.5-pro",
-    instruction="""You are the Commerce Concierge system for Magic Cake.
-You coordinate three specialized agents:
-- Translation agent: handles language selection (English, German, Dutch, Turkish)
-- Cake Designer agent: helps customers design cakes and generates images
-- Checkout agent: manages delivery, payment, and order finalization
-
-Start with the Translation agent for new customers, then hand off to Cake Designer,
-and finally to Checkout for order completion.
-
-Pricing: 5 EUR per slice (per person). Minimum 6 people. Delivery: 5 EUR if order < 50 EUR.
-Multiple cakes per order are allowed.""",
-    sub_agents=[translation_agent, cake_designer_agent, checkout_agent],
-)
-
-
-def main():
-    """Start A2A server on port 8001 + UCP endpoints."""
-    # Create Flask app with ADK
-    app = adk.create_app(agent=commerce_root)
-
-    # Phase 3 will add UCP endpoints to app here
-
-    # Run the server
-    app.run(host="0.0.0.0", port=8001, debug=False)
+# Phase 3: Add UCP endpoints - app.add_api_route("/ucp/...", ...)
+# Phase 4: Update agent.py to consume supply-chain via RemoteA2aAgent
 
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    port = int(os.getenv("PORT", "8001"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

@@ -8,13 +8,11 @@ version = "0.1.0"
 description = "Magic Cake Commerce Concierge (System A)"
 requires-python = ">=3.11"
 dependencies = [
-    "google-adk>=1.25.0",
+    "google-adk[a2a]>=1.25.0",
     "redis>=5.0.0",
     "google-cloud-storage>=2.14.0",
-    "google-cloud-aiplatform>=1.40.0",
     "uvicorn>=0.27.0",
     "httpx>=0.26.0",
-    "fastapi>=0.109.0",
 ]
 
 [tool.setuptools.packages.find]

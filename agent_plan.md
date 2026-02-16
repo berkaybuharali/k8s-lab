@@ -6,14 +6,14 @@
 |-------|--------|-------|
 | Phase 0: Cleanup | Complete | scripts/, Makefile removed. Go CLI is sole interface. |
 | Phase 1: Foundation | Complete | Python ADK scaffolding, K8s manifests, Dockerfiles |
-| Phase 2: Supply Chain | In Progress | Inventory, Order Service, Fulfillment agents with real tools |
+| Phase 2: Supply Chain | Complete (needs fixes) | Tools + agents implemented. CLI commands done. Needs: Redis namespace decision, logging, missing order fields |
 | Phase 3: Commerce + UCP | Not Started | Translation, Cake Designer, Checkout agents + UCP storefront |
 | Phase 4: A2A Integration | Not Started | Cross-system communication, agent-chat CLI |
 | Phase 5: UI Elevation | Not Started | Magic Cake Shop + Backoffice pages |
 | Phase 6: Deployment | Not Started | Artifact Registry, backup scope, seed data, lifecycle |
 | Phase 7: Documentation | Not Started | Docs, project history, lessons learned |
 
-**Last Updated:** Phase 1 complete. Agent scaffolding with .example config pattern for public repo.
+**Last Updated:** Phase 2 implementation complete (2.1-2.8). Python tools, agent wiring, and Go CLI commands done. Requires fixes before verification: Redis namespace architecture, missing order fields, enhanced logging.
 
 ---
 
