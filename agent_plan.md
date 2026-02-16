@@ -6,20 +6,20 @@
 |-------|--------|-------|
 | Phase 0: Cleanup | Complete | scripts/, Makefile removed. Go CLI is sole interface. |
 | Phase 1: Foundation | Complete | Python ADK scaffolding, K8s manifests, Dockerfiles |
-| Phase 2: Supply Chain | Complete | Supply Chain agents deployed with A2A. Tools implemented. Data seeded. |
-| Phase 3: Commerce + UCP | Not Started | Translation, Cake Designer, Checkout agents + UCP storefront |
+| Phase 2: Supply Chain | Complete | Inventory, Order Service, Fulfillment agents with Redis/GCS/Maps MCP tools. Seeded data. |
+| Phase 3: Commerce + UCP | Complete | Translation, Cake Designer, Checkout agents. UCP endpoints. Image gen with Gemini 2.5 Flash Image. |
 | Phase 4: A2A Integration | Not Started | Cross-system communication, agent-chat CLI |
 | Phase 5: UI Elevation | Not Started | Magic Cake Shop + Backoffice pages |
 | Phase 6: Deployment | Not Started | Artifact Registry, backup scope, seed data, lifecycle |
 | Phase 7: Documentation | Not Started | Docs, project history, lessons learned |
 
-**Last Updated:** Phase 2 complete. Supply Chain deployed (Inventory, Order Service, Fulfillment with tools). Commerce scaffolded (tools not implemented). A2A protocol integrated. Next: Phase 3.
+**Last Updated:** Phase 3 complete. Commerce system deployed with tools (image_gen using Gemini 2.5 Flash Image, address validation, payment). UCP endpoints tested and working. Phase 3 complete_session() is stub - returns order_id but doesn't generate images. A2A integration in Phase 4 will wire real order creation. Next: Phase 4.
 
 ---
 
 ## Context
 
-The k8s-lab project is a mature Kubernetes lab with Go CLI, React dashboard, Terraform/Talos/Velero on GCP. We're extending it with Google ADK-based AI agents organized into two systems that communicate via A2A protocol. The domain is a cake shop called **Magic Cake** that takes orders conversationally, generates cake images with Imagen, and delivers only in Amsterdam.
+The k8s-lab project is a mature Kubernetes lab with Go CLI, React dashboard, Terraform/Talos/Velero on GCP. We're extending it with Google ADK-based AI agents organized into two systems that communicate via A2A protocol. The domain is a cake shop called **Magic Cake** that takes orders conversationally, generates cake images with Gemini, and delivers only in Amsterdam.
 
 **Key principle:** No microservices. Only Agents. Every interaction is conversational and agentic.
 
@@ -79,7 +79,7 @@ The k8s-lab project is a mature Kubernetes lab with Go CLI, React dashboard, Ter
 | # | System | Agent | Model | Key Tools/Tech |
 |---|--------|-------|-------|----------------|
 | 1 | Commerce | Translation | gemini-2.5-flash | Gemini native multilingual (EN/DE/NL/TR) |
-| 2 | Commerce | Cake Designer | gemini-2.5-pro | Redis (inventory check via A2A), Imagen/Banana Pro (cake image) |
+| 2 | Commerce | Cake Designer | gemini-2.5-pro | Redis (inventory check via A2A), Gemini 2.5 Flash Image (cake generation) |
 | 3 | Commerce | Checkout | gemini-2.5-pro | Address validation, fake payment, A2A to Order Service + Inventory |
 | - | Commerce | UCP Server | - | `/.well-known/ucp` discovery, checkout sessions, agentic storefront |
 | 4 | Supply Chain | Inventory | gemini-2.5-flash | Redis (stock: chocolate, ananas, banana, walnut, almond) |
@@ -141,7 +141,7 @@ Cake Designer Agent (per cake, can repeat for multiple cakes):
     ├─ "Any nuts? Almond, Walnut, No nuts" (checks inventory via A2A)
     ├─ "How many people? (6-50)" (>50 suggests splitting into 2 cakes)
     ├─ "Any concept? Birthday text, Star Wars theme, etc."
-    ├─ Generates cake image via Imagen → shows to customer
+    ├─ Generates cake image via Gemini → shows to customer
     ├─ "Do you approve this design?"
     └─ "Would you like to add another cake to this order?"
     │
@@ -203,10 +203,10 @@ k8s-lab/
 │   │   ├── main.py                  # A2A server on :8001 + UCP endpoints
 │   │   ├── agents/
 │   │   │   ├── translation.py       # Language selection (EN/DE/NL/TR)
-│   │   │   ├── cake_designer.py     # Cake preferences + Imagen generation
+│   │   │   ├── cake_designer.py     # Cake preferences + Gemini image generation
 │   │   │   └── checkout.py          # Address, delivery, payment, order creation
 │   │   ├── tools/
-│   │   │   ├── image_gen.py         # Imagen / Banana Pro → GCS
+│   │   │   ├── gemini_image.py      # Gemini 2.5 Flash Image → GCS
 │   │   │   ├── address.py           # Amsterdam postcode validation
 │   │   │   └── payment.py           # Fake payment processor
 │   │   ├── ucp/
@@ -285,199 +285,29 @@ Python ADK agent scaffolding for Commerce and Supply Chain. Dockerfiles, K8s man
 
 ## Phase 2: Supply Chain Intelligence (System B) -- Build First
 
-**Goal:** 3 working agents with real tools, testable via Go CLI.
+**Status:** Complete
 
-### Steps
-
-**2.1 Inventory Agent tools** -- `agents/supply_chain/tools/redis_stock.py`:
-- `check_stock(item)` -- HGET inventory:{item} quantity. Items: chocolate, ananas, banana, walnut, almond
-- `update_stock(item, quantity_change, reason)` -- HINCRBY inventory:{item} quantity + RPUSH inventory:log
-- `list_all_stock()` -- HGETALL for all 5 items, return availability overview
-- `list_low_stock(threshold)` -- Filter items with quantity <= threshold
-- Max stock per item: 5. Agent instruction enforces this.
-
-**2.2 Order Service Agent tools** -- `agents/supply_chain/tools/redis_orders.py`:
-- `create_order(customer_name, cakes: [{flavor, nuts, people_count, concept}], address, postcode, delivery_date, image_paths) -- Price and delivery fee calculated internally.` -- HSET order:{CAKE-YYYYMMDD-XXXX} with all fields. Price = sum(people × 5 EUR per cake). Delivery fee = 5 EUR if total < 50, else 0.
-- `get_order(order_id)` -- HGETALL order:{id}
-- `list_orders(delivery_date?)` -- SCAN order:CAKE-*, optionally filter by delivery_date
-- `delete_order(order_id)` -- DEL order:{id} + delete GCS image
-- `get_order_stats()` -- Count orders, sum revenue, average price
-
-**2.2b Order Service image tools** -- `agents/supply_chain/tools/gcs_images.py`:
-- `upload_cake_image(order_id, cake_number, image_bytes)` -- Upload to gs://{bucket}/cakes/orders/{order_id}/cake_{N}.png
-- `get_cake_image_urls(order_id)` -- Return signed URLs for all cake images in order
-- `delete_cake_images(order_id)` -- Delete all images for order from GCS
-- `list_orphan_images()` -- Compare GCS objects under /cakes/ vs Redis orders, return orphans
-
-**2.3 Fulfillment Agent** -- Google Maps MCP integration:
-- Use ADK's `MCPToolset` to connect to Google Maps MCP server
-- Agent instruction: "You are a delivery route planner for Magic Cake. Our fulfillment center is at Danzigerkade 4, 1013 AP Amsterdam. Plan optimal routes visiting all delivery addresses for a given day."
-- Tools via MCP: route calculation, delivery time estimation, multi-stop optimization
-- Custom tool: `get_orders_for_date(date)` -- Fetches all orders for a delivery date from Redis
-- Agent reasons about optimal visiting order and uses Maps MCP to compute the actual route
-- Requires `GOOGLE_MAPS_API_KEY` environment variable
-
-**2.4 Wire tools into agent definitions** -- Update inventory.py, order_service.py, fulfillment.py to import and register tools
-
-**2.5 Go CLI: `deploy-agents` command** -- `cli/cmd/deploy_agents.go`:
-- Docker build from repo root (needs agents/shared/ context)
-- Docker push to Artifact Registry (`us-central1-docker.pkg.dev/{project}/k8s-lab/{name}:latest`)
-- Patch configmap with actual project ID, region, bucket name, maps API key
-- Apply K8s manifests (namespace, configmap, commerce, supply-chain)
-- Wait for pods ready
-- Follow pattern from `deploy_applications.go`
-
-**2.6 Go CLI: `seed-inventory` command** -- `cli/cmd/seed_inventory.go`:
-- Follow pattern from `seed_redis.go` (get pod, exec redis-cli via stdin)
-- Seed inventory (5 items, max 5 per type, some deliberately low):
-  - chocolate: qty 4
-  - ananas: qty 1 (LOW -- forces unavailability in conversation)
-  - banana: qty 3
-  - walnut: qty 2 (LOW -- forces limited availability)
-  - almond: qty 4
-- Seed 7 fake orders across next 3 days (4 + 2 + 1):
-  - Valid Amsterdam addresses (real streets: Herengracht 502, Prinsengracht 263, Keizersgracht 174, Damrak 1, Rokin 92, Singel 140, Amstel 51)
-  - Customer names (Dutch-style: Jan de Vries, Maria van den Berg, etc. or internaltional John Doe, Mary Steling)
-  - Cake details: random flavor + nuts + people count (6-50) + concept (birthday, wedding, baby shower, etc.)
-  - Prices calculated from formula
-  - Pre-generated cake images uploaded to GCS during seed
-  - Delivery dates computed from current day: today+1 (4 orders), today+2 (2 orders), today+3 (1 order)
-  - Order IDs: CAKE-{YYYYMMDD}-{XXXX}
-
-**2.7 Register new operations** in `cli/pkg/ui/server.go` and `cli/pkg/ui/handlers.go`:
-- Add `deploy-agents`, `seed-inventory`, `cleanup-cakes` to allowed operations map
-
-**2.8 Go CLI: `cleanup-cakes` command** -- `cli/cmd/cleanup_cakes.go`:
-- List all GCS objects under `cakes/` prefix in existing bucket
-- List all order IDs in Redis
-- Delete GCS objects not referenced by any order
-- Report: "Cleaned X orphan images, Y images retained"
-
-### Verification
-```bash
-# Phase 2 complete - agents deployed and seeded
-kubectl get pods -n agents  # commerce + supply-chain running
-kubectl exec -n application redis-xxx -- redis-cli KEYS "inventory:*"  # 5 items
-kubectl exec -n application redis-xxx -- redis-cli KEYS "order:CAKE-*"  # 7 orders
-gsutil ls gs://{bucket}/cakes/orders/  # 7 cake images
-
-# A2A Testing Note: Cannot test with curl /run. A2A uses RemoteA2aAgent. Test in Phase 4.
-```
+**What was implemented:**
+- **Inventory Agent** with Redis stock tools (check/update/list stock for 5 ingredients, max 5 per item)
+- **Order Service Agent** with Redis order tools and GCS image tools (CRUD operations, stats, signed URLs)
+- **Fulfillment Agent** with Google Maps MCP integration for route optimization from Danzigerkade 4
+- **Go CLI commands**: `deploy-agents` (build/push/deploy), `seed-data` (inventory + 7 fake orders with images), `cleanup-cakes` (orphan cleanup)
+- All agents deployed, seeded with test data (deliberate low stock: ananas=1, walnut=2)
+- A2A endpoints working (`/.well-known/agent-card.json`, `/run`)
 
 ---
 
 ## Phase 3: Commerce Concierge + UCP (System A) -- Build Second
 
-**Goal:** 3 working agents + UCP agentic storefront. Customer-facing conversational cake ordering and programmatic agent access.
+**Status:** Complete
 
-### Steps
-
-**3.1 Translation Agent** -- `agents/commerce/agents/translation.py`:
-- No custom tools. Gemini Flash handles translation natively.
-- Agent instruction: "You are the first point of contact for Magic Cake shop. Greet the customer and ask them to choose a language: English, German (Deutsch), Dutch (Nederlands), or Turkish (Turkce). Once chosen, ALL subsequent messages in the conversation must be in that language. Pass the customer to the Cake Designer agent after language is set."
-- Stores language choice in session state (Redis key: session:{id}:language)
-
-**3.2 Cake Designer Agent** -- `agents/commerce/agents/cake_designer.py`:
-- Agent instruction: "You help customers design their dream cake. Ask questions one by one in the customer's chosen language. Check ingredient availability before offering options. Do not offer out-of-stock ingredients."
-- Tools:
-  - `check_ingredient_available(item)` -- A2A call to Inventory agent (Phase 4 wires this, stub in Phase 3 returns mock data)
-  - `generate_cake_image(description)` -- Calls Imagen/Banana Pro API with cake description, uploads to GCS, returns image URL
-- Flow enforced by instruction:
-  1. Ask flavor (only offer in-stock: chocolate/ananas/banana)
-  2. Ask nuts (only offer in-stock: almond/walnut/none)
-  3. Ask people count (6-50, >50 suggest 2 cakes)
-  4. Ask concept/theme (free text: birthday, Star Wars, etc.)
-  5. Generate image, show to customer, ask approval
-  6. If approved → hand off to Checkout
-
-**3.2b Image generation tool** -- `agents/commerce/tools/image_gen.py`:
-- `generate_cake_image(flavor, nuts, people_count, concept, order_id, cake_number)`:
-  - Constructs prompt: "A beautiful {flavor} cake for {people_count} people with {concept} theme, {nuts} decoration, professional bakery photo"
-  - Calls Imagen API (Vertex AI) to generate image
-  - Uploads to GCS: `gs://{bucket}/cakes/orders/{order_id}/cake_{N}.png`
-  - Returns signed URL for display
-  - Called once per cake in the order (cake_1, cake_2, etc.)
-
-**3.3 Checkout Agent** -- `agents/commerce/agents/checkout.py`:
-- Agent instruction: "You handle delivery and payment for Magic Cake. Only deliver in Amsterdam. Validate the address. Collect delivery date (next 3 days only). Show order summary with price. Process fake payment."
-- Tools:
-  - `validate_amsterdam_address(postcode, house_number)` -- Checks postcode in range 1000-1109, format NNNN XX
-  - `get_available_delivery_dates()` -- Returns next 3 days as options
-  - `calculate_price(cakes: [{people_count}])` -- Sum of (people_count × 5 EUR) per cake. Delivery fee: 5 EUR if total < 50 EUR, free otherwise.
-  - `process_payment(order_id, amount)` -- Always succeeds, returns fake transaction ID (PAY-{timestamp})
-  - A2A tools (Phase 4): `deduct_stock(items[])`, `create_order(details)`
-
-**3.3b Address validation tool** -- `agents/commerce/tools/address.py`:
-- `validate_amsterdam_address(postcode, house_number)`:
-  - Dutch format: 4 digits + space + 2 uppercase letters (e.g., "1013 AP")
-  - Amsterdam range: 1000-1109
-  - Returns: valid/invalid + formatted address string
-  - Out of Amsterdam: "Sorry, Magic Cake only delivers in Amsterdam"
-
-**3.3c Payment tool** -- `agents/commerce/tools/payment.py`:
-- `process_payment(order_id, amount, customer_name)`:
-  - Generates fake transaction ID: `PAY-{timestamp}`
-  - Returns: {success: true, transaction_id, amount, message: "Payment processed"}
-  - Always succeeds (PoC)
-
-**3.4 UCP Agentic Storefront** -- `agents/commerce/ucp/`:
-This is the non-conversational, programmatic interface. External AI agents (Gemini in Search, Gemini App, any UCP-compatible agent) discover and order cakes without chat.
-
-**3.4a `manifest.py`** -- UCP capability declaration:
-- Serves `/.well-known/ucp` endpoint on Commerce system
-- JSON manifest:
-```json
-{
-  "name": "Magic Cake Amsterdam",
-  "description": "Custom cake ordering and delivery in Amsterdam",
-  "capabilities": ["dev.ucp.shopping", "dev.ucp.checkout"],
-  "services": {
-    "catalog": {"endpoint": "/ucp/catalog", "version": "1.0"},
-    "checkout": {"endpoint": "/ucp/checkout-sessions", "version": "1.0"}
-  }
-}
-```
-
-**3.4b `catalog.py`** -- Flavor catalog for discovery:
-- `GET /ucp/catalog` -- Returns available flavors, nuts, people range, pricing formula
-- Queries Inventory (same as Cake Designer) to only show in-stock items
-- Response includes: items with availability, pricing rules, delivery area (Amsterdam only), delivery dates (next 3 days)
-
-**3.4c `sessions.py`** -- Checkout session management:
-- `POST /ucp/checkout-sessions` -- Create session with: cakes[{flavor, nuts, people_count, concept}], customer_name
-  - Validates ingredients available, calculates price (sum of people × 5 EUR + delivery fee), returns session_id + pricing + available delivery dates
-- `PUT /ucp/checkout-sessions/{id}` -- Update with: delivery_date, postcode, house_number
-  - Validates Amsterdam address, calculates final price, returns updated session
-- `POST /ucp/checkout-sessions/{id}/complete` -- Finalize order
-  - Triggers: inventory check → image generation → fake payment → order creation → stock deduction
-  - Returns: order confirmation with image URL, delivery details, transaction ID
-- `GET /ucp/checkout-sessions/{id}` -- Check session status
-
-**3.5 Wire all tools** into translation.py, cake_designer.py, checkout.py
-- A2A tools are stubs in this phase (return mock data)
-- Real A2A wiring happens in Phase 4
-- UCP endpoints wire to the same underlying tools as conversational flow
-
-### Verification
-```bash
-cd agents/commerce && python -c "from agents.translation import translation_agent; print(translation_agent.name)"
-cd agents/commerce && python -c "from agents.cake_designer import cake_designer_agent; print(cake_designer_agent.name)"
-
-# With running cluster:
-./bin/k8s-lab deploy-agents --cloud gcp
-
-# Test conversational flow:
-kubectl port-forward -n agents svc/commerce 8001:8001
-curl -X POST http://localhost:8001/run -d '{"app_name":"commerce","user_id":"test","session_id":"s1","new_message":{"role":"user","parts":[{"text":"I want to order a cake"}]}}'
-
-# Test UCP discovery:
-curl http://localhost:8001/.well-known/ucp
-curl http://localhost:8001/ucp/catalog
-
-# Test UCP checkout session:
-curl -X POST http://localhost:8001/ucp/checkout-sessions \
-  -d '{"flavor":"chocolate","nuts":"walnut","people_count":12,"concept":"birthday","customer_name":"Test User"}'
-```
+**What was implemented:**
+- **Translation Agent** (gemini-2.5-flash, multilingual: EN/DE/NL/TR, no custom tools)
+- **Cake Designer Agent** with image generation tool using **Gemini 2.5 Flash Image** (Nano Banana) via Vertex AI - generates cake images and uploads to GCS
+- **Checkout Agent** with Amsterdam address validation (postcodes 1000-1109), pricing calculation (5 EUR/person, delivery fee logic), fake payment processor
+- **UCP Agentic Storefront**: Discovery endpoint (`/.well-known/ucp`), catalog with dynamic inventory, session management (create/update/get/complete)
+- **Phase 3 limitation**: `complete_session()` returns stub order_id without generating images or calling A2A. Real order creation with image generation happens in Phase 4.
+- All UCP endpoints tested and working. In-memory session storage (will use Redis in Phase 4).
 
 ---
 
@@ -656,7 +486,7 @@ resource "google_artifact_registry_repository" "agents" {
   - Seeds Redis test data (existing seed-redis logic)
   - Seeds inventory (5 ingredients with deliberate low stock)
   - Seeds 7 fake orders with valid Amsterdam addresses, computed delivery dates
-  - Generates cake images via Imagen and uploads to GCS (cake_1.png per order)
+  - Generates cake images via Gemini and uploads to GCS (cake_1.png per order)
 - Makes backoffice immediately useful after seeding
 - Old `seed-redis` and `seed-inventory` deprecated (kept as aliases initially, removed later)
 

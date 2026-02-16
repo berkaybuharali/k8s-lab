@@ -84,7 +84,7 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 
 **Plan:** See `agent_plan.md` (gitignored, local planning doc)
 
-**Domain:** Magic Cake -- conversational cake ordering, Amsterdam-only delivery, Imagen-generated cake images.
+**Domain:** Magic Cake -- conversational cake ordering, Amsterdam-only delivery, Gemini-generated cake images.
 
 **Three Protocols:**
 - **A2A** (Agent-to-Agent): Commerce ↔ Supply Chain cross-system calls (check stock, create orders)
@@ -96,7 +96,7 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 - `agents/supply_chain/` -- Supply Chain Intelligence (System B, port 8002): Inventory, Order Service, Fulfillment
 - `agents/shared/` -- Shared config + Redis client
 
-**Tech:** Python ADK v1.25, Gemini models, Imagen/Banana Pro for cake images
+**Tech:** Python ADK v1.25, Gemini models (2.5 Flash Image for cake generation)
 
 **Pricing:** 5 EUR per slice (per person). Min 6, max 50 per cake. Delivery: 5 EUR if total < 50 EUR, free otherwise. Multiple cakes per order allowed.
 

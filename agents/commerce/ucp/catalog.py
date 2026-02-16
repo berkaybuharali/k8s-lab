@@ -1,15 +1,13 @@
 """UCP catalog endpoint - flavor discovery for external agents."""
 from typing import Dict, List
-from ..tools.image_gen import check_ingredient_available
+from ..a2a.supply_chain_client import check_ingredient_available
 from ..tools.address import get_available_delivery_dates
 
 
 def get_catalog() -> Dict:
     """Get product catalog for UCP agents.
 
-    Returns availability based on current inventory.
-    In Phase 3, uses stub check_ingredient_available.
-    In Phase 4, will use real A2A calls to Supply Chain.
+    Returns availability based on current inventory via A2A.
 
     Returns:
         Catalog dict with available flavors, nuts, pricing, delivery info

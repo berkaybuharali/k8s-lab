@@ -2,7 +2,7 @@
 
 A2A server on port 8001 + UCP endpoints with three agents:
 - Translation: Language selection (EN/DE/NL/TR)
-- Cake Designer: Cake preferences + Banana Pro generation
+- Cake Designer: Cake preferences + Gemini image generation
 - Checkout: Address, delivery, payment, order creation
 """
 import os

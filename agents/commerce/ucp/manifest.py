@@ -10,7 +10,7 @@ def get_ucp_manifest() -> Dict:
     """
     return {
         "name": "Magic Cake Amsterdam",
-        "description": "Custom cake ordering and delivery in Amsterdam. AI-generated cake designs with Imagen.",
+        "description": "Custom cake ordering and delivery in Amsterdam. AI-generated cake designs with Gemini.",
         "capabilities": ["dev.ucp.shopping", "dev.ucp.checkout"],
         "services": {
             "catalog": {

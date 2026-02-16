@@ -105,24 +105,3 @@ def generate_cake_image(
 
     except Exception as e:
         raise RuntimeError(f"Failed to generate or upload image: {e}")
-
-
-def check_ingredient_available(item: str) -> bool:
-    """Check if ingredient is available (stub for Phase 3, A2A in Phase 4).
-
-    Args:
-        item: Ingredient name (chocolate, ananas, banana, walnut, almond)
-
-    Returns:
-        True if available (always True in Phase 3 stub)
-    """
-    # Phase 3 stub: Always return True
-    # Phase 4: This will be replaced with A2A call to Supply Chain Inventory agent
-    valid_items = ["chocolate", "ananas", "banana", "walnut", "almond"]
-
-    if item not in valid_items:
-        raise ValueError(f"Invalid item: {item}. Must be one of {valid_items}")
-
-    # Stub: return True for all items
-    # Real implementation in Phase 4 will call supply_chain via A2A
-    return True

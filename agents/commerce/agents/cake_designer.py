@@ -1,6 +1,7 @@
 """Cake Designer agent for cake customization."""
 from google import adk
-from ..tools.image_gen import check_ingredient_available, generate_cake_image
+from ..tools.gemini_image import generate_cake_image
+from ..a2a.supply_chain_client import check_ingredient_available
 
 cake_designer_agent = adk.Agent(
     name="cake_designer",
@@ -16,7 +17,7 @@ Conversation flow (per cake):
 3. Ask how many people: minimum 6, maximum 50
    - If customer needs >50 people, suggest ordering 2 cakes
 4. Ask for concept/theme: birthday message, Star Wars, wedding, baby shower, etc.
-5. Generate cake image using Banana Pro based on all details
+5. Generate cake image using Gemini based on all details
 6. Show image to customer and ask for approval
 7. Ask: "Would you like to add another cake to this order?"
 

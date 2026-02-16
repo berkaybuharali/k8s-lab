@@ -4,6 +4,8 @@ from datetime import datetime
 import uuid
 from ..tools.payment import calculate_price
 from ..tools.address import validate_amsterdam_address, get_available_delivery_dates
+from ..tools.gemini_image import generate_cake_image
+from ..a2a.supply_chain_client import deduct_inventory, create_order_remote
 
 
 # In-memory session storage (replace with Redis in production)
@@ -124,8 +126,7 @@ def get_session(session_id: str) -> Dict:
 def complete_session(session_id: str) -> Dict:
     """Complete session and create order.
 
-    Phase 3: Returns success with stub order_id
-    Phase 4: Will call Supply Chain via A2A to create real order
+    Phase 4: Real A2A integration with Supply Chain
 
     Args:
         session_id: Session ID
@@ -145,18 +146,55 @@ def complete_session(session_id: str) -> Dict:
     if not session["delivery"]["address"]:
         raise ValueError("Delivery address is required")
 
-    # Phase 3 stub: Generate fake order ID
-    # Phase 4: This will call Supply Chain via A2A:
-    #   1. Check inventory (via Inventory agent)
-    #   2. Generate cake images (via Cake Designer)
-    #   3. Process payment (fake)
-    #   4. Create order (via Order Service agent)
-    #   5. Deduct inventory (via Inventory agent)
-
+    # Generate order ID
     order_id = f"CAKE-{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
 
+    # Step 1: Generate cake images
+    image_paths = []
+    for i, cake in enumerate(session["cakes"], 1):
+        try:
+            image_path = generate_cake_image(
+                flavor=cake["flavor"],
+                nuts=cake["nuts"],
+                people_count=cake["people_count"],
+                concept=cake["concept"],
+                order_id=order_id,
+                cake_number=i
+            )
+            image_paths.append(image_path)
+        except Exception as e:
+            raise RuntimeError(f"Failed to generate image for cake {i}: {e}")
+
+    # Step 2: Collect ingredients to deduct
+    ingredients = []
+    for cake in session["cakes"]:
+        ingredients.append(cake["flavor"])
+        if cake["nuts"] != "none":
+            ingredients.append(cake["nuts"])
+
+    # Step 3: Deduct inventory via A2A
+    try:
+        deduct_inventory(ingredients)
+    except Exception as e:
+        raise RuntimeError(f"Failed to deduct inventory: {e}")
+
+    # Step 4: Create order via A2A
+    try:
+        order_result = create_order_remote(
+            customer_name=session["customer_name"],
+            cakes=session["cakes"],
+            address=session["delivery"]["address"],
+            postcode=session["delivery"]["postcode"],
+            delivery_date=session["delivery"]["selected_date"],
+            image_paths=image_paths
+        )
+    except Exception as e:
+        raise RuntimeError(f"Failed to create order: {e}")
+
+    # Update session
     session["status"] = "completed"
     session["order_id"] = order_id
+    session["image_paths"] = image_paths
 
     return {
         "success": True,
@@ -166,5 +204,6 @@ def complete_session(session_id: str) -> Dict:
         "total": session["pricing"]["total"],
         "delivery_date": session["delivery"]["selected_date"],
         "delivery_address": session["delivery"]["address"],
+        "image_paths": image_paths,
         "message": f"Order confirmed! Delivery on {session['delivery']['selected_date']}"
     }
