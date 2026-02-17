@@ -10,7 +10,7 @@ from supply_chain.a2a.commerce_client import notify_out_of_stock
 
 inventory_agent = adk.Agent(
     name="inventory",
-    model="gemini-2.5-flash",
+    model="gemini-2.5-pro",
     instruction="""You manage ingredient inventory for Magic Cake.
 
 Available ingredients: chocolate, ananas, banana, walnut, almond.
