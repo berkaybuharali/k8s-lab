@@ -1,10 +1,8 @@
-"""Image generation tool using Gemini 2.5 Flash Image (Nano Banana)."""
+"""Image generation tool using Gemini 2.5 Flash Image via google-genai SDK."""
 import os
-import base64
-import vertexai
-from vertexai.generative_models import GenerativeModel
+from google import genai
+from google.genai import types
 from google.cloud import storage
-from io import BytesIO
 
 
 def generate_cake_image(
@@ -17,10 +15,6 @@ def generate_cake_image(
 ) -> str:
     """Generate cake image using Gemini 2.5 Flash Image and upload to GCS.
 
-    Uses GCP service account credentials (no separate API key needed).
-    Model: gemini-2.5-flash-image (Nano Banana) - fast, high-quality image generation
-    Alternative: gemini-3-pro-image-preview (commented out) - higher quality, slower
-
     Args:
         flavor: Cake flavor (chocolate, ananas, banana)
         nuts: Nut topping (almond, walnut, or "none")
@@ -31,33 +25,25 @@ def generate_cake_image(
 
     Returns:
         GCS path: gs://{bucket}/cakes/orders/{order_id}/cake_{N}.png
-
-    Raises:
-        ValueError: If parameters are invalid
-        RuntimeError: If image generation or upload fails
     """
-    # Validate inputs
     valid_flavors = ["chocolate", "ananas", "banana"]
     valid_nuts = ["almond", "walnut", "none"]
 
     if flavor not in valid_flavors:
         raise ValueError(f"Invalid flavor: {flavor}. Must be one of {valid_flavors}")
-
     if nuts not in valid_nuts:
         raise ValueError(f"Invalid nuts: {nuts}. Must be one of {valid_nuts}")
-
     if not (6 <= people_count <= 50):
         raise ValueError(f"Invalid people_count: {people_count}. Must be 6-50")
 
-    # Get configuration from environment
     project_id = os.getenv("GCP_PROJECT_ID")
-    region = os.getenv("GCP_REGION", "europe-west4")
     bucket_name = os.getenv("GCS_BUCKET")
 
     if not project_id or not bucket_name:
         raise RuntimeError("GCP_PROJECT_ID and GCS_BUCKET environment variables required")
+    if not os.getenv("GOOGLE_API_KEY"):
+        raise RuntimeError("GOOGLE_API_KEY environment variable required")
 
-    # Construct prompt for Gemini
     nuts_text = f"with {nuts} decoration" if nuts != "none" else "without nuts"
     prompt = (
         f"Generate an image of a beautiful {flavor} cake for {people_count} people "
@@ -66,30 +52,26 @@ def generate_cake_image(
     )
 
     try:
-        # Initialize Vertex AI
-        vertexai.init(project=project_id, location=region)
+        # SDK auto-picks GOOGLE_API_KEY from environment
+        client = genai.Client()
 
-        # Load Gemini image generation model
-        # Primary: Gemini 2.5 Flash Image (Nano Banana) - fast and efficient
-        model = GenerativeModel("gemini-2.5-flash-image")
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-image",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=["TEXT", "IMAGE"],
+            ),
+        )
 
-        # Alternative (higher quality, slower):
-        # model = GenerativeModel("gemini-3-pro-image-preview")
+        # Extract image bytes from response parts
+        image_bytes = None
+        for part in response.candidates[0].content.parts:
+            if part.inline_data is not None:
+                image_bytes = part.inline_data.data
+                break
 
-        # Generate image
-        response = model.generate_content(prompt)
-
-        # Extract image from response
-        # Gemini returns base64-encoded image in response
-        if not response.candidates or not response.candidates[0].content.parts:
-            raise RuntimeError("Gemini returned no image")
-
-        # Get the image data (base64 encoded)
-        image_part = response.candidates[0].content.parts[0]
-        if not hasattr(image_part, 'inline_data'):
-            raise RuntimeError("No image data in response")
-
-        image_bytes = image_part.inline_data.data
+        if image_bytes is None:
+            raise RuntimeError("Gemini returned no image in response")
 
         # Upload to GCS
         gcs_path = f"cakes/orders/{order_id}/cake_{cake_number}.png"
@@ -98,7 +80,6 @@ def generate_cake_image(
         storage_client = storage.Client(project=project_id)
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(gcs_path)
-
         blob.upload_from_string(image_bytes, content_type="image/png")
 
         return full_gcs_path

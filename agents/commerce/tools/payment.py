@@ -1,54 +1,37 @@
 """Payment processing tools (fake for PoC)."""
-from typing import Dict
 from datetime import datetime
 
 
-def calculate_price(cakes: list[Dict]) -> Dict[str, float]:
-    """Calculate order price.
+def calculate_price(people_counts: list[int]) -> dict:
+    """Calculate order price for one or more cakes.
 
-    Pricing:
-    - 5 EUR per slice (= per person)
-    - Delivery fee: 5 EUR if total < 50 EUR, free otherwise
-    - Multiple cakes allowed in single order
+    Pricing: 5 EUR per person per cake. Delivery: 5 EUR if subtotal < 50 EUR, free otherwise.
 
     Args:
-        cakes: List of cake dicts with 'people_count' key
-               e.g., [{"people_count": 8}, {"people_count": 12}]
+        people_counts: Number of people for each cake, e.g. [8] for one cake or [8, 12] for two.
+                       Each value must be between 6 and 50.
 
     Returns:
-        {
-            "subtotal": float,
-            "delivery_fee": float,
-            "total": float
-        }
+        {"subtotal": float, "delivery_fee": float, "total": float}
     """
-    if not cakes:
+    if not people_counts:
         raise ValueError("At least one cake is required")
 
-    # Calculate subtotal (5 EUR per person)
     subtotal = 0.0
-    for cake in cakes:
-        people_count = cake.get("people_count", 0)
-
+    for people_count in people_counts:
         if not isinstance(people_count, int) or people_count < 6 or people_count > 50:
             raise ValueError(f"Invalid people_count: {people_count}. Must be 6-50")
-
         subtotal += people_count * 5.0
 
-    # Calculate delivery fee
     delivery_fee = 0.0 if subtotal >= 50.0 else 5.0
-
-    # Total
-    total = subtotal + delivery_fee
-
     return {
         "subtotal": subtotal,
         "delivery_fee": delivery_fee,
-        "total": total
+        "total": subtotal + delivery_fee,
     }
 
 
-def process_payment(order_id: str, amount: float, customer_name: str) -> Dict:
+def process_payment(order_id: str, amount: float, customer_name: str) -> dict:
     """Process payment (fake - always succeeds).
 
     Args:

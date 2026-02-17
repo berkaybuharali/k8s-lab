@@ -10,7 +10,7 @@ tools = [get_orders_for_date]
 # MCPToolset doesn't exist in ADK 1.25.0
 # Phase 3 will implement proper MCP integration for route optimization
 # For now, the agent can fetch orders but won't have Maps API access
-if os.getenv("GOOGLE_MAPS_API_KEY"):
+if os.getenv("GOOGLE_API_KEY"):
     # Placeholder for future MCP integration
     # See: https://github.com/modelcontextprotocol/python-sdk
     pass

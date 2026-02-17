@@ -89,9 +89,14 @@ Agents are deployed to Kubernetes via the Go CLI:
 # Deploy both agent systems to K8s
 ./bin/k8s-lab deploy-agents --cloud gcp
 
-# Test via port-forward
-kubectl port-forward -n agents svc/commerce 8001:8001
-curl -X POST http://localhost:8001/run -d '{"app_name":"commerce","user_id":"test","session_id":"s1","new_message":{"role":"user","parts":[{"text":"Hello"}]}}'
+# Interactive chat with Commerce Concierge (handles tunnel + port-forward automatically)
+./bin/k8s-lab agent-chat --system commerce --cloud gcp
+
+# Resume a previous conversation
+./bin/k8s-lab agent-chat --system commerce --cloud gcp --session <contextId>
+
+# Single-turn query to Supply Chain
+./bin/k8s-lab agent-chat --system supply-chain --cloud gcp "Show me current stock"
 ```
 
 See the main README.md for full deployment workflow.
@@ -119,16 +124,16 @@ Magic Cake demonstrates three modern AI protocols for different integration patt
 ### A2A (Agent-to-Agent Protocol)
 
 **What is it?**
-A2A is Google ADK's protocol for agent-to-agent communication. It enables AI agents in different systems to discover each other's capabilities and communicate via natural language RPC.
+A2A is Google ADK's protocol for agent-to-agent communication. It enables AI agents in different systems to discover each other's capabilities and communicate via natural language messages over JSON-RPC 2.0 over HTTP.
 
 **Why we use it:**
 Commerce and Supply Chain are independent systems that need to talk. A2A allows them to communicate naturally without tight coupling - Commerce doesn't need to know Supply Chain's internal API structure, just its agent capabilities.
 
 **How it works:**
 1. Each system exposes `/.well-known/agent-card.json` describing its capabilities
-2. Systems use `RemoteA2aAgent` to create client connections
-3. Communication happens via natural language messages, not rigid API contracts
-4. ADK handles message serialization, routing, and response parsing
+2. Communication happens via `POST /` with JSON-RPC `message/send` method
+3. Messages are natural language, not rigid API contracts
+4. A2A servers use `contextId` for multi-turn sessions
 
 **Implementation in Magic Cake:**
 
@@ -137,38 +142,52 @@ Commerce and Supply Chain are independent systems that need to talk. A2A allows 
 - Checkout deducts inventory after payment
 - Checkout creates orders with images in Supply Chain database
 
-**Supply Chain → Commerce (Backoffice):**
-- Inventory notifies Commerce when stock reaches zero
-- Commerce can update catalog in real-time
-
-**Code example:**
+**Code example (direct HTTP A2A):**
 ```python
 # agents/commerce/a2a/supply_chain_client.py
-from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
+import httpx, uuid
 
-supply_chain = RemoteA2aAgent(
-    name="supply_chain_remote",
-    description="Remote Supply Chain Intelligence system",
-    agent_card="http://supply-chain.agents.svc.cluster.local:8002/.well-known/agent-card.json"
-)
-
-# Natural language call - no API spec needed
-response = supply_chain.run("Check stock for chocolate")
+def _call_supply_chain(message: str) -> str:
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "message/send",
+        "id": "1",
+        "params": {
+            "message": {
+                "role": "user",
+                "parts": [{"kind": "text", "text": message}],
+                "messageId": str(uuid.uuid4()),
+            }
+        },
+    }
+    response = httpx.post("http://supply-chain.agents.svc.cluster.local:8002/",
+                          json=payload, timeout=15.0)
+    response.raise_for_status()
+    return _extract_text(response.json().get("result", {}))
 ```
+
+**Why direct HTTP instead of RemoteA2aAgent:**
+
+ADK provides `RemoteA2aAgent` as a convenience for wiring remote agents as top-level sub-agents in a parent agent. However, calling `remote_agent.run()` inside a **tool function** starts a nested ADK event loop that corrupts the parent agent's active session — causing the agent to loop back to the beginning of the conversation or return empty responses.
+
+The A2A protocol is simply JSON-RPC 2.0 over HTTP. `RemoteA2aAgent` is just a wrapper around it. Using `httpx.post` directly to `POST /` with a `message/send` payload achieves the exact same result without involving ADK's session management at all.
+
+Rule of thumb:
+- `RemoteA2aAgent` → use for top-level sub-agent wiring in `sub_agents=[...]`
+- Direct HTTP → use for tool-level cross-system calls
 
 **Benefits:**
 - **Loose coupling:** Systems communicate via natural language, not rigid APIs
 - **Discovery:** Agent cards enable runtime capability discovery
-- **Evolution:** Change internal implementation without breaking inter-system communication
-- **Natural:** Agents reason about requests and provide context-aware responses
+- **Reliable:** No nested ADK event loops, no session corruption
 
 **Testing:**
 ```bash
 # Chat with Commerce (internally calls Supply Chain via A2A)
-./bin/k8s-lab agent-chat --system commerce --cloud gcp "I want a chocolate cake"
+./bin/k8s-lab agent-chat --system commerce --cloud gcp
 
 # Chat with Supply Chain directly
-./bin/k8s-lab agent-chat --system supply-chain --cloud gcp "Show me current stock"
+./bin/k8s-lab agent-chat --system supply-chain --cloud gcp
 ```
 
 ---
@@ -269,7 +288,7 @@ from google.adk.mcp import MCPToolset
 
 maps_mcp = MCPToolset(
     server_name="google-maps",
-    env={"GOOGLE_MAPS_API_KEY": os.getenv("GOOGLE_MAPS_API_KEY")}
+    env={"GOOGLE_API_KEY": os.getenv("GOOGLE_API_KEY")}
 )
 
 fulfillment_agent = adk.Agent(
@@ -286,8 +305,129 @@ fulfillment_agent = adk.Agent(
 
 ---
 
+## ADK Lessons Learned
+
+Practical pitfalls encountered building Magic Cake on ADK v1.25.
+
+### sub_agents routing is unreliable for multi-turn conversational flows
+
+ADK's `sub_agents` pattern lets a root agent delegate messages to child agents. The routing
+decision is made by the root agent's LLM on **every single turn** — there is no built-in
+mechanism to stay in a sub-agent across turns (ADK issue [#3878](https://github.com/google/adk-python/issues/3878)).
+
+In a multi-turn conversation this caused repeated mid-conversation restarts:
+
+- User: "lets go with ananas" → root LLM saw "ananas" (Dutch/German for pineapple), thought
+  it was language input, routed back to the Translation sub-agent
+- User: "walnuts" → Cake Designer forgot the previously chosen flavor and restarted from scratch
+
+The root agent re-evaluates routing independently each turn. Explicit CRITICAL rules in the
+instruction ("NEVER go back to Translation") did not reliably prevent misdelegation.
+
+**The fix:** For a multi-turn conversational flow where context must survive many exchanges,
+use a **single root agent** with all tools. The conversation history in the session is the
+state — the agent reads it and follows a phased instruction without any routing machinery
+between sub-agents.
+
+```
+Sub-agents remain the right choice for:
+- Single-shot delegations (one request, one response, done)
+- Truly independent parallel tasks
+- A2A calls to external systems (Supply Chain, etc.)
+
+Sub-agents are the wrong choice for:
+- Multi-turn conversation phases (language → design → checkout)
+- Any flow where you need "stay here until done"
+```
+
+`SequentialAgent` is not a solution for multi-turn flows — it runs all steps in a single
+HTTP request, not across multiple user messages.
+
+---
+
+### Gemini API rejects `list[Dict]` / `list[dict]` tool parameters
+
+ADK auto-generates JSON schema from Python type hints when registering tools. Generic
+`dict` or `Dict` produces `"additionalProperties": {}` in the schema, which Gemini's
+Generative Language API rejects:
+
+```
+400 INVALID_ARGUMENT: Unknown name "additional_properties" at
+'tools[0].function_declarations[4].parameters.properties[0].value.items'
+```
+
+The failure comes back as `status.state: "failed"` in the A2A JSON response (not as
+an HTTP error code), so callers that only check HTTP status receive an empty response
+instead of a useful error message — silent failure.
+
+**The fix:** Redesign list-of-dict parameters into parallel typed arrays:
+
+```python
+# Bad — list[dict] generates additionalProperties, bare list has no items
+def calculate_price(cakes: list[dict]) -> dict: ...   # 400 INVALID_ARGUMENT
+def calculate_price(cakes: list) -> dict: ...         # 400 missing field
+
+# Good — use only primitively-typed arrays
+def calculate_price(people_counts: list[int]) -> dict: ...
+
+# For multi-field objects, use parallel lists instead of list-of-dicts
+def create_order_remote(
+    flavors: list[str],
+    nuts_choices: list[str],
+    people_counts: list[int],
+    concepts: list[str],
+    image_paths: list[str],
+    ...
+) -> dict: ...
+```
+
+The LLM reads the docstring to understand intent, not the type hint. Parallel arrays are
+slightly less ergonomic but work reliably with Gemini's schema validation.
+
+To surface these errors instead of returning silence, the A2A client must check
+`result.status.state` and extract text from `result.status.message.parts` when
+the state is `"failed"`.
+
+---
+
+### A2A `contextId` must be inside the Message object
+
+In the A2A JSON-RPC `message/send` request, the `Message` type (not `MessageSendParams`)
+carries the `contextId` field. Putting `contextId` at the params level is silently ignored
+— the server generates a fresh session on every turn, breaking multi-turn conversations.
+
+**Broken (contextId ignored):**
+```json
+{
+  "method": "message/send",
+  "params": {
+    "contextId": "a5653ed2-...",
+    "message": {"role": "user", "parts": [...], "messageId": "..."}
+  }
+}
+```
+
+**Correct (contextId read by server):**
+```json
+{
+  "method": "message/send",
+  "params": {
+    "message": {
+      "role": "user",
+      "parts": [...],
+      "messageId": "...",
+      "contextId": "a5653ed2-..."
+    }
+  }
+}
+```
+
+This misplacement causes the same symptom as sub_agent routing loops: the agent resets
+to the beginning of the conversation on every turn (because it truly is starting fresh).
+The A2A server internally maps `message.contextId → session_id` and `A2A_USER_{contextId} → user_id`.
+
+---
+
 ## Development
 
 See `agent_plan.md` (gitignored, local only) for detailed implementation plan.
-
-Current status: Phase 4 (A2A Integration) - Commerce and Supply Chain communicate via A2A, UCP endpoints functional.

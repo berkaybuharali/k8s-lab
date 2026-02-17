@@ -27,7 +27,7 @@ class Config:
 
     # Google Maps API key (for MCP integration)
     # TODO: Generate from GCP Console or use: gcloud services api-keys create
-    GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "YOUR_GOOGLE_MAPS_API_KEY")
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "YOUR_GOOGLE_API_KEY")
 
     @classmethod
     def validate(cls):

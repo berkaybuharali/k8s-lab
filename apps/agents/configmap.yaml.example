@@ -18,4 +18,4 @@ data:
   CAKES_PREFIX: "cakes/orders"
   COMMERCE_URL: "http://commerce.agents.svc.cluster.local:8001"
   SUPPLY_CHAIN_URL: "http://supply-chain.agents.svc.cluster.local:8002"
-  GOOGLE_MAPS_API_KEY: "YOUR_GOOGLE_MAPS_API_KEY"  # Generate from GCP Console
+  GOOGLE_API_KEY: "YOUR_GOOGLE_API_KEY"  # From aistudio.google.com/apikey (enable Maps APIs in GCP Console for the same key)

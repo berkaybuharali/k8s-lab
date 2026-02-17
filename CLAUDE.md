@@ -108,6 +108,6 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 - Each system is an independent Python package with its own pyproject.toml
 - A2A: HTTP POST between K8s services (commerce.agents.svc:8001 ↔ supply-chain.agents.svc:8002)
 - UCP: REST endpoints on Commerce (/.well-known/ucp, /ucp/catalog, /ucp/checkout-sessions)
-- MCP: ADK MCPToolset for Google Maps (requires GOOGLE_MAPS_API_KEY)
+- MCP: ADK MCPToolset for Google Maps (requires GOOGLE_API_KEY)
 - Tools are in `tools/` subdirectory per system
-- Config via environment variables (REDIS_HOST, GCP_PROJECT_ID, GCS_BUCKET, GOOGLE_MAPS_API_KEY, etc.)
+- Config via environment variables (REDIS_HOST, GCP_PROJECT_ID, GCS_BUCKET, GOOGLE_API_KEY, etc.)

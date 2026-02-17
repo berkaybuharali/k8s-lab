@@ -33,7 +33,7 @@ This command:
 3. Patches manifests with your Project ID and API keys
 4. Deploys to Kubernetes (agents namespace)
 
-Requires GOOGLE_MAPS_API_KEY environment variable.
+Requires GOOGLE_API_KEY environment variable.
 
 Use --skip-build to only deploy manifests without rebuilding images.`,
 	RunE: runDeployAgents,
@@ -53,16 +53,16 @@ func runDeployAgents(cmd *cobra.Command, args []string) error {
 	if err := checkToolsPrerequisites(cfg, log); err != nil {
 		return err
 	}
-	
+
 	// Check for Docker
 	if _, err := exec.LookPath("docker"); err != nil {
 		return fmt.Errorf("docker is required for building agent images")
 	}
 
 	// Check environment variables
-	mapsKey := os.Getenv("GOOGLE_MAPS_API_KEY")
-	if mapsKey == "" {
-		return fmt.Errorf("GOOGLE_MAPS_API_KEY environment variable is required")
+	apiKey := os.Getenv("GOOGLE_API_KEY")
+	if apiKey == "" {
+		return fmt.Errorf("GOOGLE_API_KEY environment variable is required (get one from aistudio.google.com/apikey, enable Maps APIs in GCP Console)")
 	}
 
 	log.Info("==============================================")
@@ -133,10 +133,10 @@ func runDeployAgents(cmd *cobra.Command, args []string) error {
 
 	// Prepare replacements
 	replacements := map[string]string{
-		"YOUR_PROJECT_ID":        infra.ProjectID,
-		"YOUR_REGION":            infra.Region,
-		"YOUR_BUCKET":            infra.Bucket,
-		"YOUR_GOOGLE_MAPS_API_KEY": mapsKey,
+		"YOUR_PROJECT_ID":      infra.ProjectID,
+		"YOUR_REGION":          infra.Region,
+		"YOUR_BUCKET":          infra.Bucket,
+		"YOUR_GOOGLE_API_KEY":  apiKey,
 	}
 
 	// Helper to patch and write file
@@ -146,12 +146,12 @@ func runDeployAgents(cmd *cobra.Command, args []string) error {
 			return "", err
 		}
 		strContent := string(content)
-		
+
 		// Global replacements
 		for k, v := range replacements {
 			strContent = strings.ReplaceAll(strContent, k, v)
 		}
-		
+
 		// Custom replacements (e.g. image tag)
 		for k, v := range customReplacements {
 			strContent = strings.ReplaceAll(strContent, k, v)
@@ -165,7 +165,7 @@ func runDeployAgents(cmd *cobra.Command, args []string) error {
 	}
 
 	manifestsDir := filepath.Join(repoRoot, "apps", "agents")
-	
+
 	// Patch ConfigMap
 	cmPath, err := patchFile(filepath.Join(manifestsDir, "configmap.yaml.example"), "configmap.yaml", nil)
 	if err != nil {
@@ -232,19 +232,19 @@ func runDeployAgents(cmd *cobra.Command, args []string) error {
 	if err := k8sClient.ApplyManifest(ctx, commercePath); err != nil {
 		return fmt.Errorf("failed to apply commerce: %w", err)
 	}
-	log.Debug("Commerce deployment applied")
+	log.Info("Commerce deployment applied")
 
 	// Apply Supply Chain
 	log.Debug("Applying supply-chain deployment...")
 	if err := k8sClient.ApplyManifest(ctx, supplyChainPath); err != nil {
 		return fmt.Errorf("failed to apply supply-chain: %w", err)
 	}
-	log.Debug("Supply-chain deployment applied")
+	log.Info("Supply-chain deployment applied")
 
 	// 4. Wait for Readiness
 	log.Step("Waiting for agents to be ready...")
 	log.Debug("Waiting for commerce to be ready...")
-	
+
 	if err := k8sClient.WaitForDeploymentReady(ctx, "agents", "commerce", 5*time.Minute); err != nil {
 		return fmt.Errorf("commerce agent failed to start: %w", err)
 	}

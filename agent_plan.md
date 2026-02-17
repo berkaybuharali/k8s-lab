@@ -8,12 +8,13 @@
 | Phase 1: Foundation | Complete | Python ADK scaffolding, K8s manifests, Dockerfiles |
 | Phase 2: Supply Chain | Complete | Inventory, Order Service, Fulfillment agents with Redis/GCS/Maps MCP tools. Seeded data. |
 | Phase 3: Commerce + UCP | Complete | Translation, Cake Designer, Checkout agents. UCP endpoints. Image gen with Gemini 2.5 Flash Image. |
-| Phase 4: A2A Integration | Not Started | Cross-system communication, agent-chat CLI |
-| Phase 5: UI Elevation | Not Started | Magic Cake Shop + Backoffice pages |
-| Phase 6: Deployment | Not Started | Artifact Registry, backup scope, seed data, lifecycle |
-| Phase 7: Documentation | Not Started | Docs, project history, lessons learned |
+| Phase 4: A2A Integration | Complete | Cross-system A2A calls working. agent-chat CLI with session continuity. Single-agent architecture. |
+| Phase 5: Seed Data & Lifecycle | Not Started | destroy cleanup + seed-data with real Gemini images and dynamic data |
+| Phase 6: UI Elevation | Not Started | Magic Cake Shop + Backoffice pages |
+| Phase 7: Deployment Pipeline | Not Started | Artifact Registry, backup scope, lifecycle |
+| Phase 8: Documentation | Not Started | Docs, project history, lessons learned |
 
-**Last Updated:** Phase 3 complete. Commerce system deployed with tools (image_gen using Gemini 2.5 Flash Image, address validation, payment). UCP endpoints tested and working. Phase 3 complete_session() is stub - returns order_id but doesn't generate images. A2A integration in Phase 4 will wire real order creation. Next: Phase 4.
+**Last Updated:** Phase 4 complete. A2A integration working — Commerce checks inventory, deducts stock, creates orders via direct httpx calls to Supply Chain A2A endpoint. agent-chat CLI with multi-turn session continuity (contextId inside message object). Single-agent architecture (no sub_agents). Key fixes: sub_agents routing replaced with single root agent; Gemini API schema errors fixed (list[dict] → parallel typed arrays); A2A contextId placement fixed (params.message.contextId not params.contextId). All conversation phases working: language → flavor → nuts → people → concept → checkout. Next: Phase 5.
 
 ---
 
@@ -261,7 +262,7 @@ k8s-lab/
 ## Phase Dependencies
 
 ```
-Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 4 ──► Phase 5 ──► Phase 6 ──► Phase 7
+Phase 0 ──► Phase 1 ──► Phase 2 ──► Phase 4 ──► Phase 5 ──► Phase 6 ──► Phase 7 ──► Phase 8
                     └──► Phase 3 ──┘
 ```
 
@@ -361,13 +362,47 @@ curl -X POST http://localhost:8001/ucp/checkout-sessions \
 
 ---
 
-## Phase 5: UI Elevation
+## Phase 5: Seed Data & Lifecycle
+
+**Goal:** Replace hardcoded seed data with dynamic Gemini-generated content and real cake images. Clean up destroy command. This must be done before Phase 6 UI so the backoffice has useful data to display.
+
+### Steps
+
+**5.1** ~~Update destroy command to clean up agents namespace~~ -- Not needed: destroy tears down the full cluster, no separate agent namespace cleanup required.
+
+**5.2** Replace `seed-redis` + `seed-inventory` with unified `seed-data`:
+- `k8s-lab seed-data --cloud gcp` does everything:
+  - Seeds Redis test data (existing seed-redis logic)
+  - Seeds inventory (5 ingredients with deliberate low stock: ananas=1, walnut=2)
+  - Seeds 7 fake orders with dynamic data generated via Gemini (we have an LLM, use it):
+    - Varied customer names (Dutch/international mix, different every run)
+    - Varied Amsterdam street addresses (not hardcoded, realistic but random)
+    - Fresh order IDs with UUIDs each run
+    - Varied cake details (flavor, nuts, people count, concept)
+  - Generates real cake images via Gemini 2.5 Flash Image and uploads to GCS (cake_1.png per order)
+- Makes backoffice immediately useful and different every time
+- Old `seed-redis` and `seed-inventory` deprecated (skept as aliases initially)
+
+### Verification
+```bash
+./bin/k8s-lab deploy-agents --cloud gcp
+./bin/k8s-lab seed-data --cloud gcp
+# Verify: 7 orders in Redis with varied data
+kubectl exec -n application redis-xxx -- redis-cli KEYS "order:CAKE-*"
+# Verify: real cake images in GCS
+gsutil ls gs://{bucket}/cakes/orders/
+# Run twice, confirm different names/addresses each time
+```
+
+---
+
+## Phase 6: UI Elevation
 
 **Goal:** Magic Cake Shop page (customer chat), Backoffice page (orders, map, inventory, revenue, agent log). Rename existing dashboard to Infrastructure.
 
 ### Steps
 
-**5.1 Update navigation in App.tsx**:
+**6.1 Update navigation in App.tsx**:
 - Rename current dashboard view to "Infrastructure"
 - Navigation tabs next to k8s-lab logo: `Infrastructure | Architecture | Magic Cake Shop | Magic Cake Backoffice | About`
 ```typescript
@@ -375,7 +410,7 @@ type View = 'infrastructure' | 'pod-detail' | 'tf-detail' | 'about' | 'architect
            | 'shop' | 'backoffice'
 ```
 
-**5.2 New Go API endpoints** -- `cli/pkg/ui/handlers_agents.go`:
+**6.2 New Go API endpoints** -- `cli/pkg/ui/handlers_agents.go`:
 - `POST /api/agent/chat` -- Send message to agent system, return response (body: {system, message, session_id})
 - `GET /api/agent/status` -- Agent pod status for both systems
 - `GET /api/inventory` -- All 5 ingredient stock levels
@@ -386,59 +421,86 @@ type View = 'infrastructure' | 'pod-detail' | 'tf-detail' | 'about' | 'architect
 - `GET /api/orders/stats` -- Order count, total revenue, average price
 - `GET /api/agent/activity` -- Recent agent interactions log
 
-**5.3 ShopPage.tsx** -- Magic Cake Shop (customer-facing):
+**6.3 ShopPage.tsx** -- Magic Cake Shop (customer-facing):
 - Fancy landing section: shop name "Magic Cake", tagline, cake imagery/branding
 - Chat interface (AgentChat component) connected to Commerce system
 - Shows cake image inline when agent generates one
 - Clean, modern bakery aesthetic
 
-**5.4 AgentChat.tsx** -- Reusable chat widget:
+**6.4 AgentChat.tsx** -- Reusable chat widget:
 - Message input, response display with markdown rendering
 - Image display support (for cake previews)
 - System selector prop (commerce/supply-chain)
 - Session management (generates session ID, supports multi-turn)
 - Loading states, error handling
+- **Payment modal intercept** (see 6.4a)
 
-**5.5 BackofficePage.tsx** -- Magic Cake Backoffice (5 components):
+**6.4a Payment Modal** -- UI-level intercept for the payment confirmation step:
 
-**5.5a Map View Component**:
+The commerce agent (after gathering all order details) asks *"Shall I proceed with payment for €X.XX?"*.
+The UI detects this turn by checking if the agent response contains a payment confirmation prompt
+(look for "proceed with payment" or "€" + "payment" in the response text).
+
+When detected, instead of showing the normal text input, the UI shows a **payment modal**:
+- Fake card number field (pre-filled: `4242 4242 4242 4242`)
+- Expiry field (pre-filled: `12/28`)
+- CVV field (pre-filled: `123`)
+- "Pay €XX.XX" button (amount parsed from the agent's message)
+- Cancel button (sends "cancel" to agent, which should restart)
+
+On clicking Pay, the UI sends `"yes, please proceed"` as the next A2A message. The agent calls
+`process_payment()` normally and returns the transaction ID. UI closes modal and shows the
+order confirmation.
+
+**Why not UCP for payment?**
+UCP checkout sessions (`/ucp/checkout-sessions/{id}/complete`) are designed for external AI agents
+that skip the conversation entirely — Gemini in Search, Google Assistant, etc. They are not the right
+tool for intercepting a mid-conversation human payment step. The intercepting approach keeps A2A as
+the single protocol for the human chat flow, and UCP remains the entry point for programmatic agents.
+
+The fake card input is purely decorative — it gates the "yes" confirmation message and makes the
+demo feel like a real payment without any actual processing.
+
+**6.5 BackofficePage.tsx** -- Magic Cake Backoffice (5 components):
+
+**6.5a Map View Component**:
 - Dropdown to select date (next 3 days)
 - Interactive map showing delivery route from Danzigerkade 4 to all delivery addresses
 - Route data from Fulfillment agent via `/api/fulfillment/route`
 - Map library: Leaflet.js (open source, no API key for tiles, route polyline overlay)
 - Markers for each delivery address with order details tooltip
 
-**5.5b Order Table Component**:
+**6.5b Order Table Component**:
 - Table columns: Order ID, Customer Name, Cakes (count + summary), Address, Delivery Date, Price (cakes + delivery fee), Image thumbnails
 - Delete button per row with confirmation
 - Filter dropdown by delivery date
 - Click row to expand: full cake details (flavor, nuts, people per cake), full-size images (cake_1, cake_2, ...), delivery fee breakdown
 
-**5.5c Inventory Dashboard Component**:
+**6.5c Inventory Dashboard Component**:
 - Visual stock levels for all 5 ingredients (chocolate, ananas, banana, walnut, almond)
 - Color-coded progress bars: green (3-5), yellow (2), red (0-1)
 - Shows: current quantity / max (5) per ingredient
 - Auto-refreshes every 30 seconds
 
-**5.5d Revenue Summary Component**:
+**6.5d Revenue Summary Component**:
 - Stats cards: Total orders count, Total revenue, Average order value
 - Simple data from `/api/orders/stats`
 - Compact display at top of backoffice
 
-**5.5e Agent Activity Log Component**:
+**6.5e Agent Activity Log Component**:
 - Recent agent interactions: timestamp, system (commerce/supply-chain), user query, agent action
 - Shows A2A calls between systems
 - Scrollable feed, max 50 recent entries
 - Helps visualize the agentic flow in real-time
 
-**5.5f Agent Chat Panel**:
+**6.5f Agent Chat Panel**:
 - Embedded AgentChat widget connected to Supply Chain system
 - For ad-hoc backoffice queries: "How many orders for tomorrow?", "Plan route for Friday", "What ingredients are low?"
 - Collapsed by default, expandable
 
-**5.6 Update ActionsPanel** -- Add "Deploy Agents" and "Seed Inventory" buttons to Infrastructure page
+**6.6 Update ActionsPanel** -- Add "Deploy Agents" and "Seed Data" buttons to Infrastructure page
 
-**5.7 Map integration**: Leaflet.js with OpenStreetMap tiles. Route polyline from Fulfillment agent data. No extra API key needed for map rendering (Google Maps API only needed server-side for route calculation via MCP).
+**6.7 Map integration**: Leaflet.js with OpenStreetMap tiles. Route polyline from Fulfillment agent data. No extra API key needed for map rendering (Google Maps API only needed server-side for route calculation via MCP).
 
 ### Verification
 ```bash
@@ -457,13 +519,13 @@ type View = 'infrastructure' | 'pod-detail' | 'tf-detail' | 'about' | 'architect
 
 ---
 
-## Phase 6: Deployment and Lifecycle
+## Phase 7: Deployment Pipeline
 
-**Goal:** Production-ready pipeline, unified CLI commands, seed data with images, full lifecycle.
+**Goal:** Production-ready pipeline -- Terraform Artifact Registry, merged deploy commands, backup scope, full lifecycle.
 
 ### Steps
 
-**6.1** Add Artifact Registry to Terraform (`infra/gcp/terraform/`):
+**7.1** Add Artifact Registry to Terraform (`infra/gcp/terraform/`):
 ```hcl
 resource "google_artifact_registry_repository" "agents" {
   repository_id = "k8s-lab"
@@ -472,25 +534,14 @@ resource "google_artifact_registry_repository" "agents" {
 }
 ```
 
-**6.2** Update backup scope -- Add `agents` namespace to default Velero backup in `cli/cmd/backup.go`
+**7.2** Update backup scope -- Add `agents` namespace to default Velero backup in `cli/cmd/backup.go`
 
-**6.3** Merge `deploy-agents` into `deploy-applications`:
+**7.3** Merge `deploy-agents` into `deploy-applications`:
 - `deploy-applications` now deploys: NGINX + Redis + agent containers (build, push, apply manifests)
 - `deploy-agents` stays as standalone for dev/testing but `deploy-applications` calls it internally
 - `deploy` (all-in-one) = infra + tools + applications (which includes agents)
 
-**6.4** Update `destroy` command to clean up agents namespace
-
-**6.5** Replace `seed-redis` + `seed-inventory` with unified `seed-data`:
-- `k8s-lab seed-data --cloud gcp` does everything:
-  - Seeds Redis test data (existing seed-redis logic)
-  - Seeds inventory (5 ingredients with deliberate low stock)
-  - Seeds 7 fake orders with valid Amsterdam addresses, computed delivery dates
-  - Generates cake images via Gemini and uploads to GCS (cake_1.png per order)
-- Makes backoffice immediately useful after seeding
-- Old `seed-redis` and `seed-inventory` deprecated (kept as aliases initially, removed later)
-
-**6.6** Full daily lifecycle:
+**7.4** Full daily lifecycle:
 ```
 deploy → seed-data → [use shop + backoffice] → backup → destroy
 restore (next day) → [agents + orders + images all restored/available]
@@ -498,7 +549,7 @@ restore (next day) → [agents + orders + images all restored/available]
 
 ### CLI Command Evolution
 
-| Before (Phase 2-4) | After (Phase 6) | Notes |
+| Before (Phase 2-4) | After (Phase 7) | Notes |
 |---------------------|-----------------|-------|
 | `deploy-agents` | Part of `deploy-applications` | Still available standalone for dev |
 | `seed-redis` + `seed-inventory` | `seed-data` | Single command, all test data |
@@ -519,28 +570,27 @@ kubectl get pods -n agents  # Agents restored
 
 ---
 
-## Phase 7: Documentation
+## Phase 8: Documentation
 
 **Goal:** Comprehensive docs, project history, lessons learned.
 
 ### Steps
 
-**7.1** Update `README.md`:
+**8.1** Update `README.md`:
 - Add Magic Cake Shop section with architecture overview
 - Update Quick Start for agent deployment
 - Add to Lessons Learned table
 - Update architecture diagram
 - Document all three protocols: A2A, MCP, UCP
 
-**7.2** Create `agents/README.md`:
-- How-to guide for agent development
-- Local testing workflow
-- A2A, MCP, UCP reference
+**8.2** Update `agents/README.md`:
+- Verify local testing workflow
+- A2A, MCP, UCP reference (already partially done in Phase 4)
 - Environment variables reference
 
-**7.3** Final pass on all docs: `CLAUDE.md`, `GEMINI.md`, `LOCAL.md`, `ui/plan.md`
+**8.3** Final pass on all docs: `CLAUDE.md`, `GEMINI.md`, `LOCAL.md`, `ui/plan.md`
 
-**7.4** Create `project-history.md` -- Timeline of project evolution. This should be HTML file and part of the UI. It should be visual timeline with lessons learned included. 
+**8.4** Create `project-history.md` -- Timeline of project evolution. This should be HTML file and part of the UI. It should be visual timeline with lessons learned included.
 
 ### Verification
 ```bash
@@ -553,12 +603,13 @@ grep -r "scripts/\|Makefile\|Sales Tracker\|BigQuery\|Vertex AI Search" README.m
 ## Implementation Order
 
 1. Phase 0: Cleanup (DONE)
-2. Phase 1: Foundation + commit agent_plan.md
-3. Phase 2: Supply Chain agents -- **test alone via CLI before proceeding**
-4. Phase 3: Commerce agents + UCP -- **test alone via CLI + curl for UCP**
+2. Phase 1: Foundation + commit agent_plan.md (DONE)
+3. Phase 2: Supply Chain agents -- **test alone via CLI before proceeding** (DONE)
+4. Phase 3: Commerce agents + UCP -- **test alone via CLI + curl for UCP** (DONE)
 5. Phase 4: A2A wiring -- **test both systems talking via CLI**
-6. Phase 5: UI -- **test full flow via browser**
-7. Phase 6: Deployment pipeline + seed images
-8. Phase 7: Documentation
+6. Phase 5: Seed Data & Lifecycle -- **seed-data must work before UI work starts**
+7. Phase 6: UI -- **test full flow via browser**
+8. Phase 7: Deployment pipeline
+9. Phase 8: Documentation
 
 User requested: "first agent is done we test alone, then do second agent. all tests are via go cli then we will work on frontend."

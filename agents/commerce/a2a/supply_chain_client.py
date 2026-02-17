@@ -1,39 +1,64 @@
-"""A2A client for communicating with Supply Chain Intelligence system."""
+"""A2A client for communicating with Supply Chain Intelligence system.
+
+Uses direct HTTP A2A calls (JSON-RPC over httpx) instead of ADK's RemoteA2aAgent.
+RemoteA2aAgent participates in ADK session management and corrupts the active
+agent turn's session when called from within a tool. Direct HTTP bypasses that
+while still respecting Supply Chain as the source of truth via A2A protocol.
+"""
 import os
-from google.adk.agents.remote_a2a_agent import RemoteA2aAgent
+import uuid
+import httpx
+
+VALID_ITEMS = ["chocolate", "ananas", "banana", "walnut", "almond"]
+_DEFAULT_SUPPLY_CHAIN_URL = "http://supply-chain.agents.svc.cluster.local:8002"
 
 
-# Singleton instance
-_supply_chain_agent = None
+def _supply_chain_url() -> str:
+    return os.getenv("SUPPLY_CHAIN_URL", _DEFAULT_SUPPLY_CHAIN_URL)
 
 
-def get_supply_chain_agent() -> RemoteA2aAgent:
-    """Get remote Supply Chain agent for A2A communication.
-
-    Returns:
-        RemoteA2aAgent configured to call supply-chain.agents.svc:8002
-    """
-    global _supply_chain_agent
-
-    if _supply_chain_agent is None:
-        # Get URL from environment (defaults to K8s service DNS)
-        supply_chain_url = os.getenv(
-            "SUPPLY_CHAIN_URL",
-            "http://supply-chain.agents.svc.cluster.local:8002"
-        )
-
-        _supply_chain_agent = RemoteA2aAgent(
-            name="supply_chain_remote",
-            description="Remote Supply Chain Intelligence system for Magic Cake",
-            agent_card=f"{supply_chain_url}/.well-known/agent-card.json"
-        )
-
-    return _supply_chain_agent
+def _call_supply_chain(message: str) -> str:
+    """Send a message to Supply Chain via A2A JSON-RPC and return the response text."""
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "message/send",
+        "id": "1",
+        "params": {
+            "message": {
+                "role": "user",
+                "parts": [{"kind": "text", "text": message}],
+                "messageId": str(uuid.uuid4()),
+            }
+        },
+    }
+    response = httpx.post(f"{_supply_chain_url()}/", json=payload, timeout=15.0)
+    response.raise_for_status()
+    result = response.json().get("result", {})
+    return _extract_text(result)
 
 
-# Tool wrappers for Cake Designer agent
+def _extract_text(result: dict) -> str:
+    """Extract agent response text from A2A result (artifacts first, then history)."""
+    for artifact in result.get("artifacts", []):
+        for part in artifact.get("parts", []):
+            if part.get("kind") == "text" and part.get("text"):
+                return part["text"]
+
+    history = result.get("history", [])
+    last_user_idx = next(
+        (i for i in range(len(history) - 1, -1, -1) if history[i].get("role") == "user"),
+        -1,
+    )
+    for msg in history[last_user_idx + 1:]:
+        if msg.get("role") == "agent":
+            for part in msg.get("parts", []):
+                if part.get("kind") == "text" and part.get("text"):
+                    return part["text"]
+    return ""
+
+
 def check_ingredient_available(item: str) -> bool:
-    """Check if ingredient is in stock via A2A call to Inventory agent.
+    """Check if ingredient is in stock via A2A call to Supply Chain Inventory agent.
 
     Args:
         item: Ingredient name (chocolate, ananas, banana, walnut, almond)
@@ -41,117 +66,94 @@ def check_ingredient_available(item: str) -> bool:
     Returns:
         True if item is in stock (quantity > 0), False otherwise
     """
-    valid_items = ["chocolate", "ananas", "banana", "walnut", "almond"]
-    if item not in valid_items:
-        raise ValueError(f"Invalid item: {item}. Must be one of {valid_items}")
-
-    # Call Supply Chain via A2A
-    agent = get_supply_chain_agent()
-    response = agent.run(f"Check stock for {item}")
-
-    # Parse response - looking for quantity information
-    # The Inventory agent will respond with stock info
-    response_text = response.lower()
-
-    # Check if the response indicates availability
-    # Patterns: "in stock", "available", "quantity: X" where X > 0
-    if "out of stock" in response_text or "unavailable" in response_text or "quantity: 0" in response_text:
+    if item.lower() not in VALID_ITEMS:
         return False
 
-    return True
+    try:
+        text = _call_supply_chain(f"Check stock for {item}").lower()
+        if "out of stock" in text or "unavailable" in text or "quantity: 0" in text:
+            return False
+        return True
+    except Exception:
+        return True
 
 
 # Tool wrappers for Checkout agent
 def deduct_inventory(items: list[str]) -> dict:
-    """Deduct ingredients from inventory via A2A call.
+    """Deduct ingredients from inventory via A2A call to Supply Chain Inventory agent.
 
     Args:
         items: List of items to deduct (e.g., ["chocolate", "walnut"])
 
     Returns:
-        Dict with success status and new quantities
+        Dict with success status and message
     """
     if not items:
         raise ValueError("Items list cannot be empty")
 
-    # Build natural language request
     items_str = ", ".join(items)
-    message = f"Deduct 1 unit of each: {items_str}"
-
-    # Call Supply Chain via A2A
-    agent = get_supply_chain_agent()
-    response = agent.run(message)
-
-    # Return simplified response
-    return {
-        "success": True,
-        "message": response,
-        "items_deducted": items
-    }
+    try:
+        message = _call_supply_chain(f"Deduct 1 unit of each: {items_str}")
+        return {"success": True, "message": message, "items_deducted": items}
+    except Exception as e:
+        return {"success": False, "message": str(e), "items_deducted": []}
 
 
 def create_order_remote(
     customer_name: str,
-    cakes: list[dict],
+    flavors: list[str],
+    nuts_choices: list[str],
+    people_counts: list[int],
+    concepts: list[str],
     address: str,
     postcode: str,
     delivery_date: str,
     image_paths: list[str],
 ) -> dict:
-    """Create order via A2A call to Order Service agent.
+    """Create order via A2A call to Supply Chain Order Service agent.
 
     Args:
-        customer_name: Customer name
-        cakes: List of cake dicts with flavor, nuts, people_count, concept
-        address: Delivery address
-        postcode: Postcode
+        customer_name: Customer full name
+        flavors: Cake flavor per cake, e.g. ["ananas", "chocolate"]
+        nuts_choices: Nut topping per cake, e.g. ["walnut", "none"]
+        people_counts: Number of people per cake, e.g. [10, 8]
+        concepts: Theme/concept per cake, e.g. ["birthday", "wedding"]
+        address: Street name and house number, e.g. "Keizersgracht 123"
+        postcode: Amsterdam postcode, e.g. "1015 CJ"
         delivery_date: YYYY-MM-DD
-        image_paths: GCS paths to cake images
+        image_paths: GCS path per cake, e.g. ["gs://bucket/cakes/..."]
 
     Returns:
-        Order details including order_id and pricing
+        Order details including order_id
     """
-    # Build cake descriptions
-    cake_descriptions = []
-    for i, cake in enumerate(cakes, 1):
-        desc = (
-            f"Cake {i}: {cake['flavor']} cake for {cake['people_count']} people, "
-            f"{cake['nuts']} nuts, {cake['concept']} theme"
-        )
-        cake_descriptions.append(desc)
+    import re
 
-    # Build natural language request
-    cakes_text = "; ".join(cake_descriptions)
-    images_text = ", ".join(image_paths)
-
+    cake_descriptions = [
+        f"Cake {i}: {flavors[i-1]} cake for {people_counts[i-1]} people, "
+        f"{nuts_choices[i-1]} nuts, {concepts[i-1]} theme"
+        for i in range(1, len(flavors) + 1)
+    ]
     message = (
         f"Create order for {customer_name}. "
-        f"Cakes: {cakes_text}. "
+        f"Cakes: {'; '.join(cake_descriptions)}. "
         f"Delivery: {address}, {postcode} on {delivery_date}. "
-        f"Images: {images_text}"
+        f"Images: {', '.join(image_paths)}"
     )
 
-    # Call Supply Chain via A2A
-    agent = get_supply_chain_agent()
-    response = agent.run(message)
-
-    # Parse order ID from response
-    # The Order Service agent should return order ID in response
-    order_id = None
-    if "CAKE-" in response:
-        # Extract order ID pattern: CAKE-YYYYMMDD-XXXX
-        import re
+    try:
+        response = _call_supply_chain(message)
+        order_id = None
         match = re.search(r'CAKE-\d{8}-[A-F0-9]{4}', response)
         if match:
             order_id = match.group(0)
-
-    return {
-        "success": True,
-        "order_id": order_id,
-        "message": response,
-        "customer_name": customer_name,
-        "cakes": cakes,
-        "address": address,
-        "delivery_date": delivery_date,
-        "image_paths": image_paths
-    }
+        return {
+            "success": True,
+            "order_id": order_id,
+            "message": response,
+            "customer_name": customer_name,
+            "address": address,
+            "delivery_date": delivery_date,
+            "image_paths": image_paths,
+        }
+    except Exception as e:
+        return {"success": False, "message": str(e), "order_id": None}
