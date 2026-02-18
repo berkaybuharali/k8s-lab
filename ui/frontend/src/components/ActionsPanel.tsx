@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Trash, Database, Server, AppWindow, Rocket, Archive, RotateCcw, Check, Layers } from 'lucide-react'
+import { Trash, Database, Server, AppWindow, Rocket, Archive, RotateCcw, Check, Layers, Bot } from 'lucide-react'
 import type { AuthStatus, GlobalStatus } from '../types'
 import { cn } from '@/lib/utils'
 
@@ -31,7 +31,8 @@ export function ActionsPanel({ auth, status, onTrigger, loading, refreshTrigger 
     if (step === 1 && infraReady) return 'done'
     if (step === 2 && toolsReady) return 'done'
     if (step === 3 && appsReady) return 'done'
-    if (step === 4 && redisHasData) return 'done'
+    if (step === 4 && appsReady && redisHasData) return 'done' // Assume agents are deployed if apps are ready & data is seeded? No perfect check yet.
+    if (step === 5 && redisHasData) return 'done'
     return 'pending'
   }
 
@@ -39,7 +40,8 @@ export function ActionsPanel({ auth, status, onTrigger, loading, refreshTrigger 
     { id: 'deploy-infra', label: 'Deploy Infra', icon: Server, disabled: loading || notAuth, step: 1 },
     { id: 'deploy-tools', label: 'Deploy Tools', icon: Layers, disabled: loading || notAuth || !k8sReady, step: 2 },
     { id: 'deploy-applications', label: 'Deploy Apps', icon: AppWindow, disabled: loading || notAuth || !toolsReady, step: 3 },
-    { id: 'seed-redis', label: 'Seed Redis', icon: Database, disabled: loading || notAuth || !appsReady, step: 4 },
+    { id: 'deploy-agents', label: 'Deploy Agents', icon: Bot, disabled: loading || notAuth || !appsReady, step: 4 },
+    { id: 'seed-data', label: 'Seed Data', icon: Database, disabled: loading || notAuth || !appsReady, step: 5 },
   ]
 
   return (
