@@ -33,7 +33,11 @@ def _call_supply_chain(message: str) -> str:
     }
     response = httpx.post(f"{_supply_chain_url()}/", json=payload, timeout=15.0)
     response.raise_for_status()
-    result = response.json().get("result", {})
+    data = response.json()
+    status = data.get("result", {}).get("status", {})
+    if status.get("state") == "failed":
+        raise RuntimeError(f"A2A call failed: {status}")
+    result = data.get("result", {})
     return _extract_text(result)
 
 

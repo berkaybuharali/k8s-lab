@@ -1,38 +1,35 @@
 """UCP catalog endpoint - flavor discovery for external agents."""
-from typing import Dict, List
-from ..a2a.supply_chain_client import check_ingredient_available
-from ..tools.address import get_available_delivery_dates
+import logging
+
+logger = logging.getLogger(__name__)
+
+_ALL_FLAVORS = ["chocolate", "ananas", "banana"]
+_ALL_NUTS = ["almond", "walnut"]
 
 
-def get_catalog() -> Dict:
+def _check_safe(item: str) -> dict:
+    """Check a single ingredient and return availability dict with fallback."""
+    try:
+        from ..a2a.supply_chain_client import check_ingredient_available
+        available = check_ingredient_available(item)
+        return {"id": item, "name": item.capitalize(), "available": available}
+    except Exception as exc:
+        logger.warning("Inventory check failed for %s: %s — defaulting to unknown", item, exc)
+        return {"id": item, "name": item.capitalize(), "available": True, "stock_status": "unknown"}
+
+
+def get_catalog() -> dict:
     """Get product catalog for UCP agents.
 
-    Returns availability based on current inventory via A2A.
-
-    Returns:
-        Catalog dict with available flavors, nuts, pricing, delivery info
+    Calls Supply Chain via A2A for real-time stock levels.
+    Falls back to available=True, stock_status='unknown' if A2A is unreachable.
     """
-    # Check availability for each item
-    flavors = []
-    for flavor in ["chocolate", "ananas", "banana"]:
-        if check_ingredient_available(flavor):
-            flavors.append({
-                "id": flavor,
-                "name": flavor.capitalize(),
-                "available": True
-            })
+    from ..tools.address import get_available_delivery_dates
 
-    nuts = []
-    for nut in ["almond", "walnut"]:
-        if check_ingredient_available(nut):
-            nuts.append({
-                "id": nut,
-                "name": nut.capitalize(),
-                "available": True
-            })
+    flavors = [_check_safe(f) for f in _ALL_FLAVORS]
+    nuts = [_check_safe(n) for n in _ALL_NUTS]
     nuts.append({"id": "none", "name": "No nuts", "available": True})
 
-    # Get available delivery dates
     delivery_dates = get_available_delivery_dates()
 
     return {

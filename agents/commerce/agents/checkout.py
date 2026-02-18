@@ -28,8 +28,7 @@ Payment:
 - Always succeeds, generates transaction ID
 
 After successful payment:
-- Confirm order with delivery date and transaction ID
-Note: A2A integration (inventory deduction, order creation) will be added in Phase 4.""",
+- Confirm order with delivery date and transaction ID""",
     tools=[
         validate_amsterdam_address,
         get_available_delivery_dates,

@@ -3,7 +3,7 @@ import datetime
 import json
 import logging
 import uuid
-from typing import Dict, List, Optional, Any
+from typing import Optional, Any
 import redis
 
 # Use absolute import for shared module
@@ -44,7 +44,7 @@ def _generate_order_id() -> str:
     suffix = uuid.uuid4().hex[:8].upper()
     return ORDER_ID_FORMAT.format(date=today, suffix=suffix)
 
-def _calculate_price(cakes: List[Dict[str, Any]]) -> Dict[str, float]:
+def _calculate_price(cakes: list[dict[str, Any]]) -> dict[str, float]:
     """
     Calculate the total price of the order including delivery fee.
     
@@ -72,12 +72,12 @@ def _calculate_price(cakes: List[Dict[str, Any]]) -> Dict[str, float]:
 
 def create_order(
     customer_name: str,
-    cakes: List[Dict[str, Any]],
+    cakes: list[dict[str, Any]],
     address: str,
     postcode: str,
     delivery_date: str,
-    image_paths: List[str] = None
-) -> Dict[str, Any]:
+    image_paths: list[str] = None
+) -> dict[str, Any]:
     """
     Create a new order and store it in Redis.
     
@@ -129,7 +129,7 @@ def create_order(
         logger.error(f"Error creating order: {e}")
         raise
 
-def get_order(order_id: str) -> Optional[Dict[str, Any]]:
+def get_order(order_id: str) -> Optional[dict[str, Any]]:
     """
     Retrieve an order by ID.
     
@@ -172,7 +172,7 @@ def get_order(order_id: str) -> Optional[Dict[str, Any]]:
         logger.error(f"Error getting order {order_id}: {e}")
         return None
 
-def list_orders(delivery_date: Optional[str] = None) -> List[Dict[str, Any]]:
+def list_orders(delivery_date: Optional[str] = None) -> list[dict[str, Any]]:
     """
     List all orders, optionally filtered by delivery date.
     
@@ -180,7 +180,7 @@ def list_orders(delivery_date: Optional[str] = None) -> List[Dict[str, Any]]:
         delivery_date: Optional YYYY-MM-DD string to filter by.
         
     Returns:
-        List[Dict]: List of order details.
+        list[Dict]: List of order details.
     """
     r = get_redis()
     orders = []
@@ -229,7 +229,7 @@ def delete_order(order_id: str) -> bool:
         logger.error(f"Error deleting order {order_id}: {e}")
         return False
 
-def get_order_stats() -> Dict[str, Any]:
+def get_order_stats() -> dict[str, Any]:
     """
     Get basic statistics about orders.
     

@@ -1,7 +1,6 @@
 """Google Cloud Storage tools for cake images."""
 import logging
 import datetime
-from typing import List, Optional
 from google.cloud import storage
 
 try:
@@ -48,7 +47,7 @@ def upload_cake_image(order_id: str, cake_number: int, image_bytes: bytes) -> st
         logger.error(f"Error uploading image for order {order_id}: {e}")
         raise
 
-def get_cake_image_urls(order_id: str, expiration_minutes: int = 60) -> List[str]:
+def get_cake_image_urls(order_id: str, expiration_minutes: int = 60) -> list[str]:
     """
     Get signed URLs for all images associated with an order.
     
@@ -57,7 +56,7 @@ def get_cake_image_urls(order_id: str, expiration_minutes: int = 60) -> List[str
         expiration_minutes: URL expiration time.
         
     Returns:
-        List[str]: List of signed URLs.
+        list[str]: List of signed URLs.
     """
     client = _get_client()
     bucket = client.bucket(config.GCS_BUCKET)
@@ -103,7 +102,7 @@ def delete_cake_images(order_id: str) -> bool:
         logger.error(f"Error deleting images for order {order_id}: {e}")
         return False
 
-def list_orphan_images(known_order_ids: List[str]) -> List[str]:
+def list_orphan_images(known_order_ids: list[str]) -> list[str]:
     """
     List images that do not belong to any known order.
     
@@ -111,7 +110,7 @@ def list_orphan_images(known_order_ids: List[str]) -> List[str]:
         known_order_ids: List of valid order IDs from Redis.
         
     Returns:
-        List[str]: List of GCS paths (gs://...) for orphan images.
+        list[str]: List of GCS paths (gs://...) for orphan images.
     """
     client = _get_client()
     bucket = client.bucket(config.GCS_BUCKET)

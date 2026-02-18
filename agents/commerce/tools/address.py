@@ -1,9 +1,8 @@
 """Address validation tools for Amsterdam delivery."""
 import re
-from typing import Dict
 
 
-def validate_amsterdam_address(postcode: str, house_number: str) -> Dict[str, any]:
+def validate_amsterdam_address(postcode: str, house_number: str) -> dict[str, any]:
     """Validate Amsterdam address.
 
     Amsterdam postcodes range from 1000 to 1109.

@@ -1,5 +1,5 @@
 """UCP checkout session management."""
-from typing import Dict, List, Optional
+from typing import Optional  # kept: used in update_session parameter annotations
 from datetime import datetime
 import uuid
 from ..tools.payment import calculate_price
@@ -9,10 +9,10 @@ from ..a2a.supply_chain_client import deduct_inventory, create_order_remote
 
 
 # In-memory session storage (replace with Redis in production)
-_sessions: Dict[str, Dict] = {}
+_sessions: dict[str, dict] = {}
 
 
-def create_session(customer_name: str, cakes: List[Dict]) -> Dict:
+def create_session(customer_name: str, cakes: list[dict]) -> dict:
     """Create new checkout session.
 
     Args:
@@ -68,7 +68,7 @@ def update_session(
     delivery_date: Optional[str] = None,
     postcode: Optional[str] = None,
     house_number: Optional[str] = None
-) -> Dict:
+) -> dict:
     """Update session with delivery details.
 
     Args:
@@ -105,7 +105,7 @@ def update_session(
     return session
 
 
-def get_session(session_id: str) -> Dict:
+def get_session(session_id: str) -> dict:
     """Get session by ID.
 
     Args:
@@ -123,10 +123,8 @@ def get_session(session_id: str) -> Dict:
     return _sessions[session_id]
 
 
-def complete_session(session_id: str) -> Dict:
+def complete_session(session_id: str) -> dict:
     """Complete session and create order.
-
-    Phase 4: Real A2A integration with Supply Chain
 
     Args:
         session_id: Session ID

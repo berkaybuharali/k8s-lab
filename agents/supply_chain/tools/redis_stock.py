@@ -1,6 +1,5 @@
 """Inventory management tools using Redis."""
 import logging
-from typing import Dict, List, Optional
 import redis
 
 # Use absolute import for shared module when running from root
@@ -115,12 +114,12 @@ def update_stock(item: str, quantity_change: int, reason: str = "manual_update")
             
     raise RuntimeError(f"Failed to update stock for {item} after {max_retries} retries due to contention")
 
-def list_all_stock() -> Dict[str, int]:
+def list_all_stock() -> dict[str, int]:
     """
     Get the stock levels for all ingredients.
     
     Returns:
-        Dict[str, int]: A dictionary mapping ingredient names to their quantities.
+        dict[str, int]: A dictionary mapping ingredient names to their quantities.
     """
     r = get_redis()
     result = {}
@@ -146,7 +145,7 @@ def list_all_stock() -> Dict[str, int]:
                 
     return result
 
-def list_low_stock(threshold: int = 2) -> Dict[str, int]:
+def list_low_stock(threshold: int = 2) -> dict[str, int]:
     """
     List ingredients with stock at or below the threshold.
     
@@ -154,7 +153,7 @@ def list_low_stock(threshold: int = 2) -> Dict[str, int]:
         threshold: The quantity threshold (inclusive). Defaults to 2.
         
     Returns:
-        Dict[str, int]: A dictionary of low-stock ingredients and their quantities.
+        dict[str, int]: A dictionary of low-stock ingredients and their quantities.
     """
     all_stock = list_all_stock()
     return {item: qty for item, qty in all_stock.items() if qty <= threshold}

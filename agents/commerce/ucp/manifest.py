@@ -1,8 +1,7 @@
 """UCP manifest - capability declaration for external agents."""
-from typing import Dict
 
 
-def get_ucp_manifest() -> Dict:
+def get_ucp_manifest() -> dict:
     """Get UCP capability declaration for Magic Cake.
 
     Returns:

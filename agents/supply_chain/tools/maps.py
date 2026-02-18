@@ -1,6 +1,6 @@
 """Maps and routing tools."""
 import logging
-from typing import List, Dict, Any
+from typing import Any
 
 try:
     from agents.supply_chain.tools.redis_orders import list_orders
@@ -9,7 +9,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-def get_orders_for_date(date: str) -> List[Dict[str, Any]]:
+def get_orders_for_date(date: str) -> list[dict[str, Any]]:
     """
     Get all orders scheduled for delivery on a specific date.
     
@@ -17,7 +17,7 @@ def get_orders_for_date(date: str) -> List[Dict[str, Any]]:
         date: The delivery date in YYYY-MM-DD format.
         
     Returns:
-        List[Dict]: List of orders with address details.
+        list[Dict]: List of orders with address details.
     """
     logger.info(f"Fetching orders for delivery on {date}")
     orders = list_orders(delivery_date=date)
