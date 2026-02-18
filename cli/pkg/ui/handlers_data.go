@@ -19,8 +19,11 @@ func ensureGet(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// handleNodes returns list of nodes.
-func (s *Server) handleNodes(w http.ResponseWriter, r *http.Request) {
+// serveCommandOutput is a generic helper that runs an external command and writes
+// its output directly to the response with Content-Type: application/json.
+// It enforces a 10-second timeout and automatically appends --kubeconfig for
+// kubectl and velero invocations.
+func (s *Server) serveCommandOutput(w http.ResponseWriter, r *http.Request, command string, args ...string) {
 	if !ensureGet(w, r) {
 		return
 	}
@@ -28,85 +31,48 @@ func (s *Server) handleNodes(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "nodes", "-o", "json", "--kubeconfig", s.config.GetKubeconfigPath())
+	fullArgs := args
+	if command == "kubectl" || command == "velero" {
+		fullArgs = append(args, "--kubeconfig", s.config.GetKubeconfigPath())
+	}
+
+	cmd := exec.CommandContext(ctx, command, fullArgs...)
 	output, err := cmd.Output()
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get nodes: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Command failed: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(output)
+}
+
+// handleNodes returns list of nodes.
+func (s *Server) handleNodes(w http.ResponseWriter, r *http.Request) {
+	s.serveCommandOutput(w, r, "kubectl", "get", "nodes", "-o", "json")
 }
 
 // handlePods returns list of pods for a namespace.
 func (s *Server) handlePods(w http.ResponseWriter, r *http.Request) {
-	if !ensureGet(w, r) {
-		return
-	}
-
-	namespace := r.URL.Query().Get("ns")
-	if namespace == "" {
-		namespace = "application" // Default
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "pods", "-n", namespace, "-o", "json", "--kubeconfig", s.config.GetKubeconfigPath())
-	output, err := cmd.Output()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get pods: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(output)
-}
-
-// handlePVCs returns list of PVCs.
-func (s *Server) handlePVCs(w http.ResponseWriter, r *http.Request) {
-	if !ensureGet(w, r) {
-		return
-	}
-
 	namespace := r.URL.Query().Get("ns")
 	if namespace == "" {
 		namespace = "application"
 	}
+	s.serveCommandOutput(w, r, "kubectl", "get", "pods", "-n", namespace, "-o", "json")
+}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "pvc", "-n", namespace, "-o", "json", "--kubeconfig", s.config.GetKubeconfigPath())
-	output, err := cmd.Output()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get PVCs: %v", err), http.StatusInternalServerError)
-		return
+// handlePVCs returns list of PVCs.
+func (s *Server) handlePVCs(w http.ResponseWriter, r *http.Request) {
+	namespace := r.URL.Query().Get("ns")
+	if namespace == "" {
+		namespace = "application"
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(output)
+	s.serveCommandOutput(w, r, "kubectl", "get", "pvc", "-n", namespace, "-o", "json")
 }
 
 // handleBackups returns list of Velero backups.
 func (s *Server) handleBackups(w http.ResponseWriter, r *http.Request) {
-	if !ensureGet(w, r) {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "velero", "backup", "get", "-o", "json", "--kubeconfig", s.config.GetKubeconfigPath())
-	output, err := cmd.Output()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get backups: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(output)
+	s.serveCommandOutput(w, r, "velero", "backup", "get", "-o", "json")
 }
 
 // handleTerraformResources returns terraform state.
@@ -134,21 +100,7 @@ func (s *Server) handleTerraformResources(w http.ResponseWriter, r *http.Request
 
 // handleNamespaces returns list of namespaces.
 func (s *Server) handleNamespaces(w http.ResponseWriter, r *http.Request) {
-	if !ensureGet(w, r) {
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "ns", "-o", "json", "--kubeconfig", s.config.GetKubeconfigPath())
-	output, err := cmd.Output()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get namespaces: %v", err), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(output)
+	s.serveCommandOutput(w, r, "kubectl", "get", "ns", "-o", "json")
 }
 
 // handlePodDetail returns single pod details.

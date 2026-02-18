@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/cloud"
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/config"
+	"github.com/berkaybuharali/k8s-lab/cli/pkg/k8s"
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/logger"
 	"github.com/berkaybuharali/k8s-lab/cli/pkg/terraform"
 )
@@ -34,6 +34,10 @@ type Server struct {
 	wsHub      *WebSocketHub
 	opMu       sync.Mutex
 	infraReady bool // true when terraform outputs show infra exists
+
+	// k8sClient is lazily initialised on first successful tunnel connection.
+	// Used by refreshStatus to replace kubectl subprocess calls.
+	k8sClient *k8s.Client
 
 	// Cached status for instant responses
 	cachedStatus   *GlobalStatus
@@ -120,6 +124,15 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/redis/del/", s.handleRedisDel)
 	mux.HandleFunc("/api/redis/flush", s.handleRedisFlush)
 	mux.HandleFunc("/api/redis/dbsize", s.handleRedisDBSize)
+
+	// Agent API Routes
+	mux.HandleFunc("/api/agent/chat", s.handleAgentChat)
+	mux.HandleFunc("/api/agent/status", s.handleAgentStatus)
+	mux.HandleFunc("/api/inventory", s.handleInventory)
+	mux.HandleFunc("/api/fulfillment/route", s.handleFulfillmentRoute)
+	mux.HandleFunc("/api/orders", s.handleOrders)
+	mux.HandleFunc("/api/orders/stats", s.handleOrderStats)
+	mux.HandleFunc("/api/agent/activity", s.handleAgentActivity)
 
 	// Static files
 	// dist folder is embedded as "dist", but we want to serve the content of "dist" at root
@@ -280,18 +293,23 @@ func (s *Server) refreshStatus() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, "kubectl", "get", "nodes", "--kubeconfig", s.config.GetKubeconfigPath())
-		if err := cmd.Run(); err == nil {
-			status.K8s = "Ready"
-
-			cmd = exec.CommandContext(ctx, "kubectl", "get", "ns", "velero", "--kubeconfig", s.config.GetKubeconfigPath())
-			if err := cmd.Run(); err == nil {
-				status.Tools = "Installed"
+		// Lazily initialise the k8s client on first successful tunnel connection.
+		// This avoids spawning kubectl subprocesses every 10 seconds for status polling.
+		if s.k8sClient == nil {
+			if kc, err := k8s.NewClient(s.config.GetKubeconfigPath(), s.logger); err == nil {
+				s.k8sClient = kc
 			}
+		}
 
-			cmd = exec.CommandContext(ctx, "kubectl", "get", "ns", "application", "--kubeconfig", s.config.GetKubeconfigPath())
-			if err := cmd.Run(); err == nil {
-				status.Apps = "Deployed"
+		if s.k8sClient != nil {
+			if _, err := s.k8sClient.GetNodes(ctx); err == nil {
+				status.K8s = "Ready"
+				if s.k8sClient.HasNamespace(ctx, "velero") {
+					status.Tools = "Installed"
+				}
+				if s.k8sClient.HasNamespace(ctx, "application") {
+					status.Apps = "Deployed"
+				}
 			}
 		}
 	}
