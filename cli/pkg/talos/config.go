@@ -113,21 +113,6 @@ func WithConfigPatches(patches []string) ConfigOption {
 		opts.configPatches = patches
 	}
 }
-// This will allow cloud-specific patches to be applied during config generation.
-//
-// Example implementation:
-//   func WithConfigPatches(patches []string) ConfigOption {
-//       return func(opts *configOptions) {
-//           opts.configPatches = patches
-//       }
-//   }
-//
-// Usage in command code:
-//   patches := provider.GetTalosConfigPatches()  // Cloud-specific patches
-//   talosClient.GenerateConfigs(ctx, cluster, endpoint,
-//       talos.WithConfigPatches(patches),
-//   )
-
 // applyOptions applies ConfigOption functions to create final options.
 // This is called internally by GenerateConfigs to build the configOptions.
 func applyOptions(opts ...ConfigOption) *configOptions {
