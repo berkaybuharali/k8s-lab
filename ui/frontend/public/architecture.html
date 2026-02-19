@@ -22,6 +22,8 @@
     --layer3-bg: rgba(8,145,178,0.08);
     --layer4: #059669;
     --layer4-bg: rgba(5,150,105,0.08);
+    --layer5: #d97706;
+    --layer5-bg: rgba(217,119,6,0.08);
     --arrow: #94a3b8;
     --arrow-text: #64748b;
     --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
@@ -42,6 +44,7 @@
     --layer2-bg: rgba(37,99,235,0.15);
     --layer3-bg: rgba(8,145,178,0.15);
     --layer4-bg: rgba(5,150,105,0.15);
+    --layer5-bg: rgba(217,119,6,0.15);
     --arrow: #475569;
     --arrow-text: #94a3b8;
     --shadow: 0 1px 3px rgba(0,0,0,0.3);
@@ -114,6 +117,8 @@
     font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
     padding: 4px 10px; border-radius: 6px; white-space: nowrap; min-width: 110px; text-align: center;
   }
+  .layer.l5 { background: var(--layer5-bg); }
+  .layer.l5 .layer-badge { background: var(--layer5); color: #fff; }
   .layer.l4 { background: var(--layer4-bg); }
   .layer.l4 .layer-badge { background: var(--layer4); color: #fff; }
   .layer.l3 { background: var(--layer3-bg); }
@@ -324,7 +329,7 @@
 
 <main>
   <h1>Architecture</h1>
-  <p class="subtitle">A reproducible Kubernetes lab environment running on cloud VMs with Talos Linux, featuring daily create/destroy cycles for cost optimization, automated backup/restore workflows via Velero, and multi-cloud portability through layered architecture separation.</p>
+  <p class="subtitle">A reproducible Kubernetes lab environment running on cloud VMs with Talos Linux, featuring daily create/destroy cycles for cost optimization, automated backup/restore via Velero, and an AI agent platform (Commerce + Supply Chain) built with Python ADK using A2A, MCP, and UCP protocols.</p>
 
   <!-- ═══════════════════════════════════════════════ -->
   <!-- Section 1: System Deployment / Network Diagram  -->
@@ -398,17 +403,53 @@
             <div class="deploy-zone k8s-zone">
               <span class="deploy-zone-label k8s"><img src="assets/gce_logo.svg" alt="GCE" style="width:12px;height:12px;vertical-align:middle;margin-right:3px;">Talos OS on GCE (Kubernetes)</span>
 
-              <!-- k8s-lab namespace -->
+              <!-- agents namespace -->
               <div class="deploy-zone ns-zone">
-                <span class="deploy-zone-label ns">namespace: application</span>
-                <div class="pod-row">
-                  <div class="pod-chip">
-                    <img src="assets/nginx_logo.svg" alt="NGINX">
-                    <div>nginx<div class="pod-kind">Deployment + PVC</div></div>
+                <span class="deploy-zone-label ns">namespace: agents</span>
+                <div class="pod-row" style="align-items:center;">
+                  <div class="pod-chip" style="flex:1;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
+                    <div>commerce<div class="pod-kind">Deployment · 8001</div></div>
                   </div>
-                  <div class="pod-chip">
+                  <!-- A2A bidirectional arrow (text) -->
+                  <div style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:0 0 auto;padding:0 4px;">
+                    <svg width="40" height="14" viewBox="0 0 40 14">
+                      <line x1="4" y1="7" x2="36" y2="7" stroke="var(--arrow)" stroke-width="1.2" stroke-dasharray="3,2"/>
+                      <polygon points="32,4 38,7 32,10" fill="var(--arrow)"/>
+                      <polygon points="8,4 2,7 8,10" fill="var(--arrow)"/>
+                    </svg>
+                    <span style="font-size:8px;font-weight:800;color:var(--arrow-text);letter-spacing:0.5px;">A2A</span>
+                  </div>
+                  <div class="pod-chip" style="flex:1;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
+                    <div>supply-chain<div class="pod-kind">Deployment · 8002</div></div>
+                  </div>
+                  <div style="flex:0 0 auto;padding:0 4px;color:var(--border);">·</div>
+                  <div class="pod-chip" style="flex:1;">
                     <img src="assets/redis_logo.svg" alt="Redis">
                     <div>redis<div class="pod-kind">StatefulSet + PVC</div></div>
+                  </div>
+                </div>
+                <!-- Outbound protocol connections -->
+                <div style="display:flex;flex-direction:column;gap:5px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:600;">
+                    <span style="color:var(--muted);white-space:nowrap;min-width:74px;">supply-chain</span>
+                    <svg width="64" height="16" viewBox="0 0 64 16">
+                      <line x1="0" y1="8" x2="50" y2="8" stroke="var(--arrow)" stroke-width="1.2" stroke-dasharray="3,2"/>
+                      <polygon points="46,5 54,8 46,11" fill="var(--arrow)"/>
+                      <text x="12" y="7" font-size="8" fill="var(--arrow-text)" font-family="system-ui" font-weight="800">MCP</text>
+                    </svg>
+                    <img src="assets/google_maps_logo.svg" style="width:14px;height:14px;" alt="Maps">
+                    <span>Google Maps <span style="font-weight:400;color:var(--muted);">(external API)</span></span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;font-size:10px;font-weight:600;">
+                    <span style="color:var(--muted);white-space:nowrap;min-width:74px;">commerce</span>
+                    <svg width="64" height="16" viewBox="0 0 64 16">
+                      <line x1="0" y1="8" x2="50" y2="8" stroke="var(--arrow)" stroke-width="1.2" stroke-dasharray="3,2"/>
+                      <polygon points="46,5 54,8 46,11" fill="var(--arrow)"/>
+                      <text x="12" y="7" font-size="8" fill="var(--arrow-text)" font-family="system-ui" font-weight="800">UCP</text>
+                    </svg>
+                    <span>External Clients <span style="font-weight:400;color:var(--muted);">(AI agents via REST)</span></span>
                   </div>
                 </div>
               </div>
@@ -444,6 +485,15 @@
             <div class="deploy-item" style="flex:1;">
               <img src="assets/talos_logo.svg" alt="Talos">
               <div>Talos Image<div class="deploy-item-sub">OS image for GCE instances</div></div>
+            </div>
+          </div>
+
+          <!-- External APIs (outside cluster, called via internet) -->
+          <div class="deploy-zone" style="background:rgba(217,119,6,0.04);border-color:rgba(217,119,6,0.2);display:flex;gap:10px;flex-wrap:wrap;">
+            <span class="deploy-zone-label" style="color:#d97706;">External APIs</span>
+            <div class="deploy-item" style="flex:1;">
+              <img src="assets/google_maps_logo.svg" alt="Google Maps">
+              <div>Google Maps Platform<div class="deploy-item-sub">Route optimization · MCP from supply-chain</div></div>
             </div>
           </div>
         </div>
@@ -572,15 +622,30 @@
         <div class="cc-tech">GCS backend, CSI snapshots</div>
       </div>
       <div class="container-card">
-        <img class="cc-icon" src="assets/nginx_logo.svg" alt="NGINX">
-        <div class="cc-name">NGINX</div>
-        <div class="cc-desc">Web server with persistent volume</div>
-        <div class="cc-tech">Deployment + PVC</div>
+        <svg class="cc-icon" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
+        <div class="cc-name">Commerce Agent</div>
+        <div class="cc-desc">Conversational ordering, cake design, checkout</div>
+        <div class="cc-tech" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;font-style:normal;">
+          <span style="display:inline-flex;align-items:center;gap:2px;"><img src="assets/adk_logo.png" style="width:16px;height:16px;"> ADK</span>
+          <span style="display:inline-flex;align-items:center;gap:2px;"><img src="assets/a2a_logo.svg" style="width:16px;height:16px;"> A2A</span>
+          <span>UCP · 8001</span>
+        </div>
+      </div>
+      <div class="container-card">
+        <svg class="cc-icon" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
+        <div class="cc-name">Supply Chain Agent</div>
+        <div class="cc-desc">Inventory management, order service, route optimization</div>
+        <div class="cc-tech" style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;font-style:normal;">
+          <span style="display:inline-flex;align-items:center;gap:2px;"><img src="assets/adk_logo.png" style="width:16px;height:16px;"> ADK</span>
+          <span style="display:inline-flex;align-items:center;gap:2px;"><img src="assets/a2a_logo.svg" style="width:16px;height:16px;"> A2A</span>
+          <span style="display:inline-flex;align-items:center;gap:2px;"><img src="assets/mcp_logo.svg" style="width:16px;height:16px;"> MCP</span>
+          <span>8002</span>
+        </div>
       </div>
       <div class="container-card">
         <img class="cc-icon" src="assets/redis_logo.svg" alt="Redis">
         <div class="cc-name">Redis</div>
-        <div class="cc-desc">In-memory store for backup/restore testing</div>
+        <div class="cc-desc">In-memory store for orders, inventory, and sessions</div>
         <div class="cc-tech">StatefulSet + PVC</div>
       </div>
     </div>
@@ -634,6 +699,13 @@
           <div class="ext-desc">Secure tunnel to VMs</div>
         </div>
       </div>
+      <div class="ext-card">
+        <img src="assets/google_maps_logo.svg" alt="Google Maps">
+        <div>
+          <div class="ext-name">Google Maps</div>
+          <div class="ext-desc">Route optimization via MCP</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -643,14 +715,35 @@
   <div class="section">
     <div class="section-title">Layered Architecture</div>
     <div class="layers">
+      <div class="layer l5">
+        <div class="layer-badge">Layer 5</div>
+        <div class="layer-content">
+          <div class="layer-title">AI Agents</div>
+          <div class="layer-desc">Conversational agents with A2A, MCP, and UCP protocols</div>
+        </div>
+        <div class="layer-tools">
+          <div class="tool-chip">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
+            Commerce
+          </div>
+          <div class="tool-chip">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><rect width="18" height="10" x="3" y="11" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
+            Supply Chain
+          </div>
+          <div class="tool-chip"><img src="assets/a2a_logo.svg" alt="A2A"> A2A</div>
+          <div class="tool-chip"><img src="assets/mcp_logo.svg" alt="MCP"> MCP</div>
+          <div class="tool-chip"><img src="assets/google_maps_logo.svg" alt="Maps"> Google Maps</div>
+          <div class="tool-chip" style="font-size:11px;">UCP</div>
+        </div>
+        <span class="cloud-badge cloud-agnostic">Cloud-agnostic</span>
+      </div>
       <div class="layer l4">
         <div class="layer-badge">Layer 4</div>
         <div class="layer-content">
           <div class="layer-title">Applications</div>
-          <div class="layer-desc">User workloads deployed on the cluster</div>
+          <div class="layer-desc">Data layer for agent workloads</div>
         </div>
         <div class="layer-tools">
-          <div class="tool-chip"><img src="assets/nginx_logo.svg" alt="NGINX"> NGINX</div>
           <div class="tool-chip"><img src="assets/redis_logo.svg" alt="Redis"> Redis</div>
         </div>
         <span class="cloud-badge cloud-agnostic">Cloud-agnostic</span>
