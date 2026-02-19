@@ -72,26 +72,37 @@ def _calculate_price(cakes: list[dict[str, Any]]) -> dict[str, float]:
 
 def create_order(
     customer_name: str,
-    cakes: list[dict[str, Any]],
+    flavors: list[str],
+    nuts_choices: list[str],
+    people_counts: list[int],
+    concepts: list[str],
     address: str,
     postcode: str,
     delivery_date: str,
-    image_paths: list[str] = None
+    image_paths: list[str],
 ) -> dict[str, Any]:
-    """
-    Create a new order and store it in Redis.
-    
+    """Create a new order and store it in Redis.
+
     Args:
         customer_name: Name of the customer.
-        cakes: List of cake details (flavor, nuts, people_count, concept).
-        address: Delivery address (street + number).
-        postcode: Delivery postcode (NNNN XX).
+        flavors: Cake flavor per cake, e.g. ["chocolate", "ananas"].
+        nuts_choices: Nut topping per cake, e.g. ["walnut", "none"].
+        people_counts: Number of people per cake, e.g. [10, 8].
+        concepts: Theme/concept per cake, e.g. ["birthday", "wedding"].
+        address: Delivery address (street + house number).
+        postcode: Amsterdam postcode, e.g. "1015 CJ".
         delivery_date: YYYY-MM-DD string.
-        image_paths: List of GCS paths for cake images.
-        
+        image_paths: GCS path per cake image.
+
     Returns:
         Dict: The created order details including ID and price breakdown.
     """
+    # Rebuild cakes list from parallel arrays (list[dict] rejected by Gemini tool schema)
+    cakes = [
+        {"flavor": f, "nuts": n, "people_count": p, "concept": c}
+        for f, n, p, c in zip(flavors, nuts_choices, people_counts, concepts)
+    ]
+
     # Validate cakes
     for cake in cakes:
         people = cake.get("people_count", 0)
@@ -115,7 +126,7 @@ def create_order(
         "delivery_fee": pricing["delivery_fee"],
         "total_price": pricing["total_price"],
         "status": "confirmed", # Default status
-        "image_paths": json.dumps(image_paths or [])
+        "image_paths": json.dumps(image_paths if image_paths else [])
     }
     
     r = get_redis()

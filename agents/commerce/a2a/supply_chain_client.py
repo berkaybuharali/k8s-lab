@@ -132,16 +132,17 @@ def create_order_remote(
     """
     import re
 
-    cake_descriptions = [
-        f"Cake {i}: {flavors[i-1]} cake for {people_counts[i-1]} people, "
-        f"{nuts_choices[i-1]} nuts, {concepts[i-1]} theme"
-        for i in range(1, len(flavors) + 1)
-    ]
     message = (
-        f"Create order for {customer_name}. "
-        f"Cakes: {'; '.join(cake_descriptions)}. "
-        f"Delivery: {address}, {postcode} on {delivery_date}. "
-        f"Images: {', '.join(image_paths)}"
+        f"Create order. "
+        f"customer_name={customer_name}. "
+        f"flavors={flavors}. "
+        f"nuts_choices={nuts_choices}. "
+        f"people_counts={people_counts}. "
+        f"concepts={concepts}. "
+        f"address={address}. "
+        f"postcode={postcode}. "
+        f"delivery_date={delivery_date}. "
+        f"image_paths={image_paths}."
     )
 
     try:

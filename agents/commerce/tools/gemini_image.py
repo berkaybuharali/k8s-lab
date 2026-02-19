@@ -63,8 +63,13 @@ def generate_cake_image(
         )
 
         # Extract image bytes via the typed SDK path
+        candidate = response.candidates[0]
+        if candidate.content is None:
+            finish = getattr(candidate, "finish_reason", "unknown")
+            raise RuntimeError(f"Gemini returned no content (finish_reason: {finish})")
+
         image_bytes = None
-        for part in response.candidates[0].content.parts:
+        for part in candidate.content.parts:
             if part.inline_data is not None:
                 image_bytes = part.inline_data.data
                 break
