@@ -39,7 +39,7 @@ A hands-on lab for running self-managed Kubernetes clusters on cloud VMs. Not ma
 
 | Layer | Components | Cloud-Specific |
 |-------|------------|----------------|
-| **4. Applications** | NGINX, Redis, User workloads | Cloud-agnostic |
+| **4. Applications** | Redis, AI agents, user workloads | Cloud-agnostic |
 | **3. Platform Tools** | Velero, CSI Driver | Cloud-agnostic |
 | **2. Cluster** | Talos Linux, Kubernetes | Cloud-specific |
 | **1. Infrastructure** | VMs, VPC, Firewall, Storage | Cloud-specific |
@@ -103,7 +103,7 @@ k8s-lab deploy-infra --cloud gcp
 # 2. Deploy cluster tools (CSI driver, StorageClass, Velero)
 k8s-lab deploy-tools --cloud gcp
 
-# 3. Deploy applications (NGINX, Redis)
+# 3. Deploy applications and agents
 k8s-lab deploy-applications --cloud gcp
 
 # 4. Test the deployment
@@ -114,10 +114,6 @@ kubectl get pods -n application
 kubectl exec -it deploy/redis -n application -- redis-cli ping
 # Should return: PONG
 
-kubectl port-forward svc/nginx -n application 8080:80 &
-curl http://localhost:8080
-# Should return: NGINX welcome page
-
 # 5. Clean up
 k8s-lab destroy --cloud gcp
 ```
@@ -127,7 +123,7 @@ k8s-lab destroy --cloud gcp
 ```bash
 # Day 1: Deploy, seed data, backup
 k8s-lab deploy --cloud gcp
-k8s-lab seed-redis --cloud gcp
+k8s-lab seed-data --cloud gcp
 k8s-lab backup --cloud gcp
 k8s-lab destroy --cloud gcp
 
@@ -203,7 +199,6 @@ k8s-lab/
 │   └── frontend/             # React app (built and embedded into Go binary)
 ├── apps/                     # Kubernetes manifests
 │   ├── gcp/                  # GCP-specific (StorageClass)
-│   ├── nginx.yaml            # NGINX deployment
 │   └── redis.yaml            # Redis deployment with PVC and backup hooks
 ├── infra/                    # Cloud infrastructure
 │   └── gcp/

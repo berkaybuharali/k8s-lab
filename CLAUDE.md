@@ -70,7 +70,7 @@ Daily create/destroy avoids overnight costs. Configs in `configs/` (gitignored).
 
 **K8s Manifests:**
 - Cloud-specific: `apps/<cloud>/` (e.g., `apps/gcp/storageclass.yaml`)
-- Cloud-agnostic: `apps/` (e.g., `apps/nginx.yaml`)
+- Cloud-agnostic: `apps/` (e.g., `apps/redis.yaml`)
 - Agent manifests: `apps/agents/`
 
 **Tooling:**

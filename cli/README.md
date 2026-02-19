@@ -32,7 +32,7 @@ cli/
 │   ├── deploy_infra.go     # Infrastructure deployment
 │   ├── deploy_tools.go     # Platform tools (CSI, Velero)
 │   ├── deploy_applications.go # Application deployment
-│   ├── seed_redis.go       # Redis data seeding
+│   ├── seed_data.go        # Agent data seeding (inventory + orders)
 │   ├── backup.go           # Velero backup
 │   ├── restore.go          # Velero restore
 │   └── ui.go               # Web dashboard server
@@ -81,8 +81,9 @@ This follows the same pattern as terraform-exec and other infrastructure tools.
 |---------|-------------|
 | `deploy-infra` | Deploy infrastructure and bootstrap cluster |
 | `deploy-tools` | Install CSI driver, StorageClass, Velero |
-| `deploy-applications` | Deploy NGINX and Redis |
-| `seed-redis` | Populate Redis with test data |
+| `deploy-applications` | Deploy Redis and agent containers |
+| `deploy-agents` | Build and deploy AI agent containers |
+| `seed-data` | Seed agent data (inventory + orders with AI-generated images) |
 | `backup` | Create Velero backup |
 | `restore` | Restore from Velero backup |
 | `ui` | Start web dashboard |
