@@ -122,16 +122,13 @@ export function BackofficeOrders() {
                                 <div className="space-y-4">
                                     <h4 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Generated Designs</h4>
                                     <div className="grid grid-cols-2 gap-2">
-                                        {images.map((_path: string, i: number) => (
+                                        {images.map((path: string, i: number) => (
                                             <div key={i} className="aspect-square bg-muted rounded-lg overflow-hidden border relative group/img">
-                                                {/* In a real app we'd sign this GCS URL. For now we use a placeholder or check if we can proxy it. 
-                                                    Since we can't easily proxy GCS without signed URLs, we'll show a placeholder if it's a gs:// path 
-                                                    or try to load it if it's http.
-                                                */}
-                                                <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground p-2 text-center bg-background/50">
-                                                    Image preview requires signed URL<br/>(See backend logs)
-                                                </div>
-                                                {/* <img src={path} className="w-full h-full object-cover" /> */}
+                                                <img
+                                                    src={path.startsWith('gs://') ? `/api/image?path=${encodeURIComponent(path)}` : path}
+                                                    className="w-full h-full object-cover"
+                                                    alt={`Cake design ${i + 1}`}
+                                                />
                                             </div>
                                         ))}
                                     </div>

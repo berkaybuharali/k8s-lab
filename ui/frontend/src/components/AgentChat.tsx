@@ -204,8 +204,10 @@ export function AgentChat({ system, className, placeholder = "Type a message..."
       {/* Header */}
       <div className="px-4 py-3 border-b bg-muted/30 flex items-center justify-between">
         <div className="flex items-center gap-2">
-            <div className={cn("w-2 h-2 rounded-full", system === 'commerce' ? "bg-pink-500" : "bg-blue-500")} />
-            <span className="font-semibold text-sm capitalize">{system.replace('-', ' ')} AI</span>
+            <span className="font-semibold text-sm">
+              {system === 'commerce' ? 'Magic Cake Chat' : 'Supply Chain Agent'}
+            </span>
+            {sessionId && <div className="w-2 h-2 rounded-full bg-green-500" title="Session active" />}
         </div>
         {sessionId && <span className="text-[10px] text-muted-foreground font-mono">Session: {sessionId.slice(0, 8)}...</span>}
       </div>
@@ -222,8 +224,8 @@ export function AgentChat({ system, className, placeholder = "Type a message..."
         {messages.map((msg, i) => (
           <div key={i} className={cn("flex gap-3", msg.role === 'user' ? "justify-end" : "justify-start")}>
             {msg.role === 'agent' && (
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Bot className="w-4 h-4 text-primary" />
+              <div className="w-8 h-8 rounded-full bg-white border flex items-center justify-center shrink-0 shadow-sm">
+                <img src="/assets/cake_small_logo_16x16.png" alt="" className="w-4 h-4" />
               </div>
             )}
             
@@ -259,8 +261,8 @@ export function AgentChat({ system, className, placeholder = "Type a message..."
 
         {loading && (
           <div className="flex gap-3 justify-start">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <Bot className="w-4 h-4 text-primary" />
+            <div className="w-8 h-8 rounded-full bg-white border flex items-center justify-center shrink-0 shadow-sm">
+                <img src="/assets/cake_small_logo_16x16.png" alt="" className="w-4 h-4" />
             </div>
             <div className="bg-muted border rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-1">
               <div className="w-1.5 h-1.5 bg-foreground/40 rounded-full animate-bounce [animation-delay:-0.3s]" />

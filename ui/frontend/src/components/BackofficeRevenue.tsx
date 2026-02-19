@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DollarSign, ShoppingBag, TrendingUp } from 'lucide-react'
+import { Euro, ShoppingBag, TrendingUp } from 'lucide-react'
 
 export function BackofficeRevenue() {
   const [stats, setStats] = useState({ count: 0, revenue: 0, average: 0 })
@@ -12,7 +12,7 @@ export function BackofficeRevenue() {
   }, [])
 
   const cards = [
-    { label: "Total Revenue", value: `€${stats.revenue.toFixed(2)}`, icon: DollarSign, color: "text-green-500" },
+    { label: "Total Revenue", value: `€${stats.revenue.toFixed(2)}`, icon: Euro, color: "text-green-500" },
     { label: "Total Orders", value: stats.count.toString(), icon: ShoppingBag, color: "text-blue-500" },
     { label: "Avg. Order", value: `€${stats.average.toFixed(2)}`, icon: TrendingUp, color: "text-purple-500" },
   ]
