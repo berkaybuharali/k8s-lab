@@ -5,13 +5,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// gcsImageRegex matches GCS object paths for image files in agent responses.
+var gcsImageRegex = regexp.MustCompile(`gs://[^\s\]"']+\.(?:png|jpg|jpeg|webp)`)
+
+// rewriteGCSPaths replaces gs:// image URLs in agent text with /api/image proxy URLs
+// so the browser can load private GCS objects through the authenticated backend.
+func rewriteGCSPaths(text string) string {
+	return gcsImageRegex.ReplaceAllStringFunc(text, func(match string) string {
+		return "/api/image?path=" + url.QueryEscape(match)
+	})
+}
 
 // AgentChatRequest represents an incoming chat message
 type AgentChatRequest struct {
@@ -62,7 +75,7 @@ func (s *Server) handleAgentChat(w http.ResponseWriter, r *http.Request) {
 	payload := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"method":  "message/send",
-		"id":      "1",
+		"id":      uuid.New().String(),
 		"params": map[string]interface{}{
 			"message": map[string]interface{}{
 				"role":      "user",
@@ -84,7 +97,7 @@ func (s *Server) handleAgentChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text := extractAgentResponseText(resp)
+	text := rewriteGCSPaths(extractAgentResponseText(resp))
 
 	json.NewEncoder(w).Encode(AgentChatResponse{
 		System:    req.System,
@@ -200,7 +213,7 @@ func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
 		script += fmt.Sprintf("redis-cli HGET inventory:%s quantity; ", ing)
 	}
 
-	cmd := exec.CommandContext(r.Context(), "kubectl", "exec", "-n", "application", redisPod, "--", "sh", "-c", script)
+	cmd := exec.CommandContext(r.Context(), "kubectl", "exec", "-n", "agents", redisPod, "--", "sh", "-c", script)
 	cmd.Env = append(os.Environ(), "KUBECONFIG="+s.config.GetKubeconfigPath())
 
 	out, err := cmd.Output()
@@ -249,11 +262,9 @@ func (s *Server) handleFulfillmentRoute(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(route)
 }
 
-// handleOrders returns list of orders parsed reliably in Go.
-// FIX 4.1 + 4.2: replaces the awk NR%2 shell script with Go-side HGETALL parsing.
-// The awk approach desynchronised when Redis values contained newlines (e.g., the
-// cakes JSON field) and produced invalid JSON via manual gsub escaping.
-// Now we fetch raw HGETALL output and build the map in Go using encoding/json.
+// handleOrders returns list of orders from Redis in a single kubectl exec.
+// Scans for order:CAKE-* keys and HGETALLs each in one shell pipeline to avoid
+// the N+1 kubectl exec overhead of the previous implementation.
 func (s *Server) handleOrders(w http.ResponseWriter, r *http.Request) {
 	redisPod, err := s.getRedisPodName(r.Context())
 	if err != nil {
@@ -261,47 +272,37 @@ func (s *Server) handleOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 1: scan for all order keys
-	scanCmd := exec.CommandContext(r.Context(), "kubectl", "exec", "-n", "application", redisPod, "--", "sh", "-c", `redis-cli --scan --pattern "order:CAKE-*"`)
-	scanCmd.Env = append(os.Environ(), "KUBECONFIG="+s.config.GetKubeconfigPath())
+	// Single exec: scan + HGETALL for each key.
+	// Output format: lines starting with "BOUNDARY:<key>" delimit blocks.
+	script := `redis-cli --scan --pattern "order:CAKE-*" | while IFS= read -r key; do printf 'BOUNDARY:%s\n' "$key"; redis-cli HGETALL "$key"; done`
+	cmd := exec.CommandContext(r.Context(), "kubectl", "exec", "-n", "agents", redisPod, "--", "sh", "-c", script)
+	cmd.Env = append(os.Environ(), "KUBECONFIG="+s.config.GetKubeconfigPath())
 
-	scanOut, err := scanCmd.Output()
+	out, err := cmd.Output()
 	if err != nil {
-		s.logger.Error("Failed to scan order keys: %v", err)
-		http.Error(w, "Failed to scan orders", http.StatusInternalServerError)
+		s.logger.Error("Failed to fetch orders: %v", err)
+		http.Error(w, "Failed to fetch orders", http.StatusInternalServerError)
 		return
 	}
 
-	rawKeys := strings.TrimSpace(string(scanOut))
-	if rawKeys == "" {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("[]"))
-		return
-	}
+	raw := strings.TrimSpace(string(out))
+	orders := make([]map[string]string, 0)
 
-	keys := strings.Split(rawKeys, "\n")
-	orders := make([]map[string]string, 0, len(keys))
-
-	for _, key := range keys {
-		key = strings.TrimSpace(key)
-		if key == "" {
-			continue
-		}
-
-		// Step 2: HGETALL per key — returns alternating field/value lines
-		hgetCmd := exec.CommandContext(r.Context(), "kubectl", "exec", "-n", "application", redisPod, "--", "sh", "-c", fmt.Sprintf("redis-cli HGETALL %s", key))
-		hgetCmd.Env = append(os.Environ(), "KUBECONFIG="+s.config.GetKubeconfigPath())
-
-		hgetOut, err := hgetCmd.Output()
-		if err != nil {
-			s.logger.Error("Failed to HGETALL %s: %v", key, err)
-			continue
-		}
-
-		// Step 3: parse in Go — encoding/json handles all escaping correctly
-		order := parseHGETALL(string(hgetOut))
-		if len(order) > 0 {
-			orders = append(orders, order)
+	if raw != "" {
+		for _, block := range strings.Split(raw, "BOUNDARY:") {
+			block = strings.TrimSpace(block)
+			if block == "" {
+				continue
+			}
+			// First line is the key name; rest is HGETALL alternating field/value lines.
+			nl := strings.IndexByte(block, '\n')
+			if nl < 0 {
+				continue
+			}
+			order := parseHGETALL(block[nl+1:])
+			if len(order) > 0 {
+				orders = append(orders, order)
+			}
 		}
 	}
 
@@ -338,15 +339,79 @@ func parseHGETALL(raw string) map[string]string {
 	return result
 }
 
-// handleOrderStats returns aggregate order statistics.
+// handleOrderStats returns aggregate order statistics computed from Redis in a single exec.
 func (s *Server) handleOrderStats(w http.ResponseWriter, r *http.Request) {
-	stats := map[string]interface{}{
-		"count":   0,
-		"revenue": 0.0,
-		"average": 0.0,
-	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	zeros := map[string]interface{}{"count": 0, "revenue": 0.0, "average": 0.0}
+
+	redisPod, err := s.getRedisPodName(r.Context())
+	if err != nil {
+		json.NewEncoder(w).Encode(zeros)
+		return
+	}
+
+	// Single exec: scan + HGET total_price for each key.
+	script := `redis-cli --scan --pattern "order:CAKE-*" | while IFS= read -r key; do redis-cli HGET "$key" total_price; done`
+	cmd := exec.CommandContext(r.Context(), "kubectl", "exec", "-n", "agents", redisPod, "--", "sh", "-c", script)
+	cmd.Env = append(os.Environ(), "KUBECONFIG="+s.config.GetKubeconfigPath())
+
+	out, err := cmd.Output()
+	if err != nil {
+		s.logger.Error("Failed to fetch order stats: %v", err)
+		json.NewEncoder(w).Encode(zeros)
+		return
+	}
+
+	count := 0
+	var totalRevenue float64
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.Contains(line, "(nil)") {
+			continue
+		}
+		var price float64
+		if _, err := fmt.Sscanf(line, "%f", &price); err != nil {
+			continue
+		}
+		count++
+		totalRevenue += price
+	}
+
+	var average float64
+	if count > 0 {
+		average = totalRevenue / float64(count)
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"count":   count,
+		"revenue": totalRevenue,
+		"average": average,
+	})
+}
+
+// handleImageProxy streams a GCS object through the backend using authenticated gcloud credentials.
+// GCS objects are private; the browser cannot load gs:// URLs directly.
+func (s *Server) handleImageProxy(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	if !strings.HasPrefix(path, "gs://") {
+		http.Error(w, "Invalid path: must start with gs://", http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "gcloud", "storage", "cat", path)
+	out, err := cmd.Output()
+	if err != nil {
+		s.logger.Error("Failed to fetch image from GCS %s: %v", path, err)
+		http.Error(w, "Failed to fetch image", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(out)
 }
 
 // handleAgentActivity returns recent agent interaction logs.
@@ -358,9 +423,9 @@ func (s *Server) handleAgentActivity(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(logs)
 }
 
-// getRedisPodName resolves the name of the first redis pod in the application namespace.
+// getRedisPodName resolves the name of the first redis pod in the agents namespace.
 func (s *Server) getRedisPodName(ctx context.Context) (string, error) {
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "pods", "-n", "application", "-l", "app=redis", "-o", "jsonpath={.items[0].metadata.name}", "--kubeconfig", s.config.GetKubeconfigPath())
+	cmd := exec.CommandContext(ctx, "kubectl", "get", "pods", "-n", "agents", "-l", "app=redis", "-o", "jsonpath={.items[0].metadata.name}", "--kubeconfig", s.config.GetKubeconfigPath())
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

@@ -86,9 +86,9 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Operation Routes
 	ops := []string{
-		"deploy-infra", "deploy-tools", "deploy-applications",
-		"deploy", "destroy", "seed-redis", "backup", "restore",
-		"deploy-agents", "seed-inventory", "seed-data", "cleanup-cakes",
+		"deploy-infra", "deploy-tools",
+		"deploy", "destroy", "backup", "restore",
+		"deploy-agents", "seed-data", "cleanup-cakes",
 	}
 	for _, op := range ops {
 		mux.HandleFunc("/api/"+op, s.handleOperation)
@@ -125,6 +125,9 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/redis/flush", s.handleRedisFlush)
 	mux.HandleFunc("/api/redis/dbsize", s.handleRedisDBSize)
 
+	// Config Routes
+	mux.HandleFunc("/api/maps-key", s.handleMapsKey)
+
 	// Agent API Routes
 	mux.HandleFunc("/api/agent/chat", s.handleAgentChat)
 	mux.HandleFunc("/api/agent/status", s.handleAgentStatus)
@@ -133,6 +136,7 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/orders", s.handleOrders)
 	mux.HandleFunc("/api/orders/stats", s.handleOrderStats)
 	mux.HandleFunc("/api/agent/activity", s.handleAgentActivity)
+	mux.HandleFunc("/api/image", s.handleImageProxy)
 
 	// Static files
 	// dist folder is embedded as "dist", but we want to serve the content of "dist" at root
@@ -307,7 +311,7 @@ func (s *Server) refreshStatus() {
 				if s.k8sClient.HasNamespace(ctx, "velero") {
 					status.Tools = "Installed"
 				}
-				if s.k8sClient.HasNamespace(ctx, "application") {
+				if s.k8sClient.HasNamespace(ctx, "agents") {
 					status.Apps = "Deployed"
 				}
 			}

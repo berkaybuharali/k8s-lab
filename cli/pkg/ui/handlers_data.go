@@ -5,12 +5,39 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 )
 
-// ensureGet checks if request method is GET.
+// kubectl runs a kubectl subcommand with the managed kubeconfig appended.
+// Not suitable for kubectl exec (kubeconfig must precede "--"); use execRedis for that.
+func (s *Server) kubectl(ctx context.Context, args ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, "kubectl",
+		append(args, "--kubeconfig", s.config.GetKubeconfigPath())...,
+	).Output()
+}
+
+// nsFromQuery returns the "ns" query param, defaulting to "agents".
+func nsFromQuery(r *http.Request) string {
+	if ns := r.URL.Query().Get("ns"); ns != "" {
+		return ns
+	}
+	return "agents"
+}
+
+// resourceName derives a K8s resource name from a pod name by stripping
+// the two trailing hash segments added by ReplicaSet controllers.
+func resourceName(podName string) string {
+	parts := strings.Split(podName, "-")
+	if len(parts) > 2 {
+		return strings.Join(parts[:len(parts)-2], "-")
+	}
+	return podName
+}
+
+// ensureGet rejects non-GET requests.
 func ensureGet(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -19,15 +46,12 @@ func ensureGet(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// serveCommandOutput is a generic helper that runs an external command and writes
-// its output directly to the response with Content-Type: application/json.
-// It enforces a 10-second timeout and automatically appends --kubeconfig for
-// kubectl and velero invocations.
+// serveCommandOutput runs an external command and writes its output as application/json.
+// Automatically appends --kubeconfig for kubectl/velero commands.
 func (s *Server) serveCommandOutput(w http.ResponseWriter, r *http.Request, command string, args ...string) {
 	if !ensureGet(w, r) {
 		return
 	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
@@ -35,259 +59,179 @@ func (s *Server) serveCommandOutput(w http.ResponseWriter, r *http.Request, comm
 	if command == "kubectl" || command == "velero" {
 		fullArgs = append(args, "--kubeconfig", s.config.GetKubeconfigPath())
 	}
-
-	cmd := exec.CommandContext(ctx, command, fullArgs...)
-	output, err := cmd.Output()
+	output, err := exec.CommandContext(ctx, command, fullArgs...).Output()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Command failed: %v", err), http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(output)
 }
 
-// handleNodes returns list of nodes.
+// --- Infra / K8s data handlers ---
+
+func (s *Server) handleMapsKey(w http.ResponseWriter, r *http.Request) {
+	key := os.Getenv("GOOGLE_API_KEY")
+	if key == "" {
+		key = os.Getenv("GOOGLE_MAPS_API_KEY")
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"key": key})
+}
+
 func (s *Server) handleNodes(w http.ResponseWriter, r *http.Request) {
 	s.serveCommandOutput(w, r, "kubectl", "get", "nodes", "-o", "json")
 }
 
-// handlePods returns list of pods for a namespace.
 func (s *Server) handlePods(w http.ResponseWriter, r *http.Request) {
-	namespace := r.URL.Query().Get("ns")
-	if namespace == "" {
-		namespace = "application"
-	}
-	s.serveCommandOutput(w, r, "kubectl", "get", "pods", "-n", namespace, "-o", "json")
+	s.serveCommandOutput(w, r, "kubectl", "get", "pods", "-n", nsFromQuery(r), "-o", "json")
 }
 
-// handlePVCs returns list of PVCs.
 func (s *Server) handlePVCs(w http.ResponseWriter, r *http.Request) {
-	namespace := r.URL.Query().Get("ns")
-	if namespace == "" {
-		namespace = "application"
-	}
-	s.serveCommandOutput(w, r, "kubectl", "get", "pvc", "-n", namespace, "-o", "json")
+	s.serveCommandOutput(w, r, "kubectl", "get", "pvc", "-n", nsFromQuery(r), "-o", "json")
 }
 
-// handleBackups returns list of Velero backups.
 func (s *Server) handleBackups(w http.ResponseWriter, r *http.Request) {
 	s.serveCommandOutput(w, r, "velero", "backup", "get", "-o", "json")
 }
 
-// handleTerraformResources returns terraform state.
+func (s *Server) handleNamespaces(w http.ResponseWriter, r *http.Request) {
+	s.serveCommandOutput(w, r, "kubectl", "get", "ns", "-o", "json")
+}
+
 func (s *Server) handleTerraformResources(w http.ResponseWriter, r *http.Request) {
 	if !ensureGet(w, r) {
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second) // Terraform might be slower
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 
-	// terraform show -json
 	cmd := exec.CommandContext(ctx, "terraform", "show", "-json")
 	cmd.Dir = s.config.GetTerraformDir()
-	
 	output, err := cmd.Output()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get terraform state: %v", err), http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(output)
 }
 
-// handleNamespaces returns list of namespaces.
-func (s *Server) handleNamespaces(w http.ResponseWriter, r *http.Request) {
-	s.serveCommandOutput(w, r, "kubectl", "get", "ns", "-o", "json")
-}
-
-// handlePodDetail returns single pod details.
-func (s *Server) handlePodDetail(w http.ResponseWriter, r *http.Request) {
-	if !ensureGet(w, r) {
-		return
-	}
-
-	pathParts := strings.Split(r.URL.Path, "/")
-	// /api/pods/{name} -> ["", "api", "pods", "name"]
-	if len(pathParts) < 4 {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
-		return
-	}
-	podName := pathParts[3]
-	namespace := r.URL.Query().Get("ns")
-	if namespace == "" {
-		namespace = "application"
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	// Fetch Pod JSON
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "pod", podName, "-n", namespace, "-o", "json", "--kubeconfig", s.config.GetKubeconfigPath())
-	output, err := cmd.Output()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get pod: %v", err), http.StatusInternalServerError)
-		return
-	}
-	
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(output)
-}
-
-// handlePodLogs returns pod logs.
-func (s *Server) handlePodLogs(w http.ResponseWriter, r *http.Request) {
-	if !ensureGet(w, r) {
-		return
-	}
-
-	pathParts := strings.Split(r.URL.Path, "/")
-	// /api/pods/{name}/logs -> ["", "api", "pods", "name", "logs"]
-	if len(pathParts) < 5 {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
-		return
-	}
-	podName := pathParts[3]
-	namespace := r.URL.Query().Get("ns")
-	if namespace == "" {
-		namespace = "application"
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	// Simple log fetch (last 100 lines)
-	cmd := exec.CommandContext(ctx, "kubectl", "logs", podName, "-n", namespace, "--tail=100", "--kubeconfig", s.config.GetKubeconfigPath())
-	output, err := cmd.Output()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to get logs: %v", err), http.StatusInternalServerError)
-		return
-	}
-	
-	// Return as plain text
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write(output)
-}
-
-// handleSnapshots returns GCE disk snapshots.
 func (s *Server) handleSnapshots(w http.ResponseWriter, r *http.Request) {
 	if !ensureGet(w, r) {
 		return
 	}
-
 	if s.cloud != "gcp" {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("[]"))
 		return
 	}
-
 	projectID, err := s.provider.GetProjectID(s.config.GetTerraformDir())
 	if err != nil {
 		http.Error(w, "Failed to get project ID", http.StatusInternalServerError)
 		return
 	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "gcloud", "compute", "snapshots", "list",
-		"--project", projectID, "--format=json")
-	output, err := cmd.Output()
+	output, err := exec.CommandContext(ctx, "gcloud", "compute", "snapshots", "list",
+		"--project", projectID, "--format=json").Output()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get snapshots: %v", err), http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(output)
 }
 
-// handlePodDeployment returns the deployment YAML for a pod's owner.
+// --- Pod detail handlers ---
+
+func (s *Server) handlePodDetail(w http.ResponseWriter, r *http.Request) {
+	if !ensureGet(w, r) {
+		return
+	}
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 4 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	out, err := s.kubectl(ctx, "get", "pod", parts[3], "-n", nsFromQuery(r), "-o", "json")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get pod: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(out)
+}
+
+func (s *Server) handlePodLogs(w http.ResponseWriter, r *http.Request) {
+	if !ensureGet(w, r) {
+		return
+	}
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 5 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	out, err := s.kubectl(ctx, "logs", parts[3], "-n", nsFromQuery(r), "--tail=100")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to get logs: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(out)
+}
+
+// handlePodResource is shared by handlePodDeployment and handlePodService.
+// It strips the pod hash suffix to derive the owner resource name.
+func (s *Server) handlePodResource(w http.ResponseWriter, r *http.Request, resource string) {
+	if !ensureGet(w, r) {
+		return
+	}
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 5 {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	out, err := s.kubectl(ctx, "get", resource, resourceName(parts[3]), "-n", nsFromQuery(r), "-o", "yaml")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("%s not found: %v", resource, err), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(out)
+}
+
 func (s *Server) handlePodDeployment(w http.ResponseWriter, r *http.Request) {
-	if !ensureGet(w, r) {
-		return
-	}
-
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 5 {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
-		return
-	}
-	podName := pathParts[3]
-	namespace := r.URL.Query().Get("ns")
-	if namespace == "" {
-		namespace = "application"
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	// Get pod to find owner deployment name (strip pod hash suffix)
-	// Convention: deployment name is pod name without the replicaset hash
-	deployName := podName
-	parts := strings.Split(podName, "-")
-	if len(parts) > 2 {
-		deployName = strings.Join(parts[:len(parts)-2], "-")
-	}
-
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "deployment", deployName, "-n", namespace,
-		"-o", "yaml", "--kubeconfig", s.config.GetKubeconfigPath())
-	output, err := cmd.Output()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Deployment not found: %v", err), http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write(output)
+	s.handlePodResource(w, r, "deployment")
 }
 
-// handlePodService returns the service YAML for a pod's related service.
 func (s *Server) handlePodService(w http.ResponseWriter, r *http.Request) {
-	if !ensureGet(w, r) {
-		return
-	}
-
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 5 {
-		http.Error(w, "Invalid path", http.StatusBadRequest)
-		return
-	}
-	podName := pathParts[3]
-	namespace := r.URL.Query().Get("ns")
-	if namespace == "" {
-		namespace = "application"
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-
-	// Derive service name from pod name (strip replicaset hash)
-	svcName := podName
-	parts := strings.Split(podName, "-")
-	if len(parts) > 2 {
-		svcName = strings.Join(parts[:len(parts)-2], "-")
-	}
-
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "service", svcName, "-n", namespace,
-		"-o", "yaml", "--kubeconfig", s.config.GetKubeconfigPath())
-	output, err := cmd.Output()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Service not found: %v", err), http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write(output)
+	s.handlePodResource(w, r, "service")
 }
 
-// handleRedisDBSize returns the number of keys in Redis (DBSIZE).
+// --- Redis handlers ---
+
+// execRedis runs a redis-cli command inside the redis pod.
+// kubeconfig is placed before "--" so it is not passed to redis-cli.
+func (s *Server) execRedis(ctx context.Context, args ...string) ([]byte, error) {
+	base := []string{"exec", "-n", "agents", "deploy/redis", "--kubeconfig", s.config.GetKubeconfigPath(), "--", "redis-cli"}
+	return exec.CommandContext(ctx, "kubectl", append(base, args...)...).Output()
+}
+
 func (s *Server) handleRedisDBSize(w http.ResponseWriter, r *http.Request) {
 	if !ensureGet(w, r) {
 		return
 	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
@@ -296,30 +240,15 @@ func (s *Server) handleRedisDBSize(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
 		return
 	}
-
-	// Output looks like "(integer) 42" — parse the number
 	raw := strings.TrimSpace(string(output))
 	count := 0
-	if parts := strings.Fields(raw); len(parts) >= 2 {
-		fmt.Sscanf(parts[1], "%d", &count)
+	if fields := strings.Fields(raw); len(fields) >= 2 {
+		fmt.Sscanf(fields[1], "%d", &count)
 	} else {
 		fmt.Sscanf(raw, "%d", &count)
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]int{"count": count})
-}
-
-// --- Redis Handlers ---
-
-// execRedis runs a redis-cli command in the redis pod.
-func (s *Server) execRedis(ctx context.Context, args ...string) ([]byte, error) {
-	// kubectl exec -n application deploy/redis --kubeconfig ... -- redis-cli <args>
-	fullArgs := []string{"exec", "-n", "application", "deploy/redis", "--kubeconfig", s.config.GetKubeconfigPath(), "--", "redis-cli"}
-	fullArgs = append(fullArgs, args...)
-
-	cmd := exec.CommandContext(ctx, "kubectl", fullArgs...)
-	return cmd.Output()
 }
 
 func (s *Server) handleRedisKeys(w http.ResponseWriter, r *http.Request) {
@@ -330,23 +259,18 @@ func (s *Server) handleRedisKeys(w http.ResponseWriter, r *http.Request) {
 	if pattern == "" {
 		pattern = "*"
 	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	// Use KEYS for simplicity (in prod SCAN is better, but this is a lab)
 	output, err := s.execRedis(ctx, "KEYS", pattern)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
 		return
 	}
-
-	// Parse newlines to array
 	keys := strings.Split(strings.TrimSpace(string(output)), "\n")
 	if len(keys) == 1 && keys[0] == "" {
 		keys = []string{}
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(keys)
 }
@@ -355,23 +279,19 @@ func (s *Server) handleRedisGet(w http.ResponseWriter, r *http.Request) {
 	if !ensureGet(w, r) {
 		return
 	}
-	pathParts := strings.Split(r.URL.Path, "/")
-	// /api/redis/get/{key}
-	if len(pathParts) < 5 {
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 5 {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
-	key := pathParts[4]
-
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	output, err := s.execRedis(ctx, "GET", key)
+	output, err := s.execRedis(ctx, "GET", parts[4])
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write(output)
 }
@@ -381,7 +301,6 @@ func (s *Server) handleRedisSet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	var req struct {
 		Key   string `json:"key"`
 		Value string `json:"value"`
@@ -390,7 +309,6 @@ func (s *Server) handleRedisSet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid body", http.StatusBadRequest)
 		return
 	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
@@ -399,7 +317,6 @@ func (s *Server) handleRedisSet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
 		return
 	}
-
 	w.Write(output)
 }
 
@@ -408,22 +325,19 @@ func (s *Server) handleRedisDel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 5 {
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 5 {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
-	key := pathParts[4]
-
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	output, err := s.execRedis(ctx, "DEL", key)
+	output, err := s.execRedis(ctx, "DEL", parts[4])
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
 		return
 	}
-
 	w.Write(output)
 }
 
@@ -432,7 +346,6 @@ func (s *Server) handleRedisFlush(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
@@ -441,35 +354,29 @@ func (s *Server) handleRedisFlush(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Redis error: %v", err), http.StatusInternalServerError)
 		return
 	}
-
 	w.Write(output)
 }
 
-// --- Backup Handler ---
+// --- Backup handler ---
 
 func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	pathParts := strings.Split(r.URL.Path, "/")
-	// /api/backups/{name}
-	if len(pathParts) < 4 {
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) < 4 {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
-	name := pathParts[3]
-
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	// velero backup delete <name> --confirm
-	cmd := exec.CommandContext(ctx, "velero", "backup", "delete", name, "--confirm", "--kubeconfig", s.config.GetKubeconfigPath())
-	output, err := cmd.Output()
+	output, err := exec.CommandContext(ctx, "velero", "backup", "delete", parts[3],
+		"--confirm", "--kubeconfig", s.config.GetKubeconfigPath()).Output()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to delete backup: %v\n%s", err, output), http.StatusInternalServerError)
 		return
 	}
-
 	w.Write(output)
 }

@@ -155,9 +155,9 @@ func (s *Server) handleOperation(w http.ResponseWriter, r *http.Request) {
 	
 	// Validate operation
 	allowed := map[string]bool{
-		"deploy-infra": true, "deploy-tools": true, "deploy-applications": true,
-		"deploy": true, "destroy": true, "seed-redis": true, "backup": true, "restore": true,
-		"deploy-agents": true, "seed-inventory": true, "cleanup-cakes": true,
+		"deploy-infra": true, "deploy-tools": true,
+		"deploy": true, "destroy": true, "backup": true, "restore": true,
+		"deploy-agents": true, "seed-data": true, "cleanup-cakes": true,
 	}
 	if !allowed[operation] {
 		http.Error(w, "Invalid operation", http.StatusBadRequest)
