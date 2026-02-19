@@ -25,14 +25,15 @@ func init() {
 
 var seedDataCmd = &cobra.Command{
 	Use:   "seed-data",
-	Short: "Seed inventory and orders for Magic Cake (replaces seed-inventory)",
+	Short: "Seed inventory and orders for Magic Cake",
 	Long: `Populate Redis and GCS with test data for Magic Cake agents.
 
 This command:
-1. Resets inventory to known state (5 ingredients)
-2. Uses Gemini to generate 7 varied orders (names, addresses, cake details)
-3. Generates real cake images via Gemini 2.5 Flash Image (exec into commerce pod)
-4. Uploads images to GCS and stores orders in Redis`,
+1. Flushes Redis to remove stale data from previous runs
+2. Resets inventory to known state (5 ingredients)
+3. Uses Gemini to generate 5 varied orders (names, addresses, cake details)
+4. Generates real cake images via Gemini 2.5 Flash Image (exec into commerce pod)
+5. Uploads images to GCS and stores orders in Redis`,
 	RunE: runSeedData,
 }
 
@@ -72,13 +73,13 @@ func runSeedData(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create K8s client: %w", err)
 	}
 
-	// 1. Seed Redis (existing test data for the base app)
-	log.Step("Seeding base Redis data...")
+	// 1. Ensure Redis is ready and flush stale data
+	log.Step("Verifying Redis and flushing stale data...")
 	redisPod, err := ensureRedisReady(ctx, k8sClient, log)
 	if err != nil {
 		return err
 	}
-	if err := seedRedisData(ctx, k8sClient, redisPod, log); err != nil {
+	if err := execRedisCommands(ctx, k8sClient, redisPod, "FLUSHALL\n", log); err != nil {
 		return err
 	}
 
@@ -122,6 +123,7 @@ func runSeedData(cmd *cobra.Command, args []string) error {
 	}
 
 	log.Info("Seed data complete!")
+	log.Info("  Flushed stale Redis data")
 	log.Info("  Inventory: 5 ingredients seeded")
 	log.Info("  Orders: %d orders with cake images", len(orders))
 	return nil
@@ -153,14 +155,14 @@ func generateOrdersWithGemini(ctx context.Context, projectID, region string, log
 		return nil, fmt.Errorf("failed to get token: %w", err)
 	}
 
-	// Delivery dates: today+1 (4 orders), today+2 (2 orders), today+3 (1 order)
+	// Delivery dates: today+1 (3 orders), today+2 (1 order), today+3 (1 order)
 	now := time.Now()
 	d1 := now.AddDate(0, 0, 1).Format("2006-01-02")
 	d2 := now.AddDate(0, 0, 2).Format("2006-01-02")
 	d3 := now.AddDate(0, 0, 3).Format("2006-01-02")
-	datesJSON, _ := json.Marshal([]string{d1, d1, d1, d1, d2, d2, d3})
+	datesJSON, _ := json.Marshal([]string{d1, d1, d1, d2, d3})
 
-	prompt := fmt.Sprintf(`Generate exactly 7 fictional cake orders for a bakery in Amsterdam.
+	prompt := fmt.Sprintf(`Generate exactly 5 fictional cake orders for a bakery in Amsterdam.
 Return ONLY a valid JSON array (no explanation, no markdown), each element with these exact fields:
 - customer_name: realistic first + last name, mix of Dutch names (Jan de Vries, Maria van den Berg) and international (John Doe, Alice Lee)
 - street: a real Amsterdam street with house number (e.g. "Herengracht 12")
@@ -170,7 +172,7 @@ Return ONLY a valid JSON array (no explanation, no markdown), each element with 
 - people_count: integer between 6 and 50
 - concept: short theme like birthday, wedding, anniversary, baby shower, graduation, Star Wars, dinosaurs
 
-The 7 orders must use these delivery dates in order: %s
+The 5 orders must use these delivery dates in order: %s
 Return only the raw JSON array.`, string(datesJSON))
 
 	reqBody := map[string]interface{}{
@@ -244,21 +246,19 @@ Return only the raw JSON array.`, string(datesJSON))
 		return nil, fmt.Errorf("failed to parse generated orders JSON: %w\nRaw: %s", err, rawJSON)
 	}
 
-	// Delivery dates: 4 + 2 + 1
+	// Delivery dates: 3 + 1 + 1
 	now = time.Now()
 	dates := []string{
 		now.AddDate(0, 0, 1).Format("2006-01-02"),
 		now.AddDate(0, 0, 1).Format("2006-01-02"),
 		now.AddDate(0, 0, 1).Format("2006-01-02"),
-		now.AddDate(0, 0, 1).Format("2006-01-02"),
-		now.AddDate(0, 0, 2).Format("2006-01-02"),
 		now.AddDate(0, 0, 2).Format("2006-01-02"),
 		now.AddDate(0, 0, 3).Format("2006-01-02"),
 	}
 
 	orders := make([]seedOrder, 0, len(geminiOrders))
 	for i, g := range geminiOrders {
-		if i >= 7 {
+		if i >= 5 {
 			break
 		}
 		date := dates[i]
@@ -357,4 +357,48 @@ func uploadImageGcloud(ctx context.Context, localPath, dest string) error {
 		return fmt.Errorf("gcloud cp failed: %s\n%s", err, out)
 	}
 	return nil
+}
+
+// ensureRedisReady verifies the Redis deployment and returns the name of a running pod.
+func ensureRedisReady(ctx context.Context, client *k8s.Client, log *logger.Logger) (string, error) {
+	log.Step("Verifying Redis deployment")
+	if err := client.WaitForDeploymentReady(ctx, AgentsNamespace, "redis", 2*time.Minute); err != nil {
+		return "", fmt.Errorf("redis deployment not ready: %w", err)
+	}
+
+	podName, err := client.GetFirstPodByLabel(ctx, AgentsNamespace, "app=redis")
+	if err != nil {
+		return "", fmt.Errorf("failed to find redis pod: %w", err)
+	}
+	log.Debug("Targeting Redis pod: %s", podName)
+	return podName, nil
+}
+
+// execRedisCommands pipes a payload of redis-cli commands into the Redis pod.
+// Agents use the shared Redis instance in the 'agents' namespace.
+func execRedisCommands(ctx context.Context, client *k8s.Client, podName, payload string, log *logger.Logger) error {
+	_, stderr, err := client.Exec(
+		ctx,
+		AgentsNamespace,
+		podName,
+		"",
+		[]string{"redis-cli"},
+		strings.NewReader(payload),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to execute redis commands: %w\nStderr: %s", err, stderr)
+	}
+	return nil
+}
+
+// generateInventoryCommands returns redis-cli HSET commands to set known inventory quantities.
+// chocolate: 4, ananas: 1 (LOW), banana: 3, walnut: 2 (LOW), almond: 4.
+func generateInventoryCommands() string {
+	var sb strings.Builder
+	sb.WriteString("HSET inventory:chocolate quantity 4\n")
+	sb.WriteString("HSET inventory:ananas quantity 1\n")
+	sb.WriteString("HSET inventory:banana quantity 3\n")
+	sb.WriteString("HSET inventory:walnut quantity 2\n")
+	sb.WriteString("HSET inventory:almond quantity 4\n")
+	return sb.String()
 }
