@@ -12,7 +12,7 @@ data:
 
   GCP_PROJECT_ID: "YOUR_PROJECT_ID"  # From LOCAL.md
   GCP_REGION: "YOUR_REGION"  # From LOCAL.md (e.g., europe-west4)
-  REDIS_HOST: "redis.application.svc.cluster.local"
+  REDIS_HOST: "redis.agents.svc.cluster.local"
   REDIS_PORT: "6379"
   GCS_BUCKET: "YOUR_BUCKET"  # From LOCAL.md
   CAKES_PREFIX: "cakes/orders"
