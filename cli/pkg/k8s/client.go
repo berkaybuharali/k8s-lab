@@ -582,3 +582,25 @@ func (c *Client) HasNamespace(ctx context.Context, name string) bool {
 	_, err := c.clientset.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
 	return err == nil
 }
+
+// WaitForSecret polls until the named Secret exists in the namespace or the timeout is reached.
+func (c *Client) WaitForSecret(ctx context.Context, namespace, name string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for secret %s/%s", namespace, name)
+		case <-ticker.C:
+			_, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err == nil {
+				return nil
+			}
+			c.log.Debug("Waiting for secret %s/%s...", namespace, name)
+		}
+	}
+}

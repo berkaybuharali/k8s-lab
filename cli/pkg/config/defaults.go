@@ -7,10 +7,7 @@ const (
 	// Keep in sync with cli/pkg/velero/client.go:VeleroNamespace.
 	VeleroNamespace = "velero"
 
-	// ApplicationNamespace is the namespace for user workloads (NGINX, Redis, etc.)
-	ApplicationNamespace = "application"
-
-	// AgentsNamespace is the namespace for AI agent workloads.
+	// AgentsNamespace is the namespace for all agent workloads (Redis, Commerce, Supply Chain).
 	AgentsNamespace = "agents"
 
 	// ClusterName is the default Kubernetes cluster name.

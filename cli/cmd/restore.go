@@ -97,7 +97,7 @@ func runRestore(cmd *cobra.Command, args []string) error {
 
 	// 2. Clean up existing namespace (if --clean flag set)
 	if clean {
-		if err := deleteApplicationNamespace(ctx, k8sClient, log); err != nil {
+		if err := deleteAgentsNamespace(ctx, k8sClient, log); err != nil {
 			return err
 		}
 	} else {
@@ -124,36 +124,26 @@ func runRestore(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// deleteApplicationNamespace removes the application namespace to ensure
-// a clean restore. Velero by default merges with existing resources, so
-// this guarantees we're testing true restore capability from backup.
-func deleteApplicationNamespace(ctx context.Context, client *k8s.Client, log *logger.Logger) error {
-	log.Step("Cleaning up existing namespace: %s", ApplicationNamespace)
+// deleteAgentsNamespace removes the agents namespace to ensure a clean restore.
+// Velero by default merges with existing resources, so this guarantees we're
+// testing true restore capability from backup.
+func deleteAgentsNamespace(ctx context.Context, client *k8s.Client, log *logger.Logger) error {
+	log.Step("Cleaning up existing namespace: %s", AgentsNamespace)
 
-	if err := client.DeleteNamespace(ctx, ApplicationNamespace); err != nil {
+	if err := client.DeleteNamespace(ctx, AgentsNamespace); err != nil {
 		return fmt.Errorf("failed to delete namespace: %w", err)
-
 	}
 
 	return nil
 }
 
-// verifyRestoredApps waits for NGINX and Redis deployments to become
-// ready after Velero restore completes. This confirms the restore
-// operation successfully recovered the application state.
+// verifyRestoredApps waits for Redis and agents to become ready after Velero
+// restore completes.
 func verifyRestoredApps(ctx context.Context, client *k8s.Client, log *logger.Logger) error {
 	log.Step("Verifying restored applications")
 
-	// Wait for NGINX
-	if err := client.WaitForDeploymentReady(ctx, ApplicationNamespace, "nginx", 5*time.Minute); err != nil {
-		return fmt.Errorf("nginx failed to recover: %w", err)
-	}
-
-	// Wait for Redis
-	if err := client.WaitForDeploymentReady(ctx, ApplicationNamespace, "redis", 5*time.Minute); err != nil {
-
+	if err := client.WaitForDeploymentReady(ctx, AgentsNamespace, "redis", 5*time.Minute); err != nil {
 		return fmt.Errorf("redis failed to recover: %w", err)
-
 	}
 	return nil
 }

@@ -209,16 +209,38 @@ func runDeployAgents(cmd *cobra.Command, args []string) error {
 	}
 	log.Debug("Namespace applied")
 
-	// Apply GCR Credential Sync (creates imagePullSecret using VM metadata service)
-	log.Debug("Applying credential sync daemonset...")
+	// Deploy Redis into the agents namespace alongside agent pods
+	log.Step("Deploying Redis...")
+	if err := k8sClient.ApplyManifest(ctx, filepath.Join(repoRoot, "apps", "redis.yaml")); err != nil {
+		return fmt.Errorf("failed to apply redis: %w", err)
+	}
+	if err := k8sClient.WaitForDeploymentReady(ctx, "agents", "redis", 3*time.Minute); err != nil {
+		return fmt.Errorf("redis deployment failed: %w", err)
+	}
+	log.Debug("Redis ready")
+
+	// Apply GCR Credential Sync (RBAC + CronJob that refreshes the imagePullSecret every 10 min)
+	log.Debug("Applying credential sync resources...")
 	if err := k8sClient.ApplyManifest(ctx, filepath.Join(manifestsDir, "gcr-credential-sync.yaml")); err != nil {
 		return fmt.Errorf("failed to apply credential sync: %w", err)
 	}
-	log.Debug("Credential sync deployed")
 
-	// Wait for secret to be created
-	log.Debug("Waiting for imagePullSecret to be created...")
-	time.Sleep(10 * time.Second)
+	// CronJobs don't run on apply, only on schedule. Trigger one-off run immediately.
+	log.Step("Creating imagePullSecret...")
+	kubeconfigPath := cfg.GetKubeconfigPath()
+	triggerCmd := exec.CommandContext(ctx, "kubectl",
+		"--kubeconfig", kubeconfigPath,
+		"-n", "agents",
+		"create", "job", "gcr-credential-sync-init",
+		"--from=cronjob/gcr-credential-sync",
+	)
+	// Ignore error: job may already exist from a previous run
+	_ = triggerCmd.Run()
+
+	if err := k8sClient.WaitForSecret(ctx, "agents", "artifact-registry", 2*time.Minute); err != nil {
+		return fmt.Errorf("imagePullSecret not ready: %w", err)
+	}
+	log.Debug("imagePullSecret ready")
 
 	// Apply ConfigMap
 	log.Debug("Applying configmap...")
@@ -258,7 +280,7 @@ func runDeployAgents(cmd *cobra.Command, args []string) error {
 	log.Debug("Supply-chain is ready")
 
 	log.Info("Agents deployed successfully!")
-	log.Info("Next: k8s-lab seed-inventory --cloud %s", provider.Name())
+	log.Info("Next: k8s-lab seed-data --cloud %s", provider.Name())
 
 	return nil
 }
