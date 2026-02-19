@@ -1,4 +1,4 @@
-import { WifiOff, XCircle } from 'lucide-react'
+import { Info, WifiOff, XCircle } from 'lucide-react'
 import type { AuthStatus, GlobalStatus } from '../types'
 
 interface BannerProps {
@@ -17,12 +17,22 @@ export function Banner({ auth, status }: BannerProps) {
     )
   }
 
-  // Priority 2: Tunnel Lost (and was previously connected/running, assumed if infra exists)
+  // Priority 2: Tunnel Lost (infra exists but tunnel dropped)
   if (status && status.infra === 'Running' && status.tunnel !== 'Connected' && status.tunnel !== 'Starting' && status.tunnel !== 'Idle') {
     return (
       <div className="bg-yellow-500/15 border-b border-yellow-500/20 px-4 py-2 flex items-center justify-center gap-2 text-yellow-600 dark:text-yellow-500 text-sm font-medium animate-pulse">
         <WifiOff className="w-4 h-4" />
         <span>Tunnel disconnected. Reconnecting... Cluster data may be stale.</span>
+      </div>
+    )
+  }
+
+  // Priority 3: No infrastructure yet — guide the user to get started
+  if (status && status.infra === 'Not Created') {
+    return (
+      <div className="bg-primary/8 border-b border-primary/15 px-4 py-2 flex items-center justify-center gap-2 text-primary/80 text-sm">
+        <Info className="w-4 h-4 shrink-0" />
+        <span>No cluster found. Use <strong>Deploy All</strong> for a one-click setup or follow the step-by-step buttons in the Actions panel.</span>
       </div>
     )
   }

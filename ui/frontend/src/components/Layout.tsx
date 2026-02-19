@@ -14,40 +14,49 @@ interface LayoutProps {
   isRunning: boolean
 }
 
-/**
- * Layout wraps every page with the persistent header/navigation bar.
- * Receives view state and setView so nav buttons can switch pages.
- * Extracted from AppInner (Item 5.12).
- */
 export function Layout({ children, view, setView, auth, status, isRunning }: LayoutProps) {
+  const navItem = (v: ViewName, label: string) => (
+    <button
+      onClick={() => setView(v)}
+      className={cn(
+        "text-sm px-3 py-1.5 rounded-md border transition-colors",
+        view === v
+          ? "bg-accent border-border text-foreground font-medium"
+          : "border-border/40 text-muted-foreground hover:bg-accent hover:text-foreground hover:border-border"
+      )}
+    >
+      {label}
+    </button>
+  )
+
   return (
     <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
-      <header className="h-14 border-b px-4 flex items-center justify-between bg-card shrink-0 sticky top-0 z-10">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <button onClick={() => setView('dashboard')} className="font-bold text-lg tracking-tight hover:opacity-80 transition-opacity">
-              k8s<span className="text-primary">-lab</span>
-            </button>
-            <div className="h-4 w-px bg-border mx-2" />
-            <button onClick={() => setView('dashboard')} className={cn("text-sm transition-colors hover:text-foreground", view === 'dashboard' ? "text-foreground font-medium" : "text-muted-foreground")}>
-              Infrastructure
-            </button>
-            <button onClick={() => setView('architecture')} className={cn("text-sm transition-colors hover:text-foreground", view === 'architecture' ? "text-foreground font-medium" : "text-muted-foreground")}>
-              Architecture
-            </button>
-            <button onClick={() => setView('shop')} className={cn("text-sm transition-colors hover:text-foreground", view === 'shop' ? "text-foreground font-medium" : "text-muted-foreground")}>
-              Magic Cake Shop
-            </button>
-            <button onClick={() => setView('backoffice')} className={cn("text-sm transition-colors hover:text-foreground", view === 'backoffice' ? "text-foreground font-medium" : "text-muted-foreground")}>
-              Backoffice
-            </button>
-            <button onClick={() => setView('about')} className={cn("text-sm transition-colors hover:text-foreground", view === 'about' ? "text-foreground font-medium" : "text-muted-foreground")}>
-              About
-            </button>
-          </div>
+      <header className="h-14 border-b px-4 flex items-center justify-between bg-card shrink-0 sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center gap-1">
+          {/* Brand */}
+          <button
+            onClick={() => setView('dashboard')}
+            className="font-bold text-lg tracking-tight hover:opacity-80 transition-opacity mr-2"
+          >
+            k8s<span className="text-primary">-lab</span>
+          </button>
+
+          {/* Platform group */}
+          <div className="h-4 w-px bg-border mx-1" />
+          {navItem('dashboard', 'Infrastructure')}
+          {navItem('architecture', 'Architecture')}
+
+          {/* Shop group */}
+          <div className="h-4 w-px bg-border mx-1" />
+          {navItem('shop', 'Magic Cake Shop')}
+          {navItem('backoffice', 'Backoffice')}
+
+          {/* Info group */}
+          <div className="h-4 w-px bg-border mx-1" />
+          {navItem('about', 'About')}
 
           {isRunning && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground border-l pl-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground border-l pl-4 ml-2">
               <Loader2 className="w-4 h-4 animate-spin text-primary" />
               <span>Operation in progress...</span>
             </div>

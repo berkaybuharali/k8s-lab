@@ -1,4 +1,5 @@
-import { Loader2 } from 'lucide-react'
+import type React from 'react'
+import { Loader2, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { GlobalStatus } from '../types'
 import terraformLogo from '@/assets/terraform_logo.svg'
@@ -8,10 +9,8 @@ import gcpFirewallLogo from '@/assets/gcp_firewal_logo.svg'
 import kubernetesLogo from '@/assets/kubernetes_logo.svg'
 import talosLogo from '@/assets/talos_logo.svg'
 import veleroLogo from '@/assets/velero_logo.svg'
-import nginxLogo from '@/assets/nginx_logo.svg'
 import redisLogo from '@/assets/redis_logo.svg'
 import toolsLogo from '@/assets/tools_logo.svg'
-import appsLogo from '@/assets/apps_logo.svg'
 
 interface StatusPanelProps {
   status: GlobalStatus | null
@@ -25,11 +24,23 @@ interface SubItem {
   logo?: string
 }
 
+interface Card {
+  key: string
+  label: string
+  subItems: SubItem[]
+  value: string
+  logo?: string
+  icon?: React.ReactNode
+  iconBg: string
+  ok: boolean
+  deploying: boolean
+}
+
 export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPanelProps) {
   const deployingLayer = isRunning ? (
     runningOp?.includes('deploy-infra') || runningOp === 'deploy' ? 'infra' :
     runningOp?.includes('deploy-tools') ? 'tools' :
-    runningOp?.includes('deploy-applications') ? 'apps' :
+    runningOp?.includes('deploy-agents') ? 'apps' :
     runningOp === 'destroy' ? 'infra' : null
   ) : null
 
@@ -68,15 +79,19 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
     },
     {
       key: 'apps',
-      label: 'Applications',
-      subItems: [{ label: 'NGINX', logo: nginxLogo }, { label: 'Redis', logo: redisLogo }] as SubItem[],
+      label: 'Agents',
+      subItems: [
+        { label: 'Commerce', logo: '/assets/cake_small_logo.png' },
+        { label: 'Supply Chain', logo: '/assets/cake_small_logo.png' },
+        { label: 'Redis', logo: redisLogo },
+      ] as SubItem[],
       value: deployingLayer === 'apps' ? 'Deploying...' : (deployingLayer ? 'Waiting...' : (status?.apps || 'Unknown')),
-      logo: appsLogo,
+      icon: <Bot className="w-5 h-5" />,
       iconBg: 'bg-green-500/15',
       ok: status?.apps === 'Deployed',
       deploying: deployingLayer === 'apps',
     },
-  ]
+  ] as Card[]
 
   return (
     <div className="border rounded-xl bg-card shadow-sm overflow-hidden">
@@ -91,7 +106,7 @@ export function StatusPanel({ status, isRunning, runningOp, provider }: StatusPa
               card.deploying && "border-primary/40"
             )}>
               <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", card.iconBg)}>
-                <img src={card.logo} alt={card.label} className="w-5 h-5" />
+                {card.icon ?? <img src={card.logo} alt={card.label} className="w-5 h-5" />}
               </div>
               <div className="min-w-0">
                 <div className="text-sm font-semibold">{card.label}</div>

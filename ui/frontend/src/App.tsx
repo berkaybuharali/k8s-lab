@@ -48,10 +48,10 @@ function AppInner() {
   }, [initialLoading])
 
   useEffect(() => {
-    if (status?.k8s === 'Ready') {
+    if (status?.k8s === 'Ready' || (status != null && status.infra !== 'Running')) {
       trackStatusDone()
     }
-  }, [status?.k8s])
+  }, [status?.k8s, status?.infra])
 
   useEffect(() => {
     if (logs.length > 0) {
