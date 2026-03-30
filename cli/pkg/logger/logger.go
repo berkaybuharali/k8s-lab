@@ -1,7 +1,4 @@
-// cli/pkg/logger/logger.go
 // Package logger provides colored, leveled logging for CLI output.
-// It replicates the bash script logging functions (log_info, log_error, etc.)
-// with ANSI color codes for terminal output.
 package logger
 
 import (
@@ -11,13 +8,14 @@ import (
 )
 
 // ANSI color codes for terminal output.
-// These match the colors used in scripts/lib/common.sh.
+// ANSI color codes.
 const (
-	colorReset  = "\033[0m"
-	colorRed    = "\033[0;31m"
-	colorGreen  = "\033[0;32m"
-	colorYellow = "\033[1;33m"
-	colorBlue   = "\033[0;34m"
+	colorReset     = "\033[0m"
+	colorRed       = "\033[0;31m"
+	colorGreen     = "\033[0;32m"
+	colorYellow    = "\033[1;33m"
+	colorDarkBlue  = "\033[0;34m"
+	colorLightBlue = "\033[0;36m"
 )
 
 // Logger handles formatted output to stderr (like bash scripts).
@@ -61,7 +59,7 @@ func (l *Logger) Error(format string, args ...interface{}) {
 // Equivalent to bash: log_step "message"
 func (l *Logger) Step(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintf(l.out, "%s[STEP]%s %s\n", colorBlue, colorReset, msg)
+	fmt.Fprintf(l.out, "%s[STEP]%s %s\n", colorDarkBlue, colorReset, msg)
 }
 
 // Debug logs a debug message only if verbose mode is enabled.
@@ -71,7 +69,7 @@ func (l *Logger) Debug(format string, args ...interface{}) {
 		return
 	}
 	msg := fmt.Sprintf(format, args...)
-	fmt.Fprintf(l.out, "%s[DEBUG]%s %s\n", colorBlue, colorReset, msg)
+	fmt.Fprintf(l.out, "%s[DEBUG]%s %s\n", colorLightBlue, colorReset, msg)
 }
 
 // Fatal logs an error message and exits with code 1.

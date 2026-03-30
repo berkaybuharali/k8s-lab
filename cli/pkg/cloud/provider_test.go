@@ -108,3 +108,11 @@ func (m *mockProvider) CreateK8sEndpoint(ctx context.Context, instance, zone, pr
 	noopCleanup := func() {}
 	return "localhost:6443", noopCleanup, nil
 }
+
+func (m *mockProvider) InstallCSIDriver(ctx context.Context, kubeconfigPath string) error {
+	return nil
+}
+
+func (m *mockProvider) GetVeleroInstallConfig(terraformDir string) (interface{}, error) {
+	return nil, nil
+}

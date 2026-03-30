@@ -6,13 +6,12 @@ Kubernetes manifests for lab applications.
 
 | Application | Type | Replicas | Storage | Purpose |
 |-------------|------|----------|---------|---------|
-| NGINX | Stateless | 2 | None | Web server, spread across zones |
 | Redis | Stateful | 1 | 1Gi PVC | In-memory data store with persistence |
 
 ## Structure
 
 - Cloud-specific: `gcp/storageclass.yaml` (GCE PD CSI)
-- Cloud-agnostic: `namespace.yaml`, `nginx.yaml`, `redis.yaml`
+- Cloud-agnostic: `namespace.yaml`, `redis.yaml`
 
 Redis PVC uses default StorageClass set by cloud-specific config.
 

@@ -38,10 +38,23 @@ Thumbs.db
 
 # Local notes and environment-specific docs (not for repo)
 LOCAL.md
+TESTING.md
 
-# Migration planning (work in progress)
-GO_MIGRATION_PLAN.md
-GO_PLAN.md
+# Planning docs (local only)
+agent_plan.md
+
+# Agent config files (contain project IDs, API keys)
+# Use *.example files as templates
+agents/shared/config.py
+apps/agents/configmap.yaml
+apps/agents/commerce.yaml
+apps/agents/supply-chain.yaml
+
+# Python package build artifacts
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
 
 # Go
 /k8s-lab

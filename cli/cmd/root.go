@@ -30,9 +30,8 @@ import (
 var Version = "0.1.0"
 
 const (
-	// ApplicationNamespace is the shared namespace for standard lab applications.
-	// This must match the namespace defined in apps/namespace.yaml.
-	ApplicationNamespace = "application"
+	// AgentsNamespace is the shared namespace for agent workloads (Redis, Commerce, Supply Chain).
+	AgentsNamespace = "agents"
 )
 
 // Context keys for storing values in command context.
@@ -56,8 +55,9 @@ It handles:
 - Infrastructure provisioning (Terraform)
 - Cluster bootstrapping (Talos Linux)
 - Platform tools (Velero, CSI drivers)
-- Application deployments (NGINX, Redis, PostgreSQL)
+- Application deployments (Redis, PostgreSQL, AI agents)
 - Backup and restore operations
+- Web dashboard (k8s-lab ui)
 
 Supported clouds: GCP (more coming soon)`,
 	Version: Version,

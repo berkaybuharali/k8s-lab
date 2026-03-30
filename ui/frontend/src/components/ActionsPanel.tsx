@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Trash, Database, Server, AppWindow, Rocket, Archive, RotateCcw, Check, Layers } from 'lucide-react'
+import { Trash, Database, Server, Rocket, Archive, RotateCcw, Check, Layers, Bot } from 'lucide-react'
 import type { AuthStatus, GlobalStatus } from '../types'
 import { cn } from '@/lib/utils'
 
@@ -38,8 +38,8 @@ export function ActionsPanel({ auth, status, onTrigger, loading, refreshTrigger 
   const steps = [
     { id: 'deploy-infra', label: 'Deploy Infra', icon: Server, disabled: loading || notAuth, step: 1 },
     { id: 'deploy-tools', label: 'Deploy Tools', icon: Layers, disabled: loading || notAuth || !k8sReady, step: 2 },
-    { id: 'deploy-applications', label: 'Deploy Apps', icon: AppWindow, disabled: loading || notAuth || !toolsReady, step: 3 },
-    { id: 'seed-redis', label: 'Seed Redis', icon: Database, disabled: loading || notAuth || !appsReady, step: 4 },
+    { id: 'deploy-agents', label: 'Deploy Agents', icon: Bot, disabled: loading || notAuth || !toolsReady, step: 3 },
+    { id: 'seed-data', label: 'Load Agent Data', icon: Database, disabled: loading || notAuth || !appsReady, step: 4 },
   ]
 
   return (

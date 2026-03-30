@@ -45,7 +45,6 @@ const (
 // - Upstream CSI driver mounts /etc/udev as hostPath (fails on Talos)
 // - We patch it to use emptyDir instead (driver only needs /lib/udev)
 //
-// Equivalent to bash: gcp_csi_install() in scripts/lib/gcp/csi.sh
 func (p *Provider) InstallCSIDriver(ctx context.Context, kubeconfigPath string) error {
 	p.log.Step("Installing GCE PD CSI driver")
 
@@ -171,8 +170,6 @@ func (p *Provider) applyCSIDriver(ctx context.Context, kubeconfigPath string) er
 // Solution: Replace /etc/udev mount with emptyDir.
 // The driver only needs /lib/udev for udev rules anyway.
 //
-// Equivalent to bash (scripts/lib/gcp/csi.sh:60-63):
-//
 //	kubectl patch daemonset csi-gce-pd-node -n gce-pd-csi-driver --type=json -p='[
 //	  {"op": "test", "path": "/spec/template/spec/volumes/4/name", "value": "udev-rules-etc"},
 //	  {"op": "replace", "path": "/spec/template/spec/volumes/4", "value": {"name": "udev-rules-etc", "emptyDir": {}}}
@@ -293,8 +290,6 @@ func contains(s, substr string) bool {
 // - state_bucket: GCS bucket for backups (same as Terraform state bucket)
 // - project_id: GCP project ID
 // - node_service_account_email: Service account for GCS access
-//
-// Equivalent to bash (scripts/lib/gcp/velero.sh:30-64):
 //
 //	bucket=$(terraform output -raw state_bucket)
 //	project=$(terraform output -raw project_id)

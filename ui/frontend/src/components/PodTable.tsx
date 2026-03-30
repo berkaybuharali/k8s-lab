@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react'
 import { RotateCw, WifiOff } from 'lucide-react'
 import kubernetesLogo from '@/assets/kubernetes_logo.svg'
-import nginxLogo from '@/assets/nginx_logo.svg'
 import redisLogo from '@/assets/redis_logo.svg'
 import { usePanelLoading } from '../hooks/useLoadingTracker'
 
 function getPodLogo(name: string): string | null {
-  if (name.includes('nginx')) return nginxLogo
   if (name.includes('redis')) return redisLogo
   return null
 }

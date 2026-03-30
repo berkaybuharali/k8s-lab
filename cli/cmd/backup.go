@@ -13,7 +13,7 @@ import (
 func init() {
 	rootCmd.AddCommand(backupCmd)
 	backupCmd.Flags().String("name", "k8s-lab-backup", "Base name for the backup")
-	backupCmd.Flags().String("namespaces", ApplicationNamespace, "Comma-separated list of namespaces to backup")
+	backupCmd.Flags().String("namespaces", AgentsNamespace, "Comma-separated list of namespaces to backup")
 }
 
 var backupCmd = &cobra.Command{

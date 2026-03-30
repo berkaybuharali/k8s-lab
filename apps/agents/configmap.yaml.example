@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-config
+  namespace: agents
+data:
+  # TODO: Copy this file to configmap.yaml and fill in your values from LOCAL.md
+  #   cp configmap.yaml.example configmap.yaml
+  #
+  # These values will also be patched at deploy time by cli/cmd/deploy_agents.go,
+  # but having them correct here is useful for manual kubectl apply during development.
+
+  GCP_PROJECT_ID: "YOUR_PROJECT_ID"  # From LOCAL.md
+  GCP_REGION: "YOUR_REGION"  # From LOCAL.md (e.g., europe-west4)
+  REDIS_HOST: "redis.agents.svc.cluster.local"
+  REDIS_PORT: "6379"
+  GCS_BUCKET: "YOUR_BUCKET"  # From LOCAL.md
+  CAKES_PREFIX: "cakes/orders"
+  COMMERCE_URL: "http://commerce.agents.svc.cluster.local:8001"
+  SUPPLY_CHAIN_URL: "http://supply-chain.agents.svc.cluster.local:8002"
+  GOOGLE_API_KEY: "YOUR_GOOGLE_API_KEY"  # From aistudio.google.com/apikey (enable Maps APIs in GCP Console for the same key)

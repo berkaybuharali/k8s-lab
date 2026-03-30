@@ -71,8 +71,8 @@ func TestGetCommandPrereqs(t *testing.T) {
 		cmdName  string
 		expected int // Number of prerequisites expected
 	}{
-		{"infra command", "infra", 1},       // terraform only (Talos uses SDK)
-		{"platform command", "platform", 1}, // kubectl
+		{"infra command", "deploy-infra", 1},       // terraform only (Talos uses SDK)
+		{"platform command", "platform", 2}, // kubectl, velero
 		{"unknown command", "unknown", 0},   // no prerequisites
 	}
 

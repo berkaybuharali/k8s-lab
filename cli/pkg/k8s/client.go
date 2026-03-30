@@ -203,7 +203,6 @@ func (c *Client) GetNodes(ctx context.Context) ([]string, error) {
 //	    return fmt.Errorf("nodes not ready: %w", err)
 //	}
 //
-// Equivalent to bash: talos_wait_for_all_nodes() in scripts/lib/talos.sh:310-336
 func (c *Client) WaitForNodesReady(ctx context.Context, expectedCount int, timeout time.Duration) error {
 	c.log.Info("Waiting for %d nodes to be Ready (timeout: %v)...", expectedCount, timeout)
 
@@ -297,20 +296,27 @@ func (c *Client) ApplyManifest(ctx context.Context, manifestPath string) error {
 		return fmt.Errorf("failed to read manifest file: %w", err)
 	}
 
-	// Decode YAML (handle multiple documents)
+	// Decode multi-document YAML using the apimachinery decoder.
+	// We use NewYAMLOrJSONDecoder rather than the kustomize libraries because:
+	// (a) we only need simple SSA apply, not overlay patching,
+	// (b) kustomize adds 10+ transitive dependencies for functionality we don't use.
+	// The decoder handles "---" separators and both YAML/JSON single-file inputs.
 	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(data), 4096)
 
+	docIndex := 0
 	for {
 		var rawObj unstructured.Unstructured
 		if err := decoder.Decode(&rawObj); err != nil {
 			if err == io.EOF {
 				break
 			}
-			return fmt.Errorf("failed to decode YAML: %w", err)
+			return fmt.Errorf("failed to decode YAML document #%d in %s: %w", docIndex+1, manifestPath, err)
 		}
+		docIndex++
 
+		// Skip empty documents produced by leading/trailing "---" separators
 		if len(rawObj.Object) == 0 {
-			continue // Skip empty documents
+			continue
 		}
 
 		// Get GroupVersionKind
@@ -569,4 +575,32 @@ func (c *Client) GetFirstPodByLabel(ctx context.Context, namespace, labelSelecto
 		return "", fmt.Errorf("no pods found matching label %s", labelSelector)
 	}
 	return pods.Items[0].Name, nil
+}
+
+// HasNamespace returns true if the named namespace exists in the cluster.
+func (c *Client) HasNamespace(ctx context.Context, name string) bool {
+	_, err := c.clientset.CoreV1().Namespaces().Get(ctx, name, metav1.GetOptions{})
+	return err == nil
+}
+
+// WaitForSecret polls until the named Secret exists in the namespace or the timeout is reached.
+func (c *Client) WaitForSecret(ctx context.Context, namespace, name string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for secret %s/%s", namespace, name)
+		case <-ticker.C:
+			_, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err == nil {
+				return nil
+			}
+			c.log.Debug("Waiting for secret %s/%s...", namespace, name)
+		}
+	}
 }

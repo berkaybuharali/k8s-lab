@@ -27,7 +27,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+
+	"gopkg.in/yaml.v3"
+	"k8s.io/client-go/tools/clientcmd"
 
 	machineapi "github.com/siderolabs/talos/pkg/machinery/api/machine"
 	clientconfig "github.com/siderolabs/talos/pkg/machinery/client/config"
@@ -183,8 +185,8 @@ func (c *Client) GenerateConfigs(ctx context.Context, clusterName, endpoint stri
 		return fmt.Errorf("failed to generate talosconfig: %w", err)
 	}
 
-	// Write all configs to disk
-	if err := c.writeGeneratedConfigs(controlPlaneConfig, workerConfig, talosconfig); err != nil {
+	// Write all configs to disk (with patches applied)
+	if err := c.writeGeneratedConfigs(controlPlaneConfig, workerConfig, talosconfig, options.configPatches); err != nil {
 		return err
 	}
 
@@ -192,8 +194,68 @@ func (c *Client) GenerateConfigs(ctx context.Context, clusterName, endpoint stri
 	return nil
 }
 
+// applyPatchesToBytes applies patch files to config bytes using YAML merge.
+func (c *Client) applyPatchesToBytes(configBytes []byte, patchPaths []string) ([]byte, error) {
+	if len(patchPaths) == 0 {
+		return configBytes, nil
+	}
+
+	c.log.Info("Applying %d config patch(es)...", len(patchPaths))
+
+	// For each patch, read and merge
+	for _, patchPath := range patchPaths {
+		c.log.Info("  - Applying patch: %s", filepath.Base(patchPath))
+
+		patchBytes, err := os.ReadFile(patchPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read patch %s: %w", patchPath, err)
+		}
+
+		// Simple merge: decode both as maps, merge, re-encode
+		var baseMap map[string]interface{}
+		var patchMap map[string]interface{}
+
+		if err := yaml.Unmarshal(configBytes, &baseMap); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+		}
+
+		if err := yaml.Unmarshal(patchBytes, &patchMap); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal patch %s: %w", patchPath, err)
+		}
+
+		// Deep merge patch into base
+		deepMerge(baseMap, patchMap)
+
+		// Re-encode
+		configBytes, err = yaml.Marshal(baseMap)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal merged config: %w", err)
+		}
+	}
+
+	return configBytes, nil
+}
+
+// deepMerge performs a deep merge of src into dst.
+func deepMerge(dst, src map[string]interface{}) {
+	for key, srcVal := range src {
+		if dstVal, exists := dst[key]; exists {
+			// Both are maps - merge recursively
+			srcMap, srcIsMap := srcVal.(map[string]interface{})
+			dstMap, dstIsMap := dstVal.(map[string]interface{})
+			if srcIsMap && dstIsMap {
+				deepMerge(dstMap, srcMap)
+				continue
+			}
+		}
+		// Otherwise, overwrite
+		dst[key] = srcVal
+	}
+}
+
 // writeGeneratedConfigs writes all three config files to disk.
-func (c *Client) writeGeneratedConfigs(cpConfig, workerConfig config.Provider, talosconfig *clientconfig.Config) error {
+// Applies patches to machine configs before writing.
+func (c *Client) writeGeneratedConfigs(cpConfig, workerConfig config.Provider, talosconfig *clientconfig.Config, patches []string) error {
 	// Marshal configs to bytes
 	cpBytes, err := cpConfig.Bytes()
 	if err != nil {
@@ -203,6 +265,17 @@ func (c *Client) writeGeneratedConfigs(cpConfig, workerConfig config.Provider, t
 	workerBytes, err := workerConfig.Bytes()
 	if err != nil {
 		return fmt.Errorf("failed to marshal worker config: %w", err)
+	}
+
+	// Apply patches to machine configs
+	cpBytes, err = c.applyPatchesToBytes(cpBytes, patches)
+	if err != nil {
+		return fmt.Errorf("failed to apply patches to control plane config: %w", err)
+	}
+
+	workerBytes, err = c.applyPatchesToBytes(workerBytes, patches)
+	if err != nil {
+		return fmt.Errorf("failed to apply patches to worker config: %w", err)
 	}
 
 	talosconfigBytes, err := talosconfig.Bytes()
@@ -452,42 +525,27 @@ func (c *Client) FetchKubeconfig(ctx context.Context, endpoint, talosconfig, out
 //	After:  server: https://localhost:6443 (or whatever cloud provider returns)
 //
 // Equivalent to bash: sed -i.bak "s|server: https://${CP_IP}:6443|server: https://localhost:6443|g"
+// modifyKubeconfigServer updates the server URL in kubeconfig.
+//
+// Uses clientcmd to parse and rewrite the kubeconfig as a typed object
+// rather than doing string replacement, which is fragile if indentation
+// or quoting changes across Talos versions.
+//
+// Why this is needed: Talos generates kubeconfig with server pointing to
+// the internal cluster IP (e.g., https://10.0.0.1:6443). Cloud providers
+// expose the API through a tunnel endpoint (e.g., https://localhost:6443).
 func (c *Client) modifyKubeconfigServer(kubeconfigPath, newServerURL string) error {
-	// Read kubeconfig
-	data, err := os.ReadFile(kubeconfigPath)
+	config, err := clientcmd.LoadFromFile(kubeconfigPath)
 	if err != nil {
-		return fmt.Errorf("failed to read kubeconfig: %w", err)
+		return fmt.Errorf("failed to load kubeconfig: %w", err)
 	}
 
-	// Simple string replacement in YAML
-	// Look for "server: https://<anything>:6443" and replace with newServerURL
-	// This is simpler than parsing YAML and handles all edge cases bash sed handles
-	content := string(data)
-
-	// Find the server line
-	lines := strings.Split(content, "\n")
-	modified := false
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "server:") {
-			oldURL := strings.TrimSpace(strings.TrimPrefix(trimmed, "server:"))
-			c.log.Debug("Replacing server URL: %s -> %s", oldURL, newServerURL)
-
-			// Replace the entire line with correct indentation
-			indent := line[:len(line)-len(strings.TrimLeft(line, " "))]
-			lines[i] = indent + "server: " + newServerURL
-			modified = true
-			break // Typically only one cluster in kubeconfig
-		}
+	for name, cluster := range config.Clusters {
+		c.log.Debug("Replacing server URL in cluster %q: %s -> %s", name, cluster.Server, newServerURL)
+		cluster.Server = newServerURL
 	}
 
-	if !modified {
-		return fmt.Errorf("could not find server URL in kubeconfig")
-	}
-
-	// Write back
-	modifiedContent := strings.Join(lines, "\n")
-	if err := os.WriteFile(kubeconfigPath, []byte(modifiedContent), 0600); err != nil {
+	if err := clientcmd.WriteToFile(*config, kubeconfigPath); err != nil {
 		return fmt.Errorf("failed to write kubeconfig: %w", err)
 	}
 

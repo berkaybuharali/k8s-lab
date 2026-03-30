@@ -1,6 +1,6 @@
 # Go CLI
 
-A standalone Go binary for managing Kubernetes lab environments. Provides the same functionality as the Makefile interface with a modern CLI experience.
+A standalone Go binary for managing Kubernetes lab environments.
 
 ## Building
 
@@ -32,7 +32,7 @@ cli/
 │   ├── deploy_infra.go     # Infrastructure deployment
 │   ├── deploy_tools.go     # Platform tools (CSI, Velero)
 │   ├── deploy_applications.go # Application deployment
-│   ├── seed_redis.go       # Redis data seeding
+│   ├── seed_data.go        # Agent data seeding (inventory + orders)
 │   ├── backup.go           # Velero backup
 │   ├── restore.go          # Velero restore
 │   └── ui.go               # Web dashboard server
@@ -77,15 +77,16 @@ This follows the same pattern as terraform-exec and other infrastructure tools.
 
 ## Commands
 
-| Command | Description | Equivalent Makefile |
-|---------|-------------|-------------------|
-| `deploy-infra` | Deploy infrastructure and bootstrap cluster | `make deploy-infra gcp` |
-| `deploy-tools` | Install CSI driver, StorageClass, Velero | `make deploy-tools gcp` |
-| `deploy-applications` | Deploy NGINX and Redis | `make deploy-applications gcp` |
-| `seed-redis` | Populate Redis with test data | `make seed-redis gcp` |
-| `backup` | Create Velero backup | `make backup gcp` |
-| `restore` | Restore from Velero backup | `make restore gcp` |
-| `ui` | Start web dashboard | N/A (CLI only) |
+| Command | Description |
+|---------|-------------|
+| `deploy-infra` | Deploy infrastructure and bootstrap cluster |
+| `deploy-tools` | Install CSI driver, StorageClass, Velero |
+| `deploy-applications` | Deploy Redis and agent containers |
+| `deploy-agents` | Build and deploy AI agent containers |
+| `seed-data` | Seed agent data (inventory + orders with AI-generated images) |
+| `backup` | Create Velero backup |
+| `restore` | Restore from Velero backup |
+| `ui` | Start web dashboard |
 
 All commands require `--cloud <provider>` flag (currently only `gcp` supported). The `ui` command also accepts `--port` (default: 3000). See [root README Quick Start](../README.md#quick-start-go-cli) for usage examples.
 
